@@ -1,0 +1,3 @@
+credenciales
+Admin: e.vargas@empresa.com / CampusAdmin1
+Trabajador: a.mercer@empresa.com / CampusUser1
