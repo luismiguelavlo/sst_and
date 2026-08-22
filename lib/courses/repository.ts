@@ -4,6 +4,11 @@ import { cache } from "react";
 import type { Course, CourseLevel } from "@/lib/courses";
 import type { CourseEditorData } from "@/lib/course-draft";
 import { initialsFromName } from "@/lib/credentials";
+import {
+  cloudinaryResourceTypeForSectionKind,
+  deleteCloudinaryAsset,
+  type CloudinaryResourceType,
+} from "@/lib/cloudinary";
 import { getSql } from "@/lib/db";
 import {
   createEmptyQuizData,
@@ -421,7 +426,15 @@ export async function updateCourseRecord(
   }
   const sql = getSql();
 
-  return sql.begin(async (tx) => {
+  const existingSections = await sql<
+    { id: string; kind: string; media_public_id: string | null }[]
+  >`
+    SELECT id::text, kind, media_public_id
+    FROM campus_sst.course_sections
+    WHERE course_id = ${courseId}::uuid
+  `;
+
+  const result = await sql.begin(async (tx) => {
     const existing = await tx<{ id: string; slug: string }[]>`
       SELECT id::text, slug
       FROM campus_sst.courses
@@ -510,12 +523,91 @@ export async function updateCourseRecord(
       `;
     }
 
-    return { id: course.id, slug: course.slug };
+    return { id: course.id, slug: course.slug, keptIds };
   });
+
+  const staleMedia = collectStaleSectionMedia(existingSections, input.sections, result.keptIds);
+  await purgeCloudinaryAssets(staleMedia);
+
+  return { id: result.id, slug: result.slug };
 }
 
 function normalizeQuizData(value: unknown): QuizData | null {
   return isQuizData(value) ? value : null;
+}
+
+type StoredMedia = {
+  publicId: string;
+  resourceType: CloudinaryResourceType;
+};
+
+function mediaFromSection(row: {
+  kind: string;
+  media_public_id: string | null;
+}): StoredMedia | null {
+  const publicId = row.media_public_id?.trim();
+  if (!publicId) {
+    return null;
+  }
+  const resourceType = cloudinaryResourceTypeForSectionKind(row.kind);
+  if (!resourceType) {
+    return null;
+  }
+  return { publicId, resourceType };
+}
+
+function collectStaleSectionMedia(
+  existing: readonly { id: string; kind: string; media_public_id: string | null }[],
+  incoming: CourseDraftInput["sections"],
+  keptIds: readonly string[],
+): StoredMedia[] {
+  const stale: StoredMedia[] = [];
+  const incomingById = new Map(
+    incoming
+      .filter((section) => section.id && UUID_PATTERN.test(section.id))
+      .map((section) => [section.id as string, section]),
+  );
+
+  for (const row of existing) {
+    const media = mediaFromSection(row);
+    if (!media) {
+      continue;
+    }
+
+    if (!keptIds.includes(row.id)) {
+      stale.push(media);
+      continue;
+    }
+
+    const next = incomingById.get(row.id);
+    if (!next) {
+      continue;
+    }
+
+    const nextPublicId = next.mediaPublicId.trim();
+    const nextUsesCloudinary = cloudinaryResourceTypeForSectionKind(next.kind) !== null;
+    if (!nextUsesCloudinary || nextPublicId.length === 0 || nextPublicId !== media.publicId) {
+      stale.push(media);
+    }
+  }
+
+  return stale;
+}
+
+async function purgeCloudinaryAssets(assets: readonly StoredMedia[]): Promise<void> {
+  const seen = new Set<string>();
+  for (const asset of assets) {
+    const key = `${asset.resourceType}:${asset.publicId}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    try {
+      await deleteCloudinaryAsset(asset.publicId, asset.resourceType);
+    } catch {
+      // No bloquear operaciones de curso por fallos de Cloudinary.
+    }
+  }
 }
 
 export async function setCourseStatus(
@@ -538,14 +630,37 @@ export async function setCourseStatus(
 
 export async function deleteCourseRecord(slug: string): Promise<void> {
   const sql = getSql();
-  const rows = await sql<{ id: string }[]>`
-    DELETE FROM campus_sst.courses
+  const courses = await sql<{ id: string; cover_public_id: string | null }[]>`
+    SELECT id::text, cover_public_id
+    FROM campus_sst.courses
     WHERE slug = ${slug}
-    RETURNING id::text
+    LIMIT 1
   `;
-  if (!rows[0]) {
+  const course = courses[0];
+  if (!course) {
     throw new Error("El curso no existe.");
   }
+
+  const sections = await sql<{ kind: string; media_public_id: string | null }[]>`
+    SELECT kind, media_public_id
+    FROM campus_sst.course_sections
+    WHERE course_id = ${course.id}::uuid
+  `;
+
+  const assets: StoredMedia[] = [];
+  const coverPublicId = course.cover_public_id?.trim();
+  if (coverPublicId) {
+    assets.push({ publicId: coverPublicId, resourceType: "image" });
+  }
+  for (const section of sections) {
+    const media = mediaFromSection(section);
+    if (media) {
+      assets.push(media);
+    }
+  }
+
+  await sql`DELETE FROM campus_sst.courses WHERE id = ${course.id}::uuid`;
+  await purgeCloudinaryAssets(assets);
 }
 
 function toCatalogCourse(row: CourseRecord & { section_count: number }, sectionCount: number): Course {

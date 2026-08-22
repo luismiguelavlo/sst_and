@@ -242,6 +242,22 @@ function LessonMedia({
     }
   }
 
+  if (lesson.kind === "uploaded_video" && lesson.mediaUrl) {
+    return (
+      <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-inverse-surface shadow-md">
+        <video
+          className="h-full w-full bg-black object-contain"
+          controls
+          playsInline
+          preload="metadata"
+          src={lesson.mediaUrl}
+        >
+          <track kind="captions" />
+        </video>
+      </div>
+    );
+  }
+
   if (lesson.kind === "image" && lesson.mediaUrl) {
     return (
       <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-inverse-surface shadow-md">

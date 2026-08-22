@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/guards";
-import { uploadCourseAsset } from "@/lib/cloudinary";
+import { uploadCourseAsset, deleteCloudinaryAsset, cloudinaryResourceTypeForSectionKind } from "@/lib/cloudinary";
 import {
   createCourseRecord,
   deleteCourseRecord,
@@ -53,7 +53,8 @@ export async function uploadCourseMedia(
   if (!(file instanceof File) || file.size === 0) {
     return { ok: false, error: "Selecciona un archivo." };
   }
-  const kind = kindValue === "document" ? "document" : "image";
+  const kind =
+    kindValue === "document" ? "document" : kindValue === "video" ? "video" : "image";
   try {
     const uploaded = await uploadCourseAsset(file, kind);
     return {
@@ -66,6 +67,30 @@ export async function uploadCourseMedia(
     return {
       ok: false,
       error: error instanceof Error ? error.message : "No se pudo subir el archivo.",
+    };
+  }
+}
+
+export async function deleteCourseMedia(input: {
+  publicId: string;
+  sectionKind: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAdmin();
+  const publicId = input.publicId.trim();
+  if (publicId.length === 0) {
+    return { ok: false, error: "No hay archivo para eliminar." };
+  }
+  const resourceType = cloudinaryResourceTypeForSectionKind(input.sectionKind);
+  if (!resourceType) {
+    return { ok: false, error: "Este tipo de sección no usa Cloudinary." };
+  }
+  try {
+    await deleteCloudinaryAsset(publicId, resourceType);
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "No se pudo eliminar el archivo.",
     };
   }
 }
@@ -209,6 +234,9 @@ function parseCourseSections(
     }
     if (section.kind === CourseSectionKind.Document && section.mediaUrl.trim().length === 0) {
       return { ok: false, error: `La sección "${title}" necesita un documento.` };
+    }
+    if (section.kind === CourseSectionKind.UploadedVideo && section.mediaUrl.trim().length === 0) {
+      return { ok: false, error: `La sección "${title}" necesita un video subido.` };
     }
 
     let quiz = createEmptyQuizData();

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
 import { useToast } from "@/components/ui/ToastProvider";
-import { saveCourse, uploadCourseMedia } from "@/lib/courses/actions";
+import { deleteCourseMedia, saveCourse, uploadCourseMedia } from "@/lib/courses/actions";
 import {
   createDraftSection,
   formatLessonIndex,
@@ -33,16 +33,25 @@ type FormStatus = "idle" | "saving" | "publishing" | "saved" | "published";
 
 const SECTION_KIND_OPTIONS: readonly { value: CourseSectionKind; label: string; icon: string }[] = [
   { value: CourseSectionKind.Video, label: "Video (YouTube)", icon: "play_circle" },
+  { value: CourseSectionKind.UploadedVideo, label: "Video (Cloudinary)", icon: "smart_display" },
   { value: CourseSectionKind.Image, label: "Imagen", icon: "image" },
   { value: CourseSectionKind.Document, label: "Documento", icon: "description" },
   { value: CourseSectionKind.Quiz, label: "Quiz", icon: "quiz" },
 ];
 
-async function uploadAsset(file: File, kind: "image" | "document") {
+async function uploadAsset(file: File, kind: "image" | "document" | "video") {
   const formData = new FormData();
   formData.set("kind", kind);
   formData.set("file", file);
   return uploadCourseMedia(formData);
+}
+
+function sectionUsesCloudinary(kind: CourseSectionKind): boolean {
+  return (
+    kind === CourseSectionKind.Image ||
+    kind === CourseSectionKind.Document ||
+    kind === CourseSectionKind.UploadedVideo
+  );
 }
 
 export function CreateCourseForm({
@@ -98,8 +107,34 @@ export function CreateCourseForm({
     setSections((current) => [...current, createDraftSection(current.length)]);
   }
 
-  function removeSection(id: string) {
-    setSections((current) => current.filter((section) => section.id !== id));
+  async function removeSectionMedia(section: DraftSection) {
+    if (!section.mediaPublicId || !sectionUsesCloudinary(section.kind)) {
+      return;
+    }
+    const result = await deleteCourseMedia({
+      publicId: section.mediaPublicId,
+      sectionKind: section.kind,
+    });
+    if (!result.ok) {
+      showToast(result.error, { variant: "error" });
+    }
+  }
+
+  async function removeSection(id: string) {
+    const section = sections.find((item) => item.id === id);
+    if (section) {
+      await removeSectionMedia(section);
+    }
+    setSections((current) => current.filter((item) => item.id !== id));
+  }
+
+  async function clearSectionMedia(section: DraftSection) {
+    await removeSectionMedia(section);
+    patchSection(section.id, {
+      mediaUrl: "",
+      mediaPublicId: "",
+      mediaFilename: "",
+    });
   }
 
   function reorderSections(sourceId: string, targetId: string) {
@@ -141,7 +176,15 @@ export function CreateCourseForm({
     if (!file) {
       return;
     }
-    const kind = section.kind === CourseSectionKind.Document ? "document" : "image";
+    const kind =
+      section.kind === CourseSectionKind.Document
+        ? "document"
+        : section.kind === CourseSectionKind.UploadedVideo
+          ? "video"
+          : "image";
+    if (section.mediaPublicId && sectionUsesCloudinary(section.kind)) {
+      await removeSectionMedia(section);
+    }
     setUploadingSectionId(section.id);
     const result = await uploadAsset(file, kind);
     setUploadingSectionId(null);
@@ -181,11 +224,19 @@ export function CreateCourseForm({
     }
     const missingMedia = sections.find(
       (section) =>
-        (section.kind === CourseSectionKind.Image || section.kind === CourseSectionKind.Document) &&
+        (section.kind === CourseSectionKind.Image ||
+          section.kind === CourseSectionKind.Document ||
+          section.kind === CourseSectionKind.UploadedVideo) &&
         section.mediaUrl.trim().length === 0,
     );
     if (missingMedia) {
-      showToast(`La sección "${missingMedia.title || "sin título"}" necesita un archivo.`, {
+      const label =
+        missingMedia.kind === CourseSectionKind.UploadedVideo
+          ? "un video"
+          : missingMedia.kind === CourseSectionKind.Document
+            ? "un documento"
+            : "una imagen";
+      showToast(`La sección "${missingMedia.title || "sin título"}" necesita ${label}.`, {
         variant: "error",
       });
       return;
@@ -431,7 +482,12 @@ export function CreateCourseForm({
                   disabled={isBusy}
                   uploading={uploadingSectionId === section.id}
                   onChange={(patch) => patchSection(section.id, patch)}
-                  onRemove={() => removeSection(section.id)}
+                  onRemove={() => {
+                    void removeSection(section.id);
+                  }}
+                  onClearMedia={() => {
+                    void clearSectionMedia(section);
+                  }}
                   onFile={(file) => {
                     void onSectionFileSelected(section, file);
                   }}
@@ -533,6 +589,7 @@ function SectionEditor({
   uploading,
   onChange,
   onRemove,
+  onClearMedia,
   onFile,
 }: Readonly<{
   index: number;
@@ -541,6 +598,7 @@ function SectionEditor({
   uploading: boolean;
   onChange: (patch: Partial<DraftSection>) => void;
   onRemove: () => void;
+  onClearMedia: () => void;
   onFile: (file: File | undefined) => void;
 }>) {
   return (
@@ -582,7 +640,14 @@ function SectionEditor({
                   ? "flex items-center gap-xs rounded-full bg-primary px-sm py-xs font-label-sm text-on-primary"
                   : "flex items-center gap-xs rounded-full bg-surface-container-high px-sm py-xs font-label-sm text-on-surface hover:bg-surface-container-highest"
               }
-              onClick={() =>
+              onClick={() => {
+                if (
+                  option.value !== section.kind &&
+                  section.mediaPublicId &&
+                  sectionUsesCloudinary(section.kind)
+                ) {
+                  onClearMedia();
+                }
                 onChange({
                   kind: option.value,
                   youtubeUrl: "",
@@ -595,8 +660,8 @@ function SectionEditor({
                         ? section.quiz
                         : createEmptyQuizData()
                       : section.quiz,
-                })
-              }
+                });
+              }}
             >
               <MaterialIcon name={option.icon} className="text-[16px]" />
               {option.label}
@@ -619,10 +684,18 @@ function SectionEditor({
         </label>
       ) : null}
 
-      {section.kind === CourseSectionKind.Image || section.kind === CourseSectionKind.Document ? (
+      {section.kind === CourseSectionKind.Image ||
+      section.kind === CourseSectionKind.Document ||
+      section.kind === CourseSectionKind.UploadedVideo ? (
         <label className="mb-sm flex cursor-pointer flex-col rounded-lg border border-dashed border-outline-variant/50 bg-surface-bright px-sm py-md text-center">
           <MaterialIcon
-            name={section.kind === CourseSectionKind.Document ? "upload_file" : "add_photo_alternate"}
+            name={
+              section.kind === CourseSectionKind.Document
+                ? "upload_file"
+                : section.kind === CourseSectionKind.UploadedVideo
+                  ? "video_file"
+                  : "add_photo_alternate"
+            }
             className="mx-auto text-[28px] text-outline"
           />
           <span className="mt-xs font-body-sm text-on-surface-variant">
@@ -631,11 +704,7 @@ function SectionEditor({
           <input
             className="sr-only"
             type="file"
-            accept={
-              section.kind === CourseSectionKind.Document
-                ? "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,.doc,.docx"
-                : "image/jpeg,image/png,image/webp,image/gif"
-            }
+            accept={sectionFileAccept(section.kind)}
             disabled={disabled}
             onChange={(event) => {
               onFile(event.target.files?.[0]);
@@ -648,6 +717,33 @@ function SectionEditor({
       {section.kind === CourseSectionKind.Image && section.mediaUrl ? (
         <div className="relative mb-sm h-40 w-full overflow-hidden rounded-lg">
           <Image src={section.mediaUrl} alt={section.title} fill unoptimized className="object-cover" sizes="(max-width: 1024px) 100vw, 66vw" />
+        </div>
+      ) : null}
+
+      {section.kind === CourseSectionKind.UploadedVideo && section.mediaUrl ? (
+        <div className="mb-sm overflow-hidden rounded-lg bg-inverse-surface">
+          <video
+            className="aspect-video w-full bg-black object-contain"
+            controls
+            playsInline
+            preload="metadata"
+            src={section.mediaUrl}
+          >
+            <track kind="captions" />
+          </video>
+          <div className="flex items-center justify-between gap-sm bg-surface-container-low px-sm py-xs">
+            <span className="truncate font-body-sm text-on-surface-variant">
+              {section.mediaFilename || "Video del curso"}
+            </span>
+            <button
+              type="button"
+              className="shrink-0 font-label-sm text-error hover:underline"
+              disabled={disabled}
+              onClick={onClearMedia}
+            >
+              Quitar video
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -829,7 +925,20 @@ function sectionUploadHint(section: DraftSection, uploading: boolean): string {
   if (section.kind === CourseSectionKind.Document) {
     return "PDF o Word · máx. 8 MB";
   }
+  if (section.kind === CourseSectionKind.UploadedVideo) {
+    return "MP4, WEBM o MOV · máx. 100 MB";
+  }
   return "JPG, PNG, WEBP o GIF · máx. 8 MB";
+}
+
+function sectionFileAccept(kind: CourseSectionKind): string {
+  if (kind === CourseSectionKind.Document) {
+    return "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,.doc,.docx";
+  }
+  if (kind === CourseSectionKind.UploadedVideo) {
+    return "video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov";
+  }
+  return "image/jpeg,image/png,image/webp,image/gif";
 }
 
 function draftLabel(status: FormStatus): string {

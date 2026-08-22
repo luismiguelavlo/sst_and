@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS campus_sst.course_sections (
   course_id uuid NOT NULL REFERENCES campus_sst.courses (id) ON DELETE CASCADE,
   position integer NOT NULL,
   title varchar(200) NOT NULL,
-  kind varchar(16) NOT NULL CHECK (kind IN ('video', 'image', 'document', 'quiz')),
+  kind varchar(16) NOT NULL CHECK (kind IN ('video', 'uploaded_video', 'image', 'document', 'quiz')),
   body text,
   youtube_url text,
   media_url text,

@@ -1,7 +1,7 @@
 import { COURSES, type Course } from "@/lib/courses";
 import type { PublicQuizData } from "@/lib/quiz";
 
-export type LessonKind = "reading" | "video" | "quiz" | "image" | "document";
+export type LessonKind = "reading" | "video" | "uploaded_video" | "quiz" | "image" | "document";
 
 export type Lesson = {
   id: string;
@@ -227,6 +227,9 @@ export function lessonKindLabel(kind: LessonKind): string {
   if (kind === "document") {
     return "Documento";
   }
+  if (kind === "uploaded_video") {
+    return "Video";
+  }
   return "Vídeo";
 }
 
@@ -242,6 +245,9 @@ export function lessonKindIcon(kind: LessonKind): string {
   }
   if (kind === "document") {
     return "picture_as_pdf";
+  }
+  if (kind === "uploaded_video") {
+    return "smart_display";
   }
   return "play_arrow";
 }

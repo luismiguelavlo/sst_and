@@ -173,6 +173,9 @@ function durationForKind(kind: CourseSectionKind): string {
   if (kind === CourseSectionKind.Video) {
     return "YouTube";
   }
+  if (kind === CourseSectionKind.UploadedVideo) {
+    return "Video";
+  }
   if (kind === CourseSectionKind.Image) {
     return "Imagen";
   }

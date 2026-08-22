@@ -5,9 +5,12 @@ import { v2 as cloudinary, type UploadApiResponse } from "cloudinary";
 export type CloudinaryUpload = {
   url: string;
   publicId: string;
-  resourceType: string;
+  resourceType: CloudinaryResourceType;
   originalFilename: string;
 };
+
+export type CloudinaryResourceType = "image" | "video" | "raw";
+export type CourseAssetKind = "image" | "document" | "video";
 
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const DOCUMENT_TYPES = new Set([
@@ -15,8 +18,10 @@ const DOCUMENT_TYPES = new Set([
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ]);
+const VIDEO_TYPES = new Set(["video/mp4", "video/webm", "video/quicktime"]);
 
-const MAX_BYTES = 8 * 1024 * 1024;
+const MAX_IMAGE_DOCUMENT_BYTES = 8 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 
 function configureCloudinary() {
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
@@ -35,7 +40,7 @@ function configureCloudinary() {
 
 export async function uploadCourseAsset(
   file: File,
-  kind: "image" | "document",
+  kind: CourseAssetKind,
 ): Promise<CloudinaryUpload> {
   return uploadFile(file, {
     folder: "campus-sst",
@@ -50,12 +55,44 @@ export async function uploadProfilePhotoFile(file: File): Promise<CloudinaryUplo
   });
 }
 
+export async function deleteCloudinaryAsset(
+  publicId: string,
+  resourceType: CloudinaryResourceType,
+): Promise<void> {
+  if (publicId.trim().length === 0) {
+    return;
+  }
+  configureCloudinary();
+  await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
+}
+
+export function cloudinaryResourceTypeForSectionKind(
+  kind: string,
+): CloudinaryResourceType | null {
+  if (kind === "image") {
+    return "image";
+  }
+  if (kind === "uploaded_video") {
+    return "video";
+  }
+  if (kind === "document") {
+    return "raw";
+  }
+  return null;
+}
+
 async function uploadFile(
   file: File,
-  options: { folder: string; kind: "image" | "document" },
+  options: { folder: string; kind: CourseAssetKind },
 ): Promise<CloudinaryUpload> {
-  if (file.size > MAX_BYTES) {
-    throw new Error("El archivo supera 8 MB.");
+  const maxBytes =
+    options.kind === "video" ? MAX_VIDEO_BYTES : MAX_IMAGE_DOCUMENT_BYTES;
+  if (file.size > maxBytes) {
+    throw new Error(
+      options.kind === "video"
+        ? "El video supera 100 MB."
+        : "El archivo supera 8 MB.",
+    );
   }
   if (options.kind === "image" && !IMAGE_TYPES.has(file.type)) {
     throw new Error("Usa una imagen JPG, PNG, WEBP o GIF.");
@@ -63,12 +100,18 @@ async function uploadFile(
   if (options.kind === "document" && !DOCUMENT_TYPES.has(file.type)) {
     throw new Error("Usa un documento PDF o Word.");
   }
+  if (options.kind === "video" && !VIDEO_TYPES.has(file.type)) {
+    throw new Error("Usa un video MP4, WEBM o MOV.");
+  }
 
   configureCloudinary();
   const buffer = Buffer.from(await file.arrayBuffer());
+  const resourceType: CloudinaryResourceType =
+    options.kind === "document" ? "raw" : options.kind === "video" ? "video" : "image";
+
   const result = await uploadBuffer(buffer, {
     folder: options.folder,
-    resource_type: options.kind === "document" ? "raw" : "image",
+    resource_type: resourceType,
     use_filename: true,
     unique_filename: true,
   });
@@ -76,14 +119,19 @@ async function uploadFile(
   return {
     url: result.secure_url,
     publicId: result.public_id,
-    resourceType: result.resource_type,
+    resourceType,
     originalFilename: file.name,
   };
 }
 
 function uploadBuffer(
   buffer: Buffer,
-  options: { folder: string; resource_type: "image" | "raw"; use_filename: boolean; unique_filename: boolean },
+  options: {
+    folder: string;
+    resource_type: CloudinaryResourceType;
+    use_filename: boolean;
+    unique_filename: boolean;
+  },
 ): Promise<UploadApiResponse> {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(options, (error, result) => {

@@ -16,6 +16,7 @@ export enum SstLevel {
 
 export enum CourseSectionKind {
   Video = "video",
+  UploadedVideo = "uploaded_video",
   Image = "image",
   Document = "document",
   Quiz = "quiz",
