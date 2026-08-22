@@ -1,3 +1,4 @@
 credenciales
 Admin: e.vargas@empresa.com / CampusAdmin1
+Admin: andrea@empresa.com / Contrasena123
 Trabajador: a.mercer@empresa.com / CampusUser1

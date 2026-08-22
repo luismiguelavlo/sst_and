@@ -37,6 +37,16 @@ const seeds = [
     status: "active",
   },
   {
+    email: "andrea@empresa.com",
+    password: "Contrasena123",
+    name: "Andrea",
+    jobTitle: "Administradora SST",
+    role: "admin",
+    bio: "Administro la plataforma de formación en seguridad y salud en el trabajo.",
+    cedula: null,
+    status: "active",
+  },
+  {
     email: "a.mercer@empresa.com",
     password: "CampusUser1",
     name: "Alex Mercer",

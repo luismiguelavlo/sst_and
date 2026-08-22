@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
+import { useToast } from "@/components/ui/ToastProvider";
 import {
   changePassword,
   updateProfile,
@@ -26,10 +27,9 @@ export function AccountSettingsForm({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [profileStatus, setProfileStatus] = useState<SaveStatus>("idle");
   const [passwordStatus, setPasswordStatus] = useState<SaveStatus>("idle");
-  const [profileError, setProfileError] = useState<string | null>(null);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
+  const { showToast } = useToast();
 
   const isBusy = profileStatus === "saving" || passwordStatus === "saving" || uploadingPhoto;
 
@@ -41,14 +41,13 @@ export function AccountSettingsForm({
     if (!file) {
       return;
     }
-    setProfileError(null);
     setUploadingPhoto(true);
     const formData = new FormData();
     formData.set("file", file);
     const result = await uploadProfilePhoto(formData);
     setUploadingPhoto(false);
     if (!result.ok) {
-      setProfileError(result.error);
+      showToast(result.error, { variant: "error" });
       return;
     }
     patchProfile("photoUrl", result.url);
@@ -63,9 +62,10 @@ export function AccountSettingsForm({
       twoFactorEnabled: profile.twoFactorEnabled,
     });
     if (!persist.ok) {
-      setProfileError(persist.error);
+      showToast(persist.error, { variant: "error" });
       return;
     }
+    showToast("Foto de perfil actualizada.");
     router.refresh();
   }
 
@@ -74,14 +74,11 @@ export function AccountSettingsForm({
     setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
-    setProfileError(null);
-    setPasswordError(null);
     setProfileStatus("idle");
     setPasswordStatus("idle");
   }
 
   async function saveProfile() {
-    setProfileError(null);
     setProfileStatus("saving");
     const result = await updateProfile({
       fullName: profile.fullName,
@@ -94,17 +91,17 @@ export function AccountSettingsForm({
       twoFactorEnabled: profile.twoFactorEnabled,
     });
     if (!result.ok) {
-      setProfileError(result.error);
+      showToast(result.error, { variant: "error" });
       setProfileStatus("idle");
       return;
     }
     setProfileStatus("saved");
+    showToast("Perfil actualizado correctamente.");
     router.refresh();
     window.setTimeout(() => setProfileStatus("idle"), 1800);
   }
 
   async function savePassword() {
-    setPasswordError(null);
     setPasswordStatus("saving");
     const result = await changePassword({
       currentPassword,
@@ -112,7 +109,7 @@ export function AccountSettingsForm({
       confirmPassword,
     });
     if (!result.ok) {
-      setPasswordError(result.error);
+      showToast(result.error, { variant: "error" });
       setPasswordStatus("idle");
       return;
     }
@@ -120,6 +117,7 @@ export function AccountSettingsForm({
     setNewPassword("");
     setConfirmPassword("");
     setPasswordStatus("saved");
+    showToast("Contraseña actualizada correctamente.");
     window.setTimeout(() => setPasswordStatus("idle"), 1800);
   }
 
@@ -253,11 +251,6 @@ export function AccountSettingsForm({
                 />
               </div>
             </div>
-            {profileError ? (
-              <p className="mt-md font-body-sm text-error" role="alert">
-                {profileError}
-              </p>
-            ) : null}
             <div className="mt-md flex items-center justify-end gap-md">
               <button
                 className="px-md py-sm font-label-md text-label-md text-on-surface-variant transition-colors hover:text-on-surface"
@@ -350,11 +343,6 @@ export function AccountSettingsForm({
                 />
               </div>
             </div>
-            {passwordError ? (
-              <p className="mt-sm font-body-sm text-error" role="alert">
-                {passwordError}
-              </p>
-            ) : null}
             <div className="mt-md flex justify-end">
               <button
                 className="rounded-lg bg-primary px-lg py-sm font-label-md text-label-md text-on-primary shadow-sm transition-all hover:bg-primary/90 disabled:opacity-70"

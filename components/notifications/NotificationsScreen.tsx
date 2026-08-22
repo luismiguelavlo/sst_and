@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
+import { useToast } from "@/components/ui/ToastProvider";
 import {
   markAllMyNotificationsRead,
   markNotificationAsRead,
@@ -206,8 +207,7 @@ function SendAlertPanel({ learners }: Readonly<{ learners: AssignableLearner[] }
   const [href, setHref] = useState("");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent">("idle");
-  const [error, setError] = useState<string | null>(null);
-  const [sentCount, setSentCount] = useState(0);
+  const { showToast } = useToast();
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -239,7 +239,6 @@ function SendAlertPanel({ learners }: Readonly<{ learners: AssignableLearner[] }
   }
 
   async function onSubmit() {
-    setError(null);
     setStatus("sending");
     const result = await sendCustomNotification({
       userIds: selected,
@@ -248,11 +247,11 @@ function SendAlertPanel({ learners }: Readonly<{ learners: AssignableLearner[] }
       href,
     });
     if (!result.ok) {
-      setError(result.error);
+      showToast(result.error, { variant: "error" });
       setStatus("idle");
       return;
     }
-    setSentCount(result.sent);
+    showToast(`Alerta enviada a ${result.sent} empleado(s).`);
     setStatus("sent");
     setTitle("");
     setBody("");
@@ -343,16 +342,6 @@ function SendAlertPanel({ learners }: Readonly<{ learners: AssignableLearner[] }
             placeholder="/my-courses"
           />
         </label>
-        {error ? (
-          <p className="mb-sm font-body-sm text-error" role="alert">
-            {error}
-          </p>
-        ) : null}
-        {status === "sent" ? (
-          <p className="mb-sm font-body-sm text-secondary" role="status">
-            Alerta enviada a {sentCount} empleado{sentCount === 1 ? "" : "s"}.
-          </p>
-        ) : null}
         <button
           type="button"
           className="rounded-lg bg-primary px-md py-sm font-label-md text-on-primary disabled:opacity-60"

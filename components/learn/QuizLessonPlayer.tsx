@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
+import { useToast } from "@/components/ui/ToastProvider";
 import { submitQuizAttempt } from "@/lib/quiz/actions";
 import type { PublicQuizData, QuizAnswers, QuizGradeResult } from "@/lib/quiz";
 
@@ -21,9 +22,9 @@ export function QuizLessonPlayer({
   const router = useRouter();
   const [answers, setAnswers] = useState<QuizAnswers>({});
   const [status, setStatus] = useState<"idle" | "submitting">("idle");
-  const [error, setError] = useState<string | null>(null);
   const [grade, setGrade] = useState<QuizGradeResult | null>(null);
   const [certificateId, setCertificateId] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   const allAnswered = useMemo(
     () => quiz.questions.every((question) => Boolean(answers[question.id])),
@@ -35,26 +36,27 @@ export function QuizLessonPlayer({
       return;
     }
     setStatus("submitting");
-    setError(null);
     const result = await submitQuizAttempt({
-      sectionId,
       courseSlug,
+      sectionId,
       answers,
     });
     setStatus("idle");
     if (!result.ok) {
-      setError(result.error);
+      showToast(result.error, { variant: "error" });
       return;
     }
     setGrade(result.result);
     setCertificateId(result.certificateId);
+    showToast(result.result.passed ? "¡Quiz aprobado!" : "Revisa tus respuestas e intenta de nuevo.", {
+      variant: result.result.passed ? "success" : "info",
+    });
     router.refresh();
   }
 
   function handleRetry() {
     setAnswers({});
     setGrade(null);
-    setError(null);
     setCertificateId(null);
   }
 
@@ -197,12 +199,6 @@ export function QuizLessonPlayer({
           </li>
         ))}
       </ol>
-
-      {error ? (
-        <p className="font-body-sm text-error" role="alert">
-          {error}
-        </p>
-      ) : null}
 
       <button
         type="button"

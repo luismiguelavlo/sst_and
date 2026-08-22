@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { AppProviders } from "@/components/ui/AppProviders";
 import "./globals.css";
 
 const inter = Inter({
@@ -22,7 +23,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
         />
       </head>
-      <body className="min-h-full bg-background font-body-md text-on-background">{children}</body>
+      <body className="min-h-full bg-background font-body-md text-on-background">
+        <AppProviders>{children}</AppProviders>
+      </body>
     </html>
   );
 }

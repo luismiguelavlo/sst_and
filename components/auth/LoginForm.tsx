@@ -1,12 +1,20 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { login } from "@/lib/auth/actions";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
+import { useToast } from "@/components/ui/ToastProvider";
 
 export function LoginForm() {
   const [state, formAction, isSubmitting] = useActionState(login, {});
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const { showToast } = useToast();
+
+  useEffect(() => {
+    if (state.error) {
+      showToast(state.error, { variant: "error" });
+    }
+  }, [state.error, showToast]);
 
   return (
     <div className="relative z-10 flex w-full max-w-[440px] flex-col rounded-xl bg-surface-container-lowest p-lg shadow-lg">
@@ -75,12 +83,6 @@ export function LoginForm() {
             </button>
           </div>
         </div>
-
-        {state.error ? (
-          <p className="rounded-lg bg-error-container/40 px-sm py-xs font-body-sm text-on-error-container" role="alert">
-            {state.error}
-          </p>
-        ) : null}
 
         <button
           className={

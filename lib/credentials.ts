@@ -68,3 +68,37 @@ export function generatePassword(length = 8): string {
     return character ?? "x";
   }).join("");
 }
+
+export function getLoginUrl(): string {
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}/login`;
+  }
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+  return baseUrl ? `${baseUrl}/login` : "";
+}
+
+export function formatCredentialsForClipboard(
+  credential: Pick<UserCredential, "name" | "email" | "passwordHint">,
+  loginUrl = getLoginUrl(),
+): string {
+  const lines = ["Campus SST — Acceso"];
+  if (loginUrl.length > 0) {
+    lines.push(`URL: ${loginUrl}`);
+  }
+  lines.push(`Nombre: ${credential.name}`, `Correo: ${credential.email}`);
+  if (credential.passwordHint.length > 0) {
+    lines.push(`Contraseña: ${credential.passwordHint}`);
+  }
+  return lines.join("\n");
+}
+
+export async function copyCredentialsToClipboard(
+  credential: Pick<UserCredential, "name" | "email" | "passwordHint">,
+): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(formatCredentialsForClipboard(credential));
+    return true;
+  } catch {
+    return false;
+  }
+}

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
 import type { CredentialFilter, UserCredential } from "@/lib/credentials";
+import { copyCredentialsToClipboard } from "@/lib/credentials";
 
 type CredentialsTableProps = {
   credentials: UserCredential[];
@@ -38,17 +39,14 @@ export function CredentialsTable({
   }, [credentials, filter]);
 
   async function handleCopy(item: UserCredential) {
-    const payload = item.passwordHint.length > 0 ? `${item.email} / ${item.passwordHint}` : item.email;
-    try {
-      await navigator.clipboard.writeText(payload);
-    } catch {
-      // Clipboard may be unavailable in insecure contexts; still show feedback.
+    const ok = await copyCredentialsToClipboard(item);
+    if (ok) {
+      setCopiedId(item.id);
+      onCopy(item.passwordHint);
+      window.setTimeout(() => {
+        setCopiedId((current) => (current === item.id ? null : current));
+      }, 1000);
     }
-    setCopiedId(item.id);
-    onCopy(item.passwordHint);
-    window.setTimeout(() => {
-      setCopiedId((current) => (current === item.id ? null : current));
-    }, 1000);
   }
 
   return (
@@ -216,7 +214,7 @@ function CredentialRow({
                   ? "flex h-8 w-8 items-center justify-center rounded-full bg-primary text-on-primary transition-colors"
                   : "flex h-8 w-8 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10"
               }
-              title="Copiar acceso"
+              title="Copiar credenciales"
               type="button"
               onClick={onCopy}
             >

@@ -2,8 +2,14 @@
 
 import { useId, useState, type ReactElement } from "react";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
+import { useToast } from "@/components/ui/ToastProvider";
 import { createWorkerAccount } from "@/lib/auth/credential-actions";
-import { generatePassword, type UserCredential } from "@/lib/credentials";
+import {
+  copyCredentialsToClipboard,
+  generatePassword,
+  getLoginUrl,
+  type UserCredential,
+} from "@/lib/credentials";
 
 type NewCredentialFormProps = {
   onCreated: (credential: UserCredential) => void;
@@ -18,12 +24,35 @@ export function NewCredentialForm({ onCreated }: Readonly<NewCredentialFormProps
   const [correo, setCorreo] = useState("");
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<FormStatus>("idle");
-  const [error, setError] = useState<string | null>(null);
+  const [createdCredential, setCreatedCredential] = useState<UserCredential | null>(null);
+  const [copied, setCopied] = useState(false);
+  const { showToast } = useToast();
+
+  async function handleCopyCredentials() {
+    if (!createdCredential) {
+      return;
+    }
+    const ok = await copyCredentialsToClipboard(createdCredential);
+    if (!ok) {
+      showToast("No se pudo copiar. Intenta seleccionar el texto manualmente.", { variant: "error" });
+      return;
+    }
+    setCopied(true);
+    showToast("Credenciales copiadas al portapapeles");
+    window.setTimeout(() => setCopied(false), 2000);
+  }
+
+  function startAnother() {
+    setCreatedCredential(null);
+    setCopied(false);
+    setStatus("idle");
+  }
 
   async function handleSubmit(event: { preventDefault: () => void }) {
     event.preventDefault();
     setStatus("saving");
-    setError(null);
+    setCreatedCredential(null);
+    setCopied(false);
 
     const result = await createWorkerAccount({
       name: nombre.trim(),
@@ -33,7 +62,7 @@ export function NewCredentialForm({ onCreated }: Readonly<NewCredentialFormProps
     });
 
     if (!result.ok || !result.credential) {
-      setError(result.ok ? "No se pudo crear el acceso." : result.error);
+      showToast(result.ok ? "No se pudo crear el acceso." : result.error, { variant: "error" });
       setStatus("idle");
       return;
     }
@@ -44,14 +73,11 @@ export function NewCredentialForm({ onCreated }: Readonly<NewCredentialFormProps
     setNombre("");
     setCorreo("");
     setPassword("");
+    setCreatedCredential(result.credential);
     setStatus("success");
-
-    window.setTimeout(() => {
-      setStatus("idle");
-    }, 2000);
   }
 
-  const isBusy = status !== "idle";
+  const isBusy = status === "saving";
 
   return (
     <div className="flex flex-col gap-sm rounded-xl bg-surface-container-lowest p-md shadow-sm">
@@ -137,13 +163,7 @@ export function NewCredentialForm({ onCreated }: Readonly<NewCredentialFormProps
           </div>
         </div>
 
-        {error ? (
-          <p className="rounded-lg bg-error-container/40 px-sm py-xs font-body-sm text-on-error-container" role="alert">
-            {error}
-          </p>
-        ) : null}
-
-        <div className="mt-xs flex items-center justify-between border-t border-outline-variant/10 pt-sm">
+        <div className="mt-xs flex flex-col gap-sm border-t border-outline-variant/10 pt-sm">
           <button
             className={
               status === "success"
@@ -151,13 +171,106 @@ export function NewCredentialForm({ onCreated }: Readonly<NewCredentialFormProps
                 : "group relative flex w-full items-center justify-center gap-xs overflow-hidden rounded-lg bg-primary px-md py-sm font-label-md text-label-md text-on-primary shadow-sm transition-all hover:bg-on-primary-fixed hover:shadow-md disabled:opacity-80"
             }
             type="submit"
-            disabled={isBusy}
+            disabled={isBusy || status === "success"}
           >
             <SubmitButtonContent status={status} />
           </button>
         </div>
       </form>
+
+      {createdCredential ? (
+        <CreatedCredentialCard
+          credential={createdCredential}
+          copied={copied}
+          onCopy={() => {
+            void handleCopyCredentials();
+          }}
+          onCreateAnother={startAnother}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function CreatedCredentialCard({
+  credential,
+  copied,
+  onCopy,
+  onCreateAnother,
+}: Readonly<{
+  credential: UserCredential;
+  copied: boolean;
+  onCopy: () => void;
+  onCreateAnother: () => void;
+}>) {
+  const loginUrl = getLoginUrl();
+
+  return (
+    <section
+      className="mt-sm rounded-xl border border-secondary/30 bg-secondary-container/40 p-md"
+      aria-live="polite"
+    >
+      <div className="mb-sm flex items-start gap-sm">
+        <MaterialIcon name="check_circle" className="mt-0.5 shrink-0 text-[22px] text-secondary" />
+        <div className="min-w-0 flex-1">
+          <h3 className="font-label-md text-on-surface">Acceso creado</h3>
+          <p className="mt-xs font-body-sm text-on-surface-variant">
+            Comparte estas credenciales con {credential.name}. Solo se muestran una vez aquí.
+          </p>
+        </div>
+      </div>
+
+      <dl className="space-y-xs rounded-lg bg-surface-container-lowest/80 px-sm py-sm font-body-sm text-on-surface">
+        {loginUrl ? (
+          <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-sm">
+            <dt className="shrink-0 font-label-sm text-on-surface-variant">URL</dt>
+            <dd className="min-w-0 break-all">
+              <a
+                href={loginUrl}
+                className="text-primary underline-offset-2 hover:underline"
+                target="_blank"
+                rel="noreferrer"
+              >
+                {loginUrl}
+              </a>
+            </dd>
+          </div>
+        ) : null}
+        <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-sm">
+          <dt className="shrink-0 font-label-sm text-on-surface-variant">Nombre</dt>
+          <dd className="min-w-0 break-words">{credential.name}</dd>
+        </div>
+        <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-sm">
+          <dt className="shrink-0 font-label-sm text-on-surface-variant">Correo</dt>
+          <dd className="min-w-0 break-all">{credential.email}</dd>
+        </div>
+        {credential.passwordHint ? (
+          <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-sm">
+            <dt className="shrink-0 font-label-sm text-on-surface-variant">Contraseña</dt>
+            <dd className="min-w-0 break-all font-mono">{credential.passwordHint}</dd>
+          </div>
+        ) : null}
+      </dl>
+
+      <div className="mt-sm flex flex-col gap-xs sm:flex-row">
+        <button
+          type="button"
+          className="inline-flex flex-1 items-center justify-center gap-xs rounded-lg bg-primary px-md py-sm font-label-md text-on-primary shadow-sm transition-colors hover:bg-primary/90"
+          onClick={onCopy}
+        >
+          <MaterialIcon name={copied ? "check" : "content_copy"} className="text-[18px]" />
+          {copied ? "Copiado" : "Copiar credenciales"}
+        </button>
+        <button
+          type="button"
+          className="inline-flex flex-1 items-center justify-center gap-xs rounded-lg border border-outline-variant/40 bg-surface px-md py-sm font-label-md text-on-surface transition-colors hover:bg-surface-container-high"
+          onClick={onCreateAnother}
+        >
+          <MaterialIcon name="person_add" className="text-[18px]" />
+          Crear otro
+        </button>
+      </div>
+    </section>
   );
 }
 

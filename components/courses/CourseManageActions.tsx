@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
+import { useToast } from "@/components/ui/ToastProvider";
 import { deleteCourse, publishCourse, unpublishCourse } from "@/lib/courses/actions";
 
 type CourseManageActionsProps = Readonly<{
@@ -14,19 +15,22 @@ type CourseManageActionsProps = Readonly<{
 
 export function CourseManageActions({ slug, status, title }: CourseManageActionsProps) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const { showToast } = useToast();
 
   function run(
     action: () => Promise<{ ok: true; slug: string } | { ok: false; error: string }>,
     onSuccess?: (slug: string) => void,
+    successMessage?: string,
   ) {
-    setError(null);
     startTransition(async () => {
       const result = await action();
       if (!result.ok) {
-        setError(result.error);
+        showToast(result.error, { variant: "error" });
         return;
+      }
+      if (successMessage) {
+        showToast(successMessage);
       }
       onSuccess?.(result.slug);
       router.refresh();
@@ -56,7 +60,7 @@ export function CourseManageActions({ slug, status, title }: CourseManageActions
               disabled={pending}
               className="inline-flex items-center gap-xs rounded-lg bg-primary px-md py-sm font-label-md text-on-primary disabled:opacity-60"
               onClick={() => {
-                run(() => publishCourse(slug));
+                run(() => publishCourse(slug), undefined, "Curso publicado.");
               }}
             >
               <MaterialIcon name="publish" className="text-[18px]" />
@@ -68,7 +72,7 @@ export function CourseManageActions({ slug, status, title }: CourseManageActions
               disabled={pending}
               className="inline-flex items-center gap-xs rounded-lg border border-outline-variant/40 bg-surface px-md py-sm font-label-md text-on-surface disabled:opacity-60"
               onClick={() => {
-                run(() => unpublishCourse(slug));
+                run(() => unpublishCourse(slug), undefined, "Curso pasado a borrador.");
               }}
             >
               <MaterialIcon name="unpublished" className="text-[18px]" />
@@ -91,6 +95,7 @@ export function CourseManageActions({ slug, status, title }: CourseManageActions
                 () => {
                   router.push("/course-catalog");
                 },
+                "Curso eliminado.",
               );
             }}
           >
@@ -99,11 +104,6 @@ export function CourseManageActions({ slug, status, title }: CourseManageActions
           </button>
         </div>
       </div>
-      {error ? (
-        <p className="font-body-sm text-error" role="alert">
-          {error}
-        </p>
-      ) : null}
     </div>
   );
 }

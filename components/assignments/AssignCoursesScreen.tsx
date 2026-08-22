@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useMemo, useState, useTransition } from "react";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
+import { useToast } from "@/components/ui/ToastProvider";
 import { assignCoursesAction, unassignCourseAction } from "@/lib/assignments/actions";
 import {
   learnerFiltersFrom,
@@ -40,10 +41,9 @@ export function AssignCoursesScreen({
   const [history, setHistory] = useState<readonly AssignmentRecord[]>(initialHistory);
   const [active, setActive] = useState<readonly ActiveAssignment[]>(initialActive);
   const [activeQuery, setActiveQuery] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [unassigningId, setUnassigningId] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   const filters = useMemo(() => learnerFiltersFrom(learners), [learners]);
 
@@ -124,8 +124,6 @@ export function AssignCoursesScreen({
     if (!canAssign) {
       return;
     }
-    setError(null);
-    setSuccess(null);
     startTransition(async () => {
       const result = await assignCoursesAction({
         userIds: selectedLearnerIds,
@@ -134,12 +132,12 @@ export function AssignCoursesScreen({
         message,
       });
       if (!result.ok) {
-        setError(result.error);
+        showToast(result.error, { variant: "error" });
         return;
       }
       setHistory(result.history);
       setActive(result.active);
-      setSuccess(
+      showToast(
         `Asignación guardada: ${selectedCourseIds.length} curso(s) para ${selectedLearnerIds.length} empleado(s).`,
       );
       resetForm();
@@ -152,19 +150,17 @@ export function AssignCoursesScreen({
     if (!confirmed) {
       return;
     }
-    setError(null);
-    setSuccess(null);
     setUnassigningId(assignmentId);
     startTransition(async () => {
       const result = await unassignCourseAction(assignmentId);
       setUnassigningId(null);
       if (!result.ok) {
-        setError(result.error);
+        showToast(result.error, { variant: "error" });
         return;
       }
       setActive(result.active);
       setHistory(result.history);
-      setSuccess("Asignación eliminada.");
+      showToast("Asignación eliminada.");
     });
   }
 
@@ -203,17 +199,6 @@ export function AssignCoursesScreen({
           </button>
         </div>
       </div>
-
-      {error ? (
-        <p className="rounded-lg bg-error-container px-md py-sm font-body-sm text-on-error-container">
-          {error}
-        </p>
-      ) : null}
-      {success ? (
-        <p className="rounded-lg bg-secondary-container px-md py-sm font-body-sm text-on-secondary-container">
-          {success}
-        </p>
-      ) : null}
 
       {activeOpen ? (
         <section className="rounded-xl bg-surface-container-lowest p-md shadow-sm">

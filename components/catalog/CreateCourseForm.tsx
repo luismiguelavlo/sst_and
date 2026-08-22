@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
+import { useToast } from "@/components/ui/ToastProvider";
 import { saveCourse, uploadCourseMedia } from "@/lib/courses/actions";
 import {
   createDraftSection,
@@ -69,8 +70,8 @@ export function CreateCourseForm({
     initialCourse?.enableDiscussions ?? true,
   );
   const [status, setStatus] = useState<FormStatus>("idle");
-  const [error, setError] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   const isBusy = status === "saving" || status === "publishing" || uploadingCover || uploadingSectionId !== null;
 
@@ -125,12 +126,11 @@ export function CreateCourseForm({
     if (!file) {
       return;
     }
-    setError(null);
     setUploadingCover(true);
     const result = await uploadAsset(file, "image");
     setUploadingCover(false);
     if (!result.ok) {
-      setError(result.error);
+      showToast(result.error, { variant: "error" });
       return;
     }
     setCoverUrl(result.url);
@@ -142,12 +142,11 @@ export function CreateCourseForm({
       return;
     }
     const kind = section.kind === CourseSectionKind.Document ? "document" : "image";
-    setError(null);
     setUploadingSectionId(section.id);
     const result = await uploadAsset(file, kind);
     setUploadingSectionId(null);
     if (!result.ok) {
-      setError(result.error);
+      showToast(result.error, { variant: "error" });
       return;
     }
     patchSection(section.id, {
@@ -158,24 +157,26 @@ export function CreateCourseForm({
   }
 
   async function persist(publish: boolean) {
-    setError(null);
     if (title.trim().length < 3) {
-      setError("El título del curso es obligatorio.");
+      showToast("El título del curso es obligatorio.", { variant: "error" });
       return;
     }
     if (!category) {
-      setError("Selecciona una categoría SST.");
+      showToast("Selecciona una categoría SST.", { variant: "error" });
       return;
     }
     if (sections.length === 0) {
-      setError("Agrega al menos una sección.");
+      showToast("Agrega al menos una sección.", { variant: "error" });
       return;
     }
     const invalidYoutube = sections.find(
       (section) => section.kind === CourseSectionKind.Video && !isYouTubeUrl(section.youtubeUrl),
     );
     if (invalidYoutube) {
-      setError(`La sección "${invalidYoutube.title || "sin título"}" necesita un enlace válido de YouTube.`);
+      showToast(
+        `La sección "${invalidYoutube.title || "sin título"}" necesita un enlace válido de YouTube.`,
+        { variant: "error" },
+      );
       return;
     }
     const missingMedia = sections.find(
@@ -184,7 +185,9 @@ export function CreateCourseForm({
         section.mediaUrl.trim().length === 0,
     );
     if (missingMedia) {
-      setError(`La sección "${missingMedia.title || "sin título"}" necesita un archivo.`);
+      showToast(`La sección "${missingMedia.title || "sin título"}" necesita un archivo.`, {
+        variant: "error",
+      });
       return;
     }
     const incompleteQuiz = sections.find((section) => {
@@ -199,8 +202,9 @@ export function CreateCourseForm({
       );
     });
     if (incompleteQuiz) {
-      setError(
+      showToast(
         `El quiz "${incompleteQuiz.title || "sin título"}" necesita enunciados, opciones y una respuesta correcta en cada pregunta.`,
+        { variant: "error" },
       );
       return;
     }
@@ -231,11 +235,12 @@ export function CreateCourseForm({
       })),
     });
     if (!result.ok) {
-      setError(result.error);
+      showToast(result.error, { variant: "error" });
       setStatus("idle");
       return;
     }
     setStatus(publish ? "published" : "saved");
+    showToast(publish ? "Curso publicado correctamente." : "Borrador guardado correctamente.");
     router.push(`/courses/${result.slug}`);
     router.refresh();
   }
@@ -284,12 +289,6 @@ export function CreateCourseForm({
           </button>
         </div>
       </div>
-
-      {error ? (
-        <p className="rounded-lg bg-error-container px-md py-sm font-body-md text-on-error-container" role="alert">
-          {error}
-        </p>
-      ) : null}
 
       <div className="grid grid-cols-1 gap-gutter lg:grid-cols-12">
         <div className="flex flex-col gap-gutter lg:col-span-8">

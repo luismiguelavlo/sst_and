@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { CredentialsTable } from "@/components/credentials/CredentialsTable";
 import { NewCredentialForm } from "@/components/credentials/NewCredentialForm";
-import { MaterialIcon } from "@/components/icons/MaterialIcon";
+import { useToast } from "@/components/ui/ToastProvider";
 import {
   resetWorkerAccountPassword,
   revokeWorkerAccount,
@@ -19,16 +19,7 @@ export function CredentialsScreen({
   const [credentials, setCredentials] = useState<UserCredential[]>(initialCredentials);
   const [createdToday, setCreatedToday] = useState(stats.createdToday);
   const [activeUsers, setActiveUsers] = useState(stats.activeUsers);
-  const [toastVisible, setToastVisible] = useState(false);
-  const [toastMessage, setToastMessage] = useState("Credenciales copiadas al portapapeles");
-
-  function showToast(message: string) {
-    setToastMessage(message);
-    setToastVisible(true);
-    window.setTimeout(() => {
-      setToastVisible(false);
-    }, 2500);
-  }
+  const { showToast } = useToast();
 
   function handleCreated(credential: UserCredential) {
     setCredentials((current) => [credential, ...current]);
@@ -36,7 +27,7 @@ export function CredentialsScreen({
     if (credential.status === "active") {
       setActiveUsers((count) => count + 1);
     }
-    showToast("Empleado guardado en PostgreSQL");
+    showToast("Empleado guardado correctamente");
   }
 
   return (
@@ -67,12 +58,12 @@ export function CredentialsScreen({
         <CredentialsTable
           credentials={credentials}
           totalUsers={activeUsers}
-          onCopy={() => showToast("Correo copiado al portapapeles")}
+          onCopy={() => showToast("Credenciales copiadas al portapapeles")}
           onUnlock={(id) => {
             void (async () => {
               const result = await unlockWorkerAccount(id);
               if (!result.ok) {
-                showToast(result.error);
+                showToast(result.error, { variant: "error" });
                 return;
               }
               setCredentials((current) =>
@@ -86,7 +77,9 @@ export function CredentialsScreen({
             void (async () => {
               const result = await resetWorkerAccountPassword(id);
               if (!result.ok || !result.password) {
-                showToast(result.ok ? "No se pudo restablecer." : result.error);
+                showToast(result.ok ? "No se pudo restablecer." : result.error, {
+                  variant: "error",
+                });
                 return;
               }
               setCredentials((current) =>
@@ -94,14 +87,14 @@ export function CredentialsScreen({
                   item.id === id ? { ...item, passwordHint: result.password ?? "" } : item,
                 ),
               );
-              showToast(`Nueva contraseña: ${result.password}`);
+              showToast(`Nueva contraseña: ${result.password}`, { variant: "info", duration: 8000 });
             })();
           }}
           onRevoke={(id) => {
             void (async () => {
               const result = await revokeWorkerAccount(id);
               if (!result.ok) {
-                showToast(result.error);
+                showToast(result.error, { variant: "error" });
                 return;
               }
               const removed = credentials.find((item) => item.id === id);
@@ -113,19 +106,6 @@ export function CredentialsScreen({
             })();
           }}
         />
-      </div>
-
-      <div
-        id="toast-notification"
-        className={[
-          "pointer-events-none fixed right-lg bottom-lg z-50 flex items-center gap-sm rounded-lg bg-inverse-surface px-md py-sm text-inverse-on-surface shadow-xl transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)]",
-          toastVisible ? "translate-y-0 opacity-100" : "translate-y-20 opacity-0",
-        ].join(" ")}
-        role="status"
-        aria-live="polite"
-      >
-        <MaterialIcon name="check_circle" className="text-inverse-primary" />
-        <span className="font-label-md text-label-md">{toastMessage}</span>
       </div>
     </div>
   );

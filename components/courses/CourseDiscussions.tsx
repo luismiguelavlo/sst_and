@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState, useTransition } from "react";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
+import { useToast } from "@/components/ui/ToastProvider";
 import {
   postCourseDiscussion,
   removeCourseDiscussion,
@@ -23,14 +24,13 @@ export function CourseDiscussions({
   const [threads, setThreads] = useState(initialThreads);
   const [body, setBody] = useState("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const { showToast } = useToast();
 
   function submit() {
     if (body.trim().length < 2 || pending) {
       return;
     }
-    setError(null);
     startTransition(async () => {
       const result = await postCourseDiscussion({
         courseId,
@@ -39,12 +39,13 @@ export function CourseDiscussions({
         parentId: replyTo ?? undefined,
       });
       if (!result.ok) {
-        setError(result.error);
+        showToast(result.error, { variant: "error" });
         return;
       }
       setThreads(result.threads);
       setBody("");
       setReplyTo(null);
+      showToast(replyTo ? "Respuesta publicada." : "Consulta publicada.");
     });
   }
 
@@ -52,7 +53,6 @@ export function CourseDiscussions({
     if (pending) {
       return;
     }
-    setError(null);
     startTransition(async () => {
       const result = await removeCourseDiscussion({
         postId,
@@ -60,13 +60,14 @@ export function CourseDiscussions({
         courseSlug,
       });
       if (!result.ok) {
-        setError(result.error);
+        showToast(result.error, { variant: "error" });
         return;
       }
       setThreads(result.threads);
       if (replyTo === postId) {
         setReplyTo(null);
       }
+      showToast("Consulta eliminada.");
     });
   }
 
@@ -122,12 +123,6 @@ export function CourseDiscussions({
           </button>
         </div>
       </div>
-
-      {error ? (
-        <p className="mb-md font-body-sm text-error" role="alert">
-          {error}
-        </p>
-      ) : null}
 
       {threads.length === 0 ? (
         <p className="font-body-md text-on-surface-variant">
