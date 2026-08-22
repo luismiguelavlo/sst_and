@@ -17,6 +17,8 @@ type NewCredentialFormProps = {
 
 type FormStatus = "idle" | "saving" | "success";
 
+type CredentialClipboardPayload = Pick<UserCredential, "name" | "email" | "passwordHint">;
+
 export function NewCredentialForm({ onCreated }: Readonly<NewCredentialFormProps>) {
   const formId = useId();
   const [cedula, setCedula] = useState("");
@@ -28,17 +30,40 @@ export function NewCredentialForm({ onCreated }: Readonly<NewCredentialFormProps
   const [copied, setCopied] = useState(false);
   const { showToast } = useToast();
 
+  function buildDraftPayload(): CredentialClipboardPayload | null {
+    const email = correo.trim();
+    const passwordHint = password.trim();
+    if (email.length === 0 || passwordHint.length === 0) {
+      return null;
+    }
+    const name = nombre.trim();
+    return {
+      name: name.length > 0 ? name : email,
+      email,
+      passwordHint,
+    };
+  }
+
+  function activeCredentialPayload(): CredentialClipboardPayload | null {
+    return createdCredential ?? buildDraftPayload();
+  }
+
   async function handleCopyCredentials() {
-    if (!createdCredential) {
+    const payload = activeCredentialPayload();
+    if (!payload) {
       return;
     }
-    const ok = await copyCredentialsToClipboard(createdCredential);
+    const ok = await copyCredentialsToClipboard(payload);
     if (!ok) {
       showToast("No se pudo copiar. Intenta seleccionar el texto manualmente.", { variant: "error" });
       return;
     }
     setCopied(true);
-    showToast("Credenciales copiadas al portapapeles");
+    showToast(
+      createdCredential
+        ? "Credenciales copiadas al portapapeles"
+        : "Credenciales copiadas. Recuerda crear el acceso para guardarlas.",
+    );
     window.setTimeout(() => setCopied(false), 2000);
   }
 
@@ -46,12 +71,15 @@ export function NewCredentialForm({ onCreated }: Readonly<NewCredentialFormProps
     setCreatedCredential(null);
     setCopied(false);
     setStatus("idle");
+    setCedula("");
+    setNombre("");
+    setCorreo("");
+    setPassword("");
   }
 
   async function handleSubmit(event: { preventDefault: () => void }) {
     event.preventDefault();
     setStatus("saving");
-    setCreatedCredential(null);
     setCopied(false);
 
     const result = await createWorkerAccount({
@@ -78,6 +106,8 @@ export function NewCredentialForm({ onCreated }: Readonly<NewCredentialFormProps
   }
 
   const isBusy = status === "saving";
+  const draftPayload = buildDraftPayload();
+  const canCopyDraft = draftPayload !== null && status !== "success";
 
   return (
     <div className="flex flex-col gap-sm rounded-xl bg-surface-container-lowest p-md shadow-sm">
@@ -152,18 +182,62 @@ export function NewCredentialForm({ onCreated }: Readonly<NewCredentialFormProps
               <div className="absolute bottom-0 left-0 h-0.5 w-0 rounded-b-lg bg-primary transition-all duration-300 ease-out group-focus-within:w-full" />
             </div>
             <button
-              className="flex items-center justify-center rounded-lg bg-surface-container-high px-sm text-on-surface transition-colors hover:bg-surface-container-highest"
+              className="flex items-center justify-center rounded-lg bg-surface-container-high px-sm text-on-surface transition-colors hover:bg-surface-container-highest disabled:opacity-60"
               onClick={() => setPassword(generatePassword())}
               title="Generar aleatoria"
               type="button"
-              disabled={isBusy}
+              disabled={isBusy || status === "success"}
             >
               <MaterialIcon name="shuffle" className="text-[18px]" />
             </button>
+            {password.trim().length > 0 && correo.trim().length > 0 ? (
+              <button
+                className={
+                  copied
+                    ? "flex items-center justify-center rounded-lg bg-secondary-container px-sm text-on-secondary-container transition-colors"
+                    : "flex items-center justify-center rounded-lg bg-surface-container-high px-sm text-primary transition-colors hover:bg-primary/10 disabled:opacity-60"
+                }
+                onClick={() => {
+                  void handleCopyCredentials();
+                }}
+                title="Copiar credenciales"
+                type="button"
+                disabled={isBusy}
+              >
+                <MaterialIcon name={copied ? "check" : "content_copy"} className="text-[18px]" />
+              </button>
+            ) : null}
           </div>
         </div>
 
+        {canCopyDraft ? (
+          <CredentialPreview
+            payload={draftPayload}
+            copied={copied}
+            onCopy={() => {
+              void handleCopyCredentials();
+            }}
+          />
+        ) : null}
+
         <div className="mt-xs flex flex-col gap-sm border-t border-outline-variant/10 pt-sm">
+          {canCopyDraft ? (
+            <button
+              type="button"
+              className={
+                copied
+                  ? "inline-flex w-full items-center justify-center gap-xs rounded-lg bg-secondary-container px-md py-sm font-label-md text-on-secondary-container shadow-sm"
+                  : "inline-flex w-full items-center justify-center gap-xs rounded-lg border border-primary/30 bg-surface px-md py-sm font-label-md text-primary transition-colors hover:bg-primary/5 disabled:opacity-60"
+              }
+              disabled={isBusy}
+              onClick={() => {
+                void handleCopyCredentials();
+              }}
+            >
+              <MaterialIcon name={copied ? "check" : "content_copy"} className="text-[18px]" />
+              {copied ? "Credenciales copiadas" : "Copiar credenciales"}
+            </button>
+          ) : null}
           <button
             className={
               status === "success"
@@ -189,6 +263,50 @@ export function NewCredentialForm({ onCreated }: Readonly<NewCredentialFormProps
         />
       ) : null}
     </div>
+  );
+}
+
+function CredentialPreview({
+  payload,
+  copied,
+  onCopy,
+}: Readonly<{
+  payload: CredentialClipboardPayload;
+  copied: boolean;
+  onCopy: () => void;
+}>) {
+  const loginUrl = getLoginUrl();
+
+  return (
+    <section className="rounded-lg border border-outline-variant/30 bg-surface-container-low px-sm py-sm">
+      <div className="mb-xs flex items-center justify-between gap-sm">
+        <p className="font-label-sm text-on-surface-variant">Listo para compartir</p>
+        <button
+          type="button"
+          className="inline-flex items-center gap-xs font-label-sm text-primary hover:underline"
+          onClick={onCopy}
+        >
+          <MaterialIcon name={copied ? "check" : "content_copy"} className="text-[16px]" />
+          {copied ? "Copiado" : "Copiar"}
+        </button>
+      </div>
+      <dl className="space-y-0.5 font-body-sm text-on-surface">
+        {loginUrl ? (
+          <div className="flex gap-xs">
+            <dt className="text-on-surface-variant">URL:</dt>
+            <dd className="min-w-0 break-all">{loginUrl}</dd>
+          </div>
+        ) : null}
+        <div className="flex gap-xs">
+          <dt className="text-on-surface-variant">Correo:</dt>
+          <dd className="min-w-0 break-all">{payload.email}</dd>
+        </div>
+        <div className="flex gap-xs">
+          <dt className="text-on-surface-variant">Contraseña:</dt>
+          <dd className="min-w-0 break-all font-mono">{payload.passwordHint}</dd>
+        </div>
+      </dl>
+    </section>
   );
 }
 

@@ -70,11 +70,14 @@ export function generatePassword(length = 8): string {
 }
 
 export function getLoginUrl(): string {
+  const fromEnv = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+  if (fromEnv) {
+    return `${fromEnv}/login`;
+  }
   if (typeof window !== "undefined") {
     return `${window.location.origin}/login`;
   }
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
-  return baseUrl ? `${baseUrl}/login` : "";
+  return "";
 }
 
 export function formatCredentialsForClipboard(
