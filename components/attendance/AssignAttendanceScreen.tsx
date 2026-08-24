@@ -81,12 +81,40 @@ export function AssignAttendanceScreen({
 
   function selectAllVisibleLearners() {
     const visibleIds = visibleLearners.map((learner) => learner.id);
-    const allSelected = visibleIds.every((id) => selectedLearnerIds.includes(id));
+    const allSelected =
+      visibleIds.length > 0 && visibleIds.every((id) => selectedLearnerIds.includes(id));
     if (allSelected) {
       setSelectedLearnerIds((current) => current.filter((id) => !visibleIds.includes(id)));
       return;
     }
     setSelectedLearnerIds((current) => [...new Set([...current, ...visibleIds])]);
+  }
+
+  function toggleAllLearners() {
+    if (learners.length === 0) {
+      return;
+    }
+    const allSelected = learners.every((learner) => selectedLearnerIds.includes(learner.id));
+    setSelectedLearnerIds(allSelected ? [] : learners.map((learner) => learner.id));
+  }
+
+  function selectAllVisibleForms() {
+    const visibleIds = visibleForms.map((form) => form.id);
+    const allSelected =
+      visibleIds.length > 0 && visibleIds.every((id) => selectedFormIds.includes(id));
+    if (allSelected) {
+      setSelectedFormIds((current) => current.filter((id) => !visibleIds.includes(id)));
+      return;
+    }
+    setSelectedFormIds((current) => [...new Set([...current, ...visibleIds])]);
+  }
+
+  function toggleAllForms() {
+    if (forms.length === 0) {
+      return;
+    }
+    const allSelected = forms.every((form) => selectedFormIds.includes(form.id));
+    setSelectedFormIds(allSelected ? [] : forms.map((form) => form.id));
   }
 
   function cycleLearnerFilter() {
@@ -230,13 +258,30 @@ export function AssignAttendanceScreen({
                 {learnerFilter === "Todos" ? "Filtro" : learnerFilter}
               </button>
             </div>
-            <button
-              type="button"
-              className="self-start font-label-sm text-primary hover:underline"
-              onClick={selectAllVisibleLearners}
-            >
-              Seleccionar visibles
-            </button>
+            <div className="grid grid-cols-1 gap-xs sm:grid-cols-2">
+              <button
+                type="button"
+                className="rounded-lg bg-primary px-sm py-sm font-label-md text-on-primary transition-colors hover:bg-primary-container disabled:opacity-50"
+                onClick={toggleAllLearners}
+                disabled={learners.length === 0}
+              >
+                {learners.length > 0 &&
+                learners.every((learner) => selectedLearnerIds.includes(learner.id))
+                  ? "Desmarcar todos"
+                  : "Marcar todos"}
+              </button>
+              <button
+                type="button"
+                className="rounded-lg bg-surface px-sm py-sm font-label-md text-on-surface transition-colors hover:bg-surface-variant disabled:opacity-50"
+                onClick={selectAllVisibleLearners}
+                disabled={visibleLearners.length === 0}
+              >
+                {visibleLearners.length > 0 &&
+                visibleLearners.every((learner) => selectedLearnerIds.includes(learner.id))
+                  ? "Desmarcar visibles"
+                  : "Seleccionar visibles"}
+              </button>
+            </div>
           </div>
           <ul className="max-h-[420px] overflow-y-auto p-xs">
             {visibleLearners.map((learner) => (
@@ -295,6 +340,29 @@ export function AssignAttendanceScreen({
                 value={formQuery}
                 onChange={(event) => setFormQuery(event.target.value)}
               />
+            </div>
+            <div className="grid grid-cols-1 gap-xs sm:grid-cols-2">
+              <button
+                type="button"
+                className="rounded-lg bg-secondary px-sm py-sm font-label-md text-on-secondary transition-colors hover:bg-secondary-container disabled:opacity-50"
+                onClick={toggleAllForms}
+                disabled={forms.length === 0}
+              >
+                {forms.length > 0 && forms.every((form) => selectedFormIds.includes(form.id))
+                  ? "Desmarcar todos"
+                  : "Marcar todos"}
+              </button>
+              <button
+                type="button"
+                className="rounded-lg bg-surface px-sm py-sm font-label-md text-on-surface transition-colors hover:bg-surface-variant disabled:opacity-50"
+                onClick={selectAllVisibleForms}
+                disabled={visibleForms.length === 0}
+              >
+                {visibleForms.length > 0 &&
+                visibleForms.every((form) => selectedFormIds.includes(form.id))
+                  ? "Desmarcar visibles"
+                  : "Seleccionar visibles"}
+              </button>
             </div>
           </div>
           {forms.length === 0 ? (

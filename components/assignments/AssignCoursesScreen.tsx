@@ -100,12 +100,40 @@ export function AssignCoursesScreen({
 
   function selectAllVisible() {
     const visibleIds = visibleLearners.map((learner) => learner.id);
-    const allSelected = visibleIds.every((id) => selectedLearnerIds.includes(id));
+    const allSelected =
+      visibleIds.length > 0 && visibleIds.every((id) => selectedLearnerIds.includes(id));
     if (allSelected) {
       setSelectedLearnerIds((current) => current.filter((id) => !visibleIds.includes(id)));
       return;
     }
     setSelectedLearnerIds((current) => [...new Set([...current, ...visibleIds])]);
+  }
+
+  function toggleAllLearners() {
+    if (learners.length === 0) {
+      return;
+    }
+    const allSelected = learners.every((learner) => selectedLearnerIds.includes(learner.id));
+    setSelectedLearnerIds(allSelected ? [] : learners.map((learner) => learner.id));
+  }
+
+  function toggleAllCourses() {
+    if (courses.length === 0) {
+      return;
+    }
+    const allSelected = courses.every((course) => selectedCourseIds.includes(course.id));
+    setSelectedCourseIds(allSelected ? [] : courses.map((course) => course.id));
+  }
+
+  function selectAllVisibleCourses() {
+    const visibleIds = visibleCourses.map((course) => course.id);
+    const allSelected =
+      visibleIds.length > 0 && visibleIds.every((id) => selectedCourseIds.includes(id));
+    if (allSelected) {
+      setSelectedCourseIds((current) => current.filter((id) => !visibleIds.includes(id)));
+      return;
+    }
+    setSelectedCourseIds((current) => [...new Set([...current, ...visibleIds])]);
   }
 
   function cycleLearnerFilter() {
@@ -337,13 +365,30 @@ export function AssignCoursesScreen({
             )}
           </div>
           <div className="border-t border-outline/10 bg-surface-container-low p-sm">
-            <button
-              className="w-full rounded-lg bg-surface py-sm font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-variant"
-              type="button"
-              onClick={selectAllVisible}
-            >
-              Seleccionar visibles
-            </button>
+            <div className="grid grid-cols-1 gap-xs sm:grid-cols-2">
+              <button
+                className="w-full rounded-lg bg-primary px-sm py-sm font-label-md text-on-primary transition-colors hover:bg-primary-container"
+                type="button"
+                onClick={toggleAllLearners}
+                disabled={learners.length === 0}
+              >
+                {learners.length > 0 &&
+                learners.every((learner) => selectedLearnerIds.includes(learner.id))
+                  ? "Desmarcar todos"
+                  : "Marcar todos"}
+              </button>
+              <button
+                className="w-full rounded-lg bg-surface py-sm font-label-md text-on-surface transition-colors hover:bg-surface-variant"
+                type="button"
+                onClick={selectAllVisible}
+                disabled={visibleLearners.length === 0}
+              >
+                {visibleLearners.length > 0 &&
+                visibleLearners.every((learner) => selectedLearnerIds.includes(learner.id))
+                  ? "Desmarcar visibles"
+                  : "Seleccionar visibles"}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -397,6 +442,32 @@ export function AssignCoursesScreen({
                   ))}
                 </ul>
               )}
+            </div>
+            <div className="border-t border-outline/10 bg-surface-container-low p-sm">
+              <div className="grid grid-cols-1 gap-xs sm:grid-cols-2">
+                <button
+                  className="w-full rounded-lg bg-secondary px-sm py-sm font-label-md text-on-secondary transition-colors hover:bg-secondary-container"
+                  type="button"
+                  onClick={toggleAllCourses}
+                  disabled={courses.length === 0}
+                >
+                  {courses.length > 0 &&
+                  courses.every((course) => selectedCourseIds.includes(course.id))
+                    ? "Desmarcar todos"
+                    : "Marcar todos"}
+                </button>
+                <button
+                  className="w-full rounded-lg bg-surface py-sm font-label-md text-on-surface transition-colors hover:bg-surface-variant"
+                  type="button"
+                  onClick={selectAllVisibleCourses}
+                  disabled={visibleCourses.length === 0}
+                >
+                  {visibleCourses.length > 0 &&
+                  visibleCourses.every((course) => selectedCourseIds.includes(course.id))
+                    ? "Desmarcar visibles"
+                    : "Seleccionar visibles"}
+                </button>
+              </div>
             </div>
           </div>
 
