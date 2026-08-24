@@ -31,6 +31,10 @@ export function homePathForRole(role: AppRole): string {
   return role === "admin" ? "/dashboard" : "/my-courses";
 }
 
+export function isPublicPath(pathname: string): boolean {
+  return pathname === "/a" || pathname.startsWith("/a/");
+}
+
 export function isAdminOnlyPath(pathname: string): boolean {
   return (
     pathname.startsWith("/dashboard") ||

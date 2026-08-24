@@ -107,10 +107,10 @@ export function AttendanceFormsScreen({
       showToast("Publica el formulario antes de compartir el enlace.", { variant: "error" });
       return;
     }
-    const url = `${window.location.origin}/my-attendance/${form.id}`;
+    const url = `${window.location.origin}/a/${form.id}`;
     try {
       await navigator.clipboard.writeText(url);
-      showToast("Enlace copiado al portapapeles.");
+      showToast("Enlace público copiado. Cualquiera puede llenarlo sin registrarse.");
     } catch {
       showToast("No se pudo copiar el enlace.", { variant: "error" });
     }
@@ -385,7 +385,22 @@ export function AttendanceFormsScreen({
                         )}
                       </td>
                       <td className="p-md text-right">
-                        <div className="flex items-center justify-end gap-xs opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
+                        <div className="flex items-center justify-end gap-xs">
+                          {isActive ? (
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-xs rounded-lg bg-primary/10 px-sm py-xs font-label-sm text-primary transition-colors hover:bg-primary/15"
+                              aria-label="Copiar enlace público"
+                              title="Copiar enlace público"
+                              onClick={() => {
+                                void copyShareLink(form);
+                              }}
+                            >
+                              <MaterialIcon name="link" className="text-[18px]" />
+                              <span className="hidden sm:inline">Copiar enlace</span>
+                            </button>
+                          ) : null}
+                          <div className="flex items-center justify-end gap-xs opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
                           <Link
                             href={`/assign-attendance?formId=${form.id}`}
                             className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary"
@@ -412,18 +427,6 @@ export function AttendanceFormsScreen({
                           </Link>
                           <button
                             type="button"
-                            disabled={!isActive}
-                            className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary disabled:cursor-not-allowed disabled:text-outline"
-                            aria-label="Compartir link"
-                            title="Compartir link"
-                            onClick={() => {
-                              void copyShareLink(form);
-                            }}
-                          >
-                            <MaterialIcon name="share" className="text-[20px]" />
-                          </button>
-                          <button
-                            type="button"
                             disabled={deletingId === form.id}
                             className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-error-container hover:text-error disabled:opacity-50"
                             aria-label="Eliminar"
@@ -434,6 +437,7 @@ export function AttendanceFormsScreen({
                           >
                             <MaterialIcon name="delete" className="text-[20px]" />
                           </button>
+                          </div>
                         </div>
                       </td>
                     </tr>

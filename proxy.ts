@@ -1,14 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { decryptSession, SESSION_COOKIE } from "@/lib/auth/token";
-import { homePathForRole, isAdminOnlyPath, isWorkerAllowedPath } from "@/lib/auth/types";
+import {
+  homePathForRole,
+  isAdminOnlyPath,
+  isPublicPath,
+  isWorkerAllowedPath,
+} from "@/lib/auth/types";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   const session = await decryptSession(token);
   const isLogin = pathname === "/login";
+  const isPublic = isPublicPath(pathname);
 
-  if (!session && !isLogin) {
+  if (!session && !isLogin && !isPublic) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
@@ -29,6 +35,7 @@ export async function proxy(request: NextRequest) {
     session.role === "user" &&
     pathname !== "/" &&
     !isLogin &&
+    !isPublic &&
     !isWorkerAllowedPath(pathname)
   ) {
     return NextResponse.redirect(new URL(homePathForRole(session.role), request.url));

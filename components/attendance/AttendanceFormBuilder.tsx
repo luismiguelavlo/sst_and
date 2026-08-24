@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -28,8 +28,14 @@ export function AttendanceFormBuilder({ initialDraft }: AttendanceFormBuilderPro
   const [previewOpen, setPreviewOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [editingFieldId, setEditingFieldId] = useState<string | null>(null);
+  const [origin, setOrigin] = useState("");
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
 
   const counts = useMemo(() => countAttendanceFields(draft), [draft]);
+  const shareUrl = draft.id ? `${origin || ""}/a/${draft.id}` : null;
 
   function patchDraft(patch: Partial<AttendanceFormDraft>) {
     setDraft((current) => ({ ...current, ...patch }));
@@ -75,17 +81,47 @@ export function AttendanceFormBuilder({ initialDraft }: AttendanceFormBuilderPro
       showToast(result.error, { variant: "error" });
       return;
     }
-    showToast(publish ? "Formulario publicado." : "Borrador guardado.");
     setDraft((current) => ({ ...current, id: result.id, status: payload.status }));
+    if (publish) {
+      const url = `${window.location.origin}/a/${result.id}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        showToast("Formulario publicado. Enlace público copiado al portapapeles.");
+      } catch {
+        showToast("Formulario publicado. Copia el enlace desde el panel de abajo.");
+      }
+    } else {
+      showToast("Borrador guardado.");
+    }
     router.push(`/attendance-forms/${result.id}/edit`);
     router.refresh();
+  }
+
+  async function copyPublicLink() {
+    if (!draft.id) {
+      showToast("Guarda o publica el formulario primero.", { variant: "error" });
+      return;
+    }
+    if (draft.status !== "published") {
+      showToast("Publica el formulario para obtener el enlace público.", { variant: "error" });
+      return;
+    }
+    const url = `${window.location.origin}/a/${draft.id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast("Enlace público copiado.");
+    } catch {
+      showToast("No se pudo copiar. Selecciona y copia el texto del enlace.", { variant: "error" });
+    }
   }
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-md px-xs py-md lg:px-md">
       <div className="flex flex-col justify-between gap-md border-b border-outline-variant/30 pb-md md:flex-row md:items-center">
         <div>
-          <h1 className="font-display-lg text-on-surface">Crear Formulario de Asistencia</h1>
+          <h1 className="font-display-lg text-on-surface">
+            {draft.id ? "Editar formulario de asistencia" : "Crear Formulario de Asistencia"}
+          </h1>
           <p className="mt-2 font-body-lg text-on-surface-variant">
             Diseña y configura el registro de asistencia para eventos y capacitaciones.
           </p>
@@ -123,12 +159,58 @@ export function AttendanceFormBuilder({ initialDraft }: AttendanceFormBuilderPro
           </button>
         </div>
       </div>
+
+      {shareUrl ? (
+        <section className="rounded-xl border border-primary/20 bg-primary/5 p-md shadow-sm">
+          <div className="mb-sm flex flex-wrap items-center justify-between gap-sm">
+            <div>
+              <h2 className="font-label-md text-on-surface">Enlace público del formulario</h2>
+              <p className="mt-xs font-body-sm text-on-surface-variant">
+                {draft.status === "published"
+                  ? "Cualquiera con este enlace puede llenarlo sin registrarse."
+                  : "Publica el formulario para activar el enlace público."}
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={draft.status !== "published"}
+              className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm font-label-md text-on-primary transition-colors hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => {
+                void copyPublicLink();
+              }}
+            >
+              <MaterialIcon name="content_copy" className="text-[18px]" />
+              Copiar enlace
+            </button>
+          </div>
+          <div className="flex flex-col gap-sm sm:flex-row sm:items-center">
+            <input
+              className="w-full flex-1 rounded-lg border border-outline-variant/40 bg-surface-container-lowest px-sm py-sm font-body-sm text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              readOnly
+              value={shareUrl}
+              onFocus={(event) => event.currentTarget.select()}
+            />
+            {draft.status === "published" ? (
+              <a
+                href={shareUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex shrink-0 items-center gap-xs rounded-lg border border-outline-variant/40 bg-surface-container px-md py-sm font-label-md text-on-surface transition-colors hover:bg-surface-container-high"
+              >
+                <MaterialIcon name="open_in_new" className="text-[18px]" />
+                Abrir
+              </a>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
       <p className="rounded-lg bg-surface-container-high px-md py-sm font-body-sm text-on-surface-variant">
-        Publicar deja el formulario listo. Luego asígnalo a empleados en{" "}
+        Publicar deja el formulario listo. Puedes{" "}
         <a href="/assign-attendance" className="font-label-md text-primary hover:underline">
-          Asignar asistencia
-        </a>
-        ; solo ellos lo verán y recibirán la notificación.
+          asignarlo a empleados
+        </a>{" "}
+        (con notificación) y/o compartir el enlace público de arriba.
       </p>
 
       <div className="grid grid-cols-1 gap-md lg:grid-cols-3">

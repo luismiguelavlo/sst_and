@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
 import { useToast } from "@/components/ui/ToastProvider";
-import { submitAttendanceFormAction } from "@/lib/attendance/actions";
+import { submitAttendanceFormAction, submitPublicAttendanceFormAction } from "@/lib/attendance/actions";
 import {
   ATTENDANCE_COMPANIES,
   type AttendanceFormForFill,
@@ -23,7 +23,12 @@ const FIELD_CLASS =
 export function AttendanceFillForm({
   form,
   prefill,
-}: Readonly<{ form: AttendanceFormForFill; prefill: Prefill }>) {
+  mode = "assigned",
+}: Readonly<{
+  form: AttendanceFormForFill;
+  prefill: Prefill;
+  mode?: "assigned" | "public";
+}>) {
   const router = useRouter();
   const { showToast } = useToast();
   const [firstName, setFirstName] = useState(prefill.firstName);
@@ -39,11 +44,12 @@ export function AttendanceFillForm({
   const [qualityComment, setQualityComment] = useState("");
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
-    const result = await submitAttendanceFormAction({
+    const payload = {
       formId: form.id,
       firstName,
       lastName,
@@ -55,15 +61,36 @@ export function AttendanceFillForm({
       qualityRating: form.enableQualityRating ? qualityRating : null,
       qualityComment: form.enableQualityRating ? qualityComment : "",
       signatureData: form.enableSignature ? signatureData : null,
-    });
+    };
+    const result =
+      mode === "public"
+        ? await submitPublicAttendanceFormAction(payload)
+        : await submitAttendanceFormAction(payload);
     setBusy(false);
     if (!result.ok) {
       showToast(result.error, { variant: "error" });
       return;
     }
+    if (mode === "public") {
+      setDone(true);
+      showToast("Asistencia registrada. Gracias.");
+      return;
+    }
     showToast("Asistencia registrada. Gracias.");
     router.push("/my-attendance");
     router.refresh();
+  }
+
+  if (done) {
+    return (
+      <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest p-lg text-center shadow-sm">
+        <MaterialIcon name="task_alt" className="text-[48px] text-secondary" />
+        <h1 className="font-headline-md text-on-surface">Asistencia registrada</h1>
+        <p className="font-body-md text-on-surface-variant">
+          Gracias por completar «{form.title}». Ya puedes cerrar esta ventana.
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -242,13 +269,15 @@ export function AttendanceFillForm({
       </section>
 
       <div className="flex flex-wrap items-center justify-end gap-sm">
-        <button
-          type="button"
-          className="rounded-lg px-md py-sm font-label-md text-on-surface-variant hover:bg-surface-container"
-          onClick={() => router.push("/my-attendance")}
-        >
-          Cancelar
-        </button>
+        {mode === "assigned" ? (
+          <button
+            type="button"
+            className="rounded-lg px-md py-sm font-label-md text-on-surface-variant hover:bg-surface-container"
+            onClick={() => router.push("/my-attendance")}
+          >
+            Cancelar
+          </button>
+        ) : null}
         <button
           type="submit"
           disabled={busy}

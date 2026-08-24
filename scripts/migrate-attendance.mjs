@@ -18,6 +18,7 @@ const sql = postgres(url, {
 const migrations = [
   "db/migrate-attendance-forms.sql",
   "db/migrate-attendance-assignments.sql",
+  "db/migrate-attendance-public.sql",
 ];
 
 try {
@@ -35,11 +36,19 @@ try {
       )
     ORDER BY table_name
   `;
+  const nullable = await sql`
+    SELECT is_nullable
+    FROM information_schema.columns
+    WHERE table_schema = 'campus_sst'
+      AND table_name = 'attendance_responses'
+      AND column_name = 'user_id'
+  `;
   console.log("Migración de asistencia aplicada.");
   console.log(
     "Tablas:",
     tables.map((row) => row.table_name).join(", ") || "(ninguna)",
   );
+  console.log("user_id nullable:", nullable[0]?.is_nullable ?? "?");
 } finally {
   await sql.end({ timeout: 5 });
 }

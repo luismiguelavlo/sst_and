@@ -42,8 +42,8 @@ type ResponseExportRow = {
   form_id: string;
   form_title: string;
   submitted_at: Date;
-  user_email: string;
-  user_name: string;
+  user_email: string | null;
+  user_name: string | null;
   first_name: string;
   last_name: string;
   cedula: string;
@@ -308,11 +308,14 @@ export async function deleteAttendanceForm(id: string): Promise<void> {
 }
 
 export async function submitAttendanceResponse(
-  userId: string,
+  userId: string | null,
   input: AttendanceSubmissionInput,
 ): Promise<void> {
-  if (!UUID_PATTERN.test(userId) || !UUID_PATTERN.test(input.formId)) {
-    throw new Error("Formulario o usuario inválido.");
+  if (!UUID_PATTERN.test(input.formId)) {
+    throw new Error("Formulario inválido.");
+  }
+  if (userId !== null && !UUID_PATTERN.test(userId)) {
+    throw new Error("Usuario inválido.");
   }
   const sql = getSql();
   try {
@@ -370,7 +373,7 @@ export async function listAttendanceResponsesForExport(
       r.custom_answers
     FROM campus_sst.attendance_responses r
     INNER JOIN campus_sst.attendance_forms f ON f.id = r.form_id
-    INNER JOIN campus_sst.users u ON u.id = r.user_id
+    LEFT JOIN campus_sst.users u ON u.id = r.user_id
     WHERE r.form_id IN ${sql(ids)}
     ORDER BY f.title ASC, r.submitted_at DESC
   `;
@@ -378,8 +381,8 @@ export async function listAttendanceResponsesForExport(
     formId: row.form_id,
     formTitle: row.form_title,
     submittedAtLabel: formatDateTime(row.submitted_at),
-    userEmail: row.user_email,
-    userName: row.user_name,
+    userEmail: row.user_email ?? "(enlace público)",
+    userName: row.user_name ?? "Externo",
     firstName: row.first_name,
     lastName: row.last_name,
     cedula: row.cedula,

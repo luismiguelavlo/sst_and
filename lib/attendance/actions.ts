@@ -194,13 +194,7 @@ export async function submitAttendanceFormAction(
   }
 
   try {
-    await submitAttendanceResponse(user.id, {
-      ...input,
-      formId: form.id,
-      customAnswers: Object.fromEntries(
-        form.customFields.map((field) => [field.id, (input.customAnswers[field.id] ?? "").trim()]),
-      ),
-    });
+    await submitAttendanceResponse(user.id, normalizeSubmission(form, input));
     revalidatePath("/my-attendance");
     revalidatePath(`/my-attendance/${form.id}`);
     revalidatePath("/attendance-forms");
@@ -212,6 +206,46 @@ export async function submitAttendanceFormAction(
       error: caught instanceof Error ? caught.message : "No se pudo enviar el formulario.",
     };
   }
+}
+
+/** Envío público por enlace compartido (sin sesión). */
+export async function submitPublicAttendanceFormAction(
+  input: AttendanceSubmissionInput,
+): Promise<AttendanceSubmitResult> {
+  const form = await getPublishedAttendanceFormForFill(input.formId);
+  if (!form) {
+    return { ok: false, error: "El formulario no está disponible o no está publicado." };
+  }
+
+  const error = validateAttendanceSubmission(form, input);
+  if (error) {
+    return { ok: false, error };
+  }
+
+  try {
+    await submitAttendanceResponse(null, normalizeSubmission(form, input));
+    revalidatePath("/attendance-forms");
+    revalidatePath("/assign-attendance");
+    return { ok: true };
+  } catch (caught) {
+    return {
+      ok: false,
+      error: caught instanceof Error ? caught.message : "No se pudo enviar el formulario.",
+    };
+  }
+}
+
+function normalizeSubmission(
+  form: NonNullable<Awaited<ReturnType<typeof getPublishedAttendanceFormForFill>>>,
+  input: AttendanceSubmissionInput,
+): AttendanceSubmissionInput {
+  return {
+    ...input,
+    formId: form.id,
+    customAnswers: Object.fromEntries(
+      form.customFields.map((field) => [field.id, (input.customAnswers[field.id] ?? "").trim()]),
+    ),
+  };
 }
 
 export async function exportAttendanceResponsesAction(
