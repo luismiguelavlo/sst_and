@@ -2,6 +2,7 @@ import "server-only";
 
 import PDFDocument from "pdfkit";
 import type { AttendanceResponseExportRow } from "@/lib/attendance";
+import { drawCompanyLogosHeader, loadCompanyLogoImages, type PdfLogoImage } from "@/lib/attendance/pdf-logos";
 
 const SIGNATURE_MAX_WIDTH = 220;
 const SIGNATURE_MAX_HEIGHT = 70;
@@ -11,6 +12,7 @@ export async function responsesToPdf(
   fieldLabels: Readonly<Record<string, string>> = {},
 ): Promise<Buffer> {
   const customKeys = collectCustomKeys(rows);
+  const logos = await loadCompanyLogoImages();
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
@@ -31,6 +33,11 @@ export async function responsesToPdf(
       resolve(Buffer.concat(chunks));
     });
     doc.on("error", reject);
+    doc.on("pageAdded", () => {
+      drawPageHeader(doc, logos);
+    });
+
+    drawPageHeader(doc, logos);
 
     const contentWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
     const generatedAt = new Date().toLocaleString("es-CO", {
@@ -49,7 +56,7 @@ export async function responsesToPdf(
 
     rows.forEach((row, index) => {
       const signatureBuffer = dataUrlToBuffer(row.signatureData);
-      ensureSpace(doc, signatureBuffer ? 150 : 72);
+      ensureSpace(doc, logos, signatureBuffer ? 150 : 72);
 
       doc.font("Helvetica-Bold").fontSize(11).fillColor("#0d1c2e");
       doc.text(`${index + 1}. ${row.firstName} ${row.lastName}`.trim(), {
@@ -95,7 +102,7 @@ export async function responsesToPdf(
         doc.moveDown(0.2);
         doc.font("Helvetica-Bold").fontSize(9).fillColor("#3d4f5f");
         doc.text("Firma:", { width: contentWidth });
-        ensureSpace(doc, SIGNATURE_MAX_HEIGHT + 8);
+        ensureSpace(doc, logos, SIGNATURE_MAX_HEIGHT + 8);
         const imageX = doc.page.margins.left;
         const imageY = doc.y;
         try {
@@ -127,6 +134,10 @@ export async function responsesToPdf(
   });
 }
 
+function drawPageHeader(doc: PDFKit.PDFDocument, logos: readonly PdfLogoImage[]): void {
+  drawCompanyLogosHeader(doc, logos);
+}
+
 function collectCustomKeys(rows: readonly AttendanceResponseExportRow[]): string[] {
   const customKeys = new Set<string>();
   for (const row of rows) {
@@ -137,7 +148,11 @@ function collectCustomKeys(rows: readonly AttendanceResponseExportRow[]): string
   return [...customKeys];
 }
 
-function ensureSpace(doc: PDFKit.PDFDocument, needed: number): void {
+function ensureSpace(
+  doc: PDFKit.PDFDocument,
+  _logos: readonly PdfLogoImage[],
+  needed: number,
+): void {
   const bottom = doc.page.height - doc.page.margins.bottom;
   if (doc.y + needed > bottom) {
     doc.addPage();

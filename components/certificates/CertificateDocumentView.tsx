@@ -1,23 +1,9 @@
 import type { CertificateDocument } from "@/lib/certificates";
+import { COMPANY_LOGOS } from "@/lib/company-logos";
 
 type CertificateDocumentViewProps = Readonly<{
   certificate: CertificateDocument;
 }>;
-
-const CERTIFICATE_LOGOS = [
-  {
-    src: "/Bienesraizessantander.svg",
-    alt: "Bienes Raíces Santander",
-  },
-  {
-    src: "/grupomanzanares.svg",
-    alt: "Grupo Manzanares",
-  },
-  {
-    src: "/invercerro.svg",
-    alt: "Invercerro",
-  },
-] as const;
 
 export function CertificateDocumentView({ certificate }: CertificateDocumentViewProps) {
   return (
@@ -29,7 +15,7 @@ export function CertificateDocumentView({ certificate }: CertificateDocumentView
         <div className="certificate-ornament certificate-ornament-br" aria-hidden />
 
         <div className="certificate-logos" aria-label="Empresas del grupo">
-          {CERTIFICATE_LOGOS.map((logo) => (
+          {COMPANY_LOGOS.map((logo) => (
             <img
               key={logo.src}
               className="certificate-logo"
