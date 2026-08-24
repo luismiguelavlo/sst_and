@@ -27,8 +27,8 @@ export function PlatformShell({
           user={user}
           initialUnreadNotifications={initialUnreadNotifications}
         />
-        <main className="relative min-h-screen bg-surface px-sm py-md pt-20 sm:px-md sm:pt-24">
-          {children}
+        <main className="relative min-h-screen min-w-0 bg-surface px-sm py-md pt-20 sm:px-md sm:pt-24">
+          <div className="min-w-0 w-full">{children}</div>
         </main>
       </div>
     </div>

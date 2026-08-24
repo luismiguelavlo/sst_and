@@ -81,91 +81,127 @@ export function AttendanceResponsesScreen({
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl bg-surface-container-lowest shadow-md">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] border-collapse text-left">
-              <thead>
-                <tr className="border-b border-outline-variant/20 bg-surface-container-low">
-                  <th className="p-md font-label-sm tracking-wider text-outline uppercase">
-                    Persona
-                  </th>
-                  <th className="p-md font-label-sm tracking-wider text-outline uppercase">
-                    Empresa
-                  </th>
-                  <th className="p-md font-label-sm tracking-wider text-outline uppercase">
-                    Tema
-                  </th>
-                  <th className="p-md font-label-sm tracking-wider text-outline uppercase">
-                    Origen
-                  </th>
-                  <th className="p-md font-label-sm tracking-wider text-outline uppercase">
-                    Enviado
-                  </th>
-                  <th className="p-md font-label-sm tracking-wider text-outline uppercase">
-                    Calidad
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-outline-variant/10">
-                {responses.map((row) => (
-                  <tr key={row.id} className="align-top hover:bg-surface-container-low/60">
-                    <td className="p-md">
-                      <p className="font-label-md text-on-surface">
-                        {row.firstName} {row.lastName}
-                      </p>
-                      <p className="font-body-sm text-on-surface-variant">
-                        Cédula {row.cedula} · {row.jobTitle || "Sin cargo"}
-                      </p>
-                      {row.userEmail ? (
-                        <p className="font-body-sm text-outline">{row.userEmail}</p>
-                      ) : null}
-                      {Object.keys(row.customAnswers).length > 0 ? (
-                        <ul className="mt-xs space-y-0.5 font-body-sm text-on-surface-variant">
-                          {Object.entries(row.customAnswers).map(([fieldId, value]) =>
-                            value.trim().length > 0 ? (
-                              <li key={fieldId}>
-                                <span className="text-outline">
-                                  {fieldLabels[fieldId] ?? fieldId}:
-                                </span>{" "}
-                                {value}
-                              </li>
-                            ) : null,
-                          )}
-                        </ul>
-                      ) : null}
-                      {row.qualityComment.trim().length > 0 ? (
-                        <p className="mt-xs font-body-sm text-on-surface-variant">
-                          Comentario: {row.qualityComment}
-                        </p>
-                      ) : null}
-                    </td>
-                    <td className="p-md font-body-sm text-on-surface">{row.company}</td>
-                    <td className="p-md font-body-sm text-on-surface-variant">
-                      {row.topicSelected}
-                    </td>
-                    <td className="p-md">
-                      {row.source === "assigned" ? (
-                        <span className="inline-flex items-center gap-xs rounded-full bg-secondary-container/20 px-2 py-1 font-label-sm text-on-surface">
-                          Asignado
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-xs rounded-full bg-surface-container-highest px-2 py-1 font-label-sm text-on-surface-variant">
-                          Enlace público
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-md font-body-sm text-on-surface-variant">
-                      {row.submittedAtLabel}
-                    </td>
-                    <td className="p-md font-body-sm text-on-surface">
-                      {row.qualityRating === null ? "—" : `${row.qualityRating}/5`}
-                    </td>
+        <>
+          <ul className="divide-y divide-outline-variant/15 rounded-xl bg-surface-container-lowest shadow-md md:hidden">
+            {responses.map((row) => (
+              <li key={row.id} className="space-y-xs p-md">
+                <div className="flex items-start justify-between gap-sm">
+                  <div className="min-w-0">
+                    <p className="font-label-md text-on-surface">
+                      {row.firstName} {row.lastName}
+                    </p>
+                    <p className="font-body-sm text-on-surface-variant">
+                      Cédula {row.cedula} · {row.jobTitle || "Sin cargo"}
+                    </p>
+                  </div>
+                  {row.source === "assigned" ? (
+                    <span className="shrink-0 rounded-full bg-secondary-container/20 px-2 py-1 font-label-sm">
+                      Asignado
+                    </span>
+                  ) : (
+                    <span className="shrink-0 rounded-full bg-surface-container-highest px-2 py-1 font-label-sm text-on-surface-variant">
+                      Público
+                    </span>
+                  )}
+                </div>
+                <p className="font-body-sm text-on-surface">{row.company}</p>
+                <p className="font-body-sm text-on-surface-variant">Tema: {row.topicSelected}</p>
+                <p className="font-label-sm text-outline">
+                  {row.submittedAtLabel}
+                  {row.qualityRating !== null ? ` · Calidad ${row.qualityRating}/5` : ""}
+                </p>
+              </li>
+            ))}
+          </ul>
+
+          <div className="hidden rounded-xl bg-surface-container-lowest shadow-md md:block">
+            <div className="overflow-x-auto overscroll-x-contain">
+              <table className="w-full min-w-[760px] border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-outline-variant/20 bg-surface-container-low">
+                    <th className="p-sm font-label-sm tracking-wider text-outline uppercase">
+                      Persona
+                    </th>
+                    <th className="p-sm font-label-sm tracking-wider text-outline uppercase">
+                      Empresa
+                    </th>
+                    <th className="p-sm font-label-sm tracking-wider text-outline uppercase">
+                      Tema
+                    </th>
+                    <th className="p-sm font-label-sm tracking-wider text-outline uppercase">
+                      Origen
+                    </th>
+                    <th className="whitespace-nowrap p-sm font-label-sm tracking-wider text-outline uppercase">
+                      Enviado
+                    </th>
+                    <th className="p-sm font-label-sm tracking-wider text-outline uppercase">
+                      Calidad
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-outline-variant/10">
+                  {responses.map((row) => (
+                    <tr key={row.id} className="align-top hover:bg-surface-container-low/60">
+                      <td className="max-w-[260px] p-sm">
+                        <p className="font-label-md text-on-surface">
+                          {row.firstName} {row.lastName}
+                        </p>
+                        <p className="font-body-sm text-on-surface-variant">
+                          Cédula {row.cedula} · {row.jobTitle || "Sin cargo"}
+                        </p>
+                        {row.userEmail ? (
+                          <p className="truncate font-body-sm text-outline">{row.userEmail}</p>
+                        ) : null}
+                        {Object.keys(row.customAnswers).length > 0 ? (
+                          <ul className="mt-xs space-y-0.5 font-body-sm text-on-surface-variant">
+                            {Object.entries(row.customAnswers).map(([fieldId, value]) =>
+                              value.trim().length > 0 ? (
+                                <li key={fieldId} className="break-words">
+                                  <span className="text-outline">
+                                    {fieldLabels[fieldId] ?? fieldId}:
+                                  </span>{" "}
+                                  {value}
+                                </li>
+                              ) : null,
+                            )}
+                          </ul>
+                        ) : null}
+                        {row.qualityComment.trim().length > 0 ? (
+                          <p className="mt-xs break-words font-body-sm text-on-surface-variant">
+                            Comentario: {row.qualityComment}
+                          </p>
+                        ) : null}
+                      </td>
+                      <td className="max-w-[160px] p-sm font-body-sm break-words text-on-surface">
+                        {row.company}
+                      </td>
+                      <td className="max-w-[180px] p-sm font-body-sm break-words text-on-surface-variant">
+                        {row.topicSelected}
+                      </td>
+                      <td className="p-sm">
+                        {row.source === "assigned" ? (
+                          <span className="inline-flex items-center gap-xs rounded-full bg-secondary-container/20 px-2 py-1 font-label-sm text-on-surface">
+                            Asignado
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-xs rounded-full bg-surface-container-highest px-2 py-1 font-label-sm text-on-surface-variant">
+                            Enlace público
+                          </span>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap p-sm font-body-sm text-on-surface-variant">
+                        {row.submittedAtLabel}
+                      </td>
+                      <td className="p-sm font-body-sm text-on-surface">
+                        {row.qualityRating === null ? "—" : `${row.qualityRating}/5`}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

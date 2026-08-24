@@ -136,7 +136,7 @@ export function AttendanceFormsScreen({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-md">
+    <div className="mx-auto flex w-full min-w-0 max-w-[1280px] flex-col gap-md">
       <header className="mb-md flex flex-col justify-between gap-md md:mb-lg md:flex-row md:items-end">
         <div className="space-y-xs">
           <h1 className="font-display-lg tracking-tight text-on-surface">
@@ -252,7 +252,7 @@ export function AttendanceFormsScreen({
         ) : null}
       </div>
 
-      <div className="relative overflow-hidden rounded-xl bg-surface-container-lowest shadow-md">
+      <div className="rounded-xl bg-surface-container-lowest shadow-md">
         {pageRows.length === 0 ? (
           <div className="p-lg text-center">
             <MaterialIcon name="assignment" className="mx-auto text-[40px] text-outline" />
@@ -273,55 +273,25 @@ export function AttendanceFormsScreen({
             ) : null}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] border-collapse text-left">
-              <thead>
-                <tr className="border-b border-outline-variant/20 bg-surface-container-low">
-                  <th className="w-12 p-md">
-                    <Checkbox
-                      checked={allPageSelected}
-                      indeterminate={somePageSelected && !allPageSelected}
-                      onChange={toggleSelectAll}
-                      ariaLabel="Seleccionar todos"
-                    />
-                  </th>
-                  <th className="p-md font-label-sm tracking-wider text-outline uppercase">
-                    Nombre del Formulario
-                  </th>
-                  <th className="hidden p-md font-label-sm tracking-wider text-outline uppercase sm:table-cell">
-                    Fecha de Creación
-                  </th>
-                  <th className="p-md text-right font-label-sm tracking-wider text-outline uppercase">
-                    Respuestas
-                  </th>
-                  <th className="p-md font-label-sm tracking-wider text-outline uppercase">Estado</th>
-                  <th className="p-md text-right font-label-sm tracking-wider text-outline uppercase">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-outline-variant/10">
-                {pageRows.map((form) => {
-                  const isSelected = selected.includes(form.id);
-                  const isActive = form.status === "published";
-                  return (
-                    <tr
-                      key={form.id}
-                      className={
-                        isSelected
-                          ? "group bg-primary/5 transition-colors"
-                          : "group cursor-default transition-colors hover:bg-surface-container-lowest/50"
-                      }
-                    >
-                      <td className="p-md">
-                        <Checkbox
-                          checked={isSelected}
-                          onChange={() => toggleRow(form.id)}
-                          ariaLabel={`Seleccionar ${form.title}`}
-                        />
-                      </td>
-                      <td className="p-md">
-                        <div className="flex items-center gap-sm">
+          <>
+            {/* Mobile / tablet: cards */}
+            <ul className="divide-y divide-outline-variant/15 lg:hidden">
+              {pageRows.map((form) => {
+                const isSelected = selected.includes(form.id);
+                const isActive = form.status === "published";
+                return (
+                  <li
+                    key={form.id}
+                    className={isSelected ? "bg-primary/5 p-md" : "p-md"}
+                  >
+                    <div className="flex items-start gap-sm">
+                      <Checkbox
+                        checked={isSelected}
+                        onChange={() => toggleRow(form.id)}
+                        ariaLabel={`Seleccionar ${form.title}`}
+                      />
+                      <div className="min-w-0 flex-1 space-y-sm">
+                        <div className="flex items-start gap-sm">
                           <div
                             className={
                               isActive
@@ -331,153 +301,261 @@ export function AttendanceFormsScreen({
                           >
                             <MaterialIcon name="description" />
                           </div>
-                          <div className="min-w-0">
-                            <h3 className="truncate font-label-md text-on-surface">{form.title}</h3>
-                            <p className="truncate font-body-sm text-on-surface-variant">
-                              {form.topic || "Sin tema"} · {form.responsibleName || "Sin responsable"}
+                          <div className="min-w-0 flex-1">
+                            <h3 className="font-label-md text-on-surface">{form.title}</h3>
+                            <p className="mt-0.5 break-words font-body-sm text-on-surface-variant">
+                              {form.topic || "Sin tema"} ·{" "}
+                              {form.responsibleName || "Sin responsable"}
+                            </p>
+                            <p className="mt-xs font-label-sm text-outline">
+                              {form.createdAtLabel} · {form.createdAtTimeLabel}
                             </p>
                           </div>
-                        </div>
-                      </td>
-                      <td className="hidden p-md font-body-sm text-on-surface-variant sm:table-cell">
-                        {form.createdAtLabel}
-                        <br />
-                        <span className="text-[12px] text-outline">{form.createdAtTimeLabel}</span>
-                      </td>
-                      <td className="p-md text-right">
-                        <div className="inline-flex items-center gap-xs rounded-full bg-surface-container px-2 py-1">
-                          <span className="font-label-md text-on-surface">{form.responseCount}</span>
-                          <span className="font-body-sm text-on-surface-variant">
-                            / {form.assigneeCount}
-                          </span>
-                        </div>
-                        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-container-highest">
-                          <div
-                            className={
-                              isActive
-                                ? form.responseCount > 0
-                                  ? "h-full rounded-full bg-secondary"
-                                  : "h-full w-full animate-pulse rounded-full bg-secondary opacity-30"
-                                : "h-full rounded-full bg-outline"
-                            }
-                            style={{
-                              width:
-                                isActive && form.responseCount > 0
-                                  ? "100%"
-                                  : isActive
-                                    ? "100%"
-                                    : "0%",
-                            }}
-                          />
-                        </div>
-                      </td>
-                      <td className="p-md">
-                        {isActive ? (
-                          <span className="inline-flex items-center gap-xs rounded-full bg-secondary-container/20 px-2 py-1 font-label-sm text-on-surface">
-                            <span className="h-2 w-2 rounded-full bg-secondary" />
-                            Activo
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-xs rounded-full bg-surface-container-highest px-2 py-1 font-label-sm text-on-surface-variant">
-                            <span className="h-2 w-2 rounded-full bg-outline" />
-                            Borrador
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-md text-right">
-                        <div className="flex items-center justify-end gap-xs">
                           {isActive ? (
-                            <>
-                              <Link
-                                href={`/attendance-forms/${form.id}/responses`}
-                                className="inline-flex items-center gap-xs rounded-lg bg-surface-container px-sm py-xs font-label-sm text-on-surface transition-colors hover:bg-surface-container-high"
-                                title="Ver respuestas"
-                              >
-                                <MaterialIcon name="group" className="text-[18px]" />
-                                <span className="hidden sm:inline">
-                                  Respuestas ({form.responseCount})
-                                </span>
-                              </Link>
-                              <button
-                                type="button"
-                                className="inline-flex items-center gap-xs rounded-lg bg-primary/10 px-sm py-xs font-label-sm text-primary transition-colors hover:bg-primary/15"
-                                aria-label="Copiar enlace público"
-                                title="Copiar enlace público"
-                                onClick={() => {
-                                  void copyShareLink(form);
-                                }}
-                              >
-                                <MaterialIcon name="link" className="text-[18px]" />
-                                <span className="hidden sm:inline">Copiar enlace</span>
-                              </button>
-                            </>
+                            <span className="inline-flex shrink-0 items-center gap-xs rounded-full bg-secondary-container/20 px-2 py-1 font-label-sm text-on-surface">
+                              <span className="h-2 w-2 rounded-full bg-secondary" />
+                              Activo
+                            </span>
                           ) : (
-                            <Link
-                              href={`/attendance-forms/${form.id}/responses`}
-                              className="inline-flex items-center gap-xs rounded-lg bg-surface-container px-sm py-xs font-label-sm text-on-surface transition-colors hover:bg-surface-container-high"
-                              title="Ver respuestas"
-                            >
-                              <MaterialIcon name="group" className="text-[18px]" />
-                              <span className="hidden sm:inline">
-                                Respuestas ({form.responseCount})
-                              </span>
-                            </Link>
+                            <span className="inline-flex shrink-0 items-center gap-xs rounded-full bg-surface-container-highest px-2 py-1 font-label-sm text-on-surface-variant">
+                              Borrador
+                            </span>
                           )}
-                          <div className="flex items-center justify-end gap-xs opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
+                        </div>
+                        <div className="flex flex-wrap items-center gap-xs">
+                          <span className="rounded-full bg-surface-container px-2 py-1 font-label-sm text-on-surface">
+                            {form.responseCount} / {form.assigneeCount} resp.
+                          </span>
+                          <Link
+                            href={`/attendance-forms/${form.id}/responses`}
+                            className="inline-flex items-center gap-xs rounded-lg bg-surface-container px-sm py-xs font-label-sm text-on-surface"
+                          >
+                            <MaterialIcon name="group" className="text-[18px]" />
+                            Respuestas
+                          </Link>
+                          {isActive ? (
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-xs rounded-lg bg-primary/10 px-sm py-xs font-label-sm text-primary"
+                              onClick={() => {
+                                void copyShareLink(form);
+                              }}
+                            >
+                              <MaterialIcon name="link" className="text-[18px]" />
+                              Enlace
+                            </button>
+                          ) : null}
                           <Link
                             href={`/assign-attendance?formId=${form.id}`}
-                            className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary"
-                            aria-label="Asignar empleados"
-                            title="Asignar empleados"
+                            className="rounded-full p-2 text-on-surface-variant hover:bg-surface-container"
+                            aria-label="Asignar"
                           >
                             <MaterialIcon name="group_add" className="text-[20px]" />
                           </Link>
                           <Link
                             href={`/attendance-forms/${form.id}/edit`}
-                            className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary"
-                            aria-label="Ver / editar"
-                            title="Ver / editar"
-                          >
-                            <MaterialIcon name="visibility" className="text-[20px]" />
-                          </Link>
-                          <Link
-                            href={`/attendance-forms/${form.id}/edit`}
-                            className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-secondary"
+                            className="rounded-full p-2 text-on-surface-variant hover:bg-surface-container"
                             aria-label="Editar"
-                            title="Editar"
                           >
                             <MaterialIcon name="edit" className="text-[20px]" />
                           </Link>
                           <button
                             type="button"
                             disabled={deletingId === form.id}
-                            className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-error-container hover:text-error disabled:opacity-50"
+                            className="rounded-full p-2 text-on-surface-variant hover:bg-error-container hover:text-error disabled:opacity-50"
                             aria-label="Eliminar"
-                            title="Eliminar"
                             onClick={() => {
                               void onDelete(form.id, form.title);
                             }}
                           >
                             <MaterialIcon name="delete" className="text-[20px]" />
                           </button>
-                          </div>
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+
+            {/* Desktop: scrollable table with sticky actions */}
+            <div className="hidden overflow-x-auto overscroll-x-contain lg:block">
+              <table className="w-full min-w-[960px] border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-outline-variant/20 bg-surface-container-low">
+                    <th className="sticky left-0 z-10 w-12 bg-surface-container-low p-sm">
+                      <Checkbox
+                        checked={allPageSelected}
+                        indeterminate={somePageSelected && !allPageSelected}
+                        onChange={toggleSelectAll}
+                        ariaLabel="Seleccionar todos"
+                      />
+                    </th>
+                    <th className="p-sm font-label-sm tracking-wider text-outline uppercase">
+                      Nombre del Formulario
+                    </th>
+                    <th className="whitespace-nowrap p-sm font-label-sm tracking-wider text-outline uppercase">
+                      Fecha
+                    </th>
+                    <th className="whitespace-nowrap p-sm text-right font-label-sm tracking-wider text-outline uppercase">
+                      Respuestas
+                    </th>
+                    <th className="p-sm font-label-sm tracking-wider text-outline uppercase">
+                      Estado
+                    </th>
+                    <th className="sticky right-0 z-10 bg-surface-container-low p-sm text-right font-label-sm tracking-wider text-outline uppercase shadow-[-6px_0_8px_rgba(13,28,46,0.04)]">
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-outline-variant/10">
+                  {pageRows.map((form) => {
+                    const isSelected = selected.includes(form.id);
+                    const isActive = form.status === "published";
+                    const rowBg = isSelected
+                      ? "bg-primary/5"
+                      : "bg-surface-container-lowest group-hover:bg-surface-container-low/40";
+                    return (
+                      <tr
+                        key={form.id}
+                        className={
+                          isSelected
+                            ? "group bg-primary/5 transition-colors"
+                            : "group transition-colors hover:bg-surface-container-low/40"
+                        }
+                      >
+                        <td
+                          className={`sticky left-0 z-10 p-sm ${rowBg}`}
+                        >
+                          <Checkbox
+                            checked={isSelected}
+                            onChange={() => toggleRow(form.id)}
+                            ariaLabel={`Seleccionar ${form.title}`}
+                          />
+                        </td>
+                        <td className="max-w-[280px] p-sm">
+                          <div className="flex items-center gap-sm">
+                            <div
+                              className={
+                                isActive
+                                  ? "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/20 text-primary"
+                                  : "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-container-highest text-outline"
+                              }
+                            >
+                              <MaterialIcon name="description" className="text-[20px]" />
+                            </div>
+                            <div className="min-w-0">
+                              <h3 className="truncate font-label-md text-on-surface">
+                                {form.title}
+                              </h3>
+                              <p className="truncate font-body-sm text-on-surface-variant">
+                                {form.topic || "Sin tema"} ·{" "}
+                                {form.responsibleName || "Sin responsable"}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap p-sm font-body-sm text-on-surface-variant">
+                          {form.createdAtLabel}
+                          <br />
+                          <span className="text-[12px] text-outline">
+                            {form.createdAtTimeLabel}
+                          </span>
+                        </td>
+                        <td className="p-sm text-right">
+                          <div className="inline-flex items-center gap-xs rounded-full bg-surface-container px-2 py-1">
+                            <span className="font-label-md text-on-surface">
+                              {form.responseCount}
+                            </span>
+                            <span className="font-body-sm text-on-surface-variant">
+                              / {form.assigneeCount}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="p-sm">
+                          {isActive ? (
+                            <span className="inline-flex items-center gap-xs rounded-full bg-secondary-container/20 px-2 py-1 font-label-sm text-on-surface">
+                              <span className="h-2 w-2 rounded-full bg-secondary" />
+                              Activo
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-xs rounded-full bg-surface-container-highest px-2 py-1 font-label-sm text-on-surface-variant">
+                              <span className="h-2 w-2 rounded-full bg-outline" />
+                              Borrador
+                            </span>
+                          )}
+                        </td>
+                        <td
+                          className={`sticky right-0 z-10 p-sm shadow-[-6px_0_8px_rgba(13,28,46,0.04)] ${rowBg}`}
+                        >
+                          <div className="flex items-center justify-end gap-0.5">
+                            <Link
+                              href={`/attendance-forms/${form.id}/responses`}
+                              className="rounded-lg p-2 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary"
+                              title={`Respuestas (${form.responseCount})`}
+                              aria-label="Ver respuestas"
+                            >
+                              <MaterialIcon name="group" className="text-[20px]" />
+                            </Link>
+                            {isActive ? (
+                              <button
+                                type="button"
+                                className="rounded-lg p-2 text-primary transition-colors hover:bg-primary/10"
+                                title="Copiar enlace público"
+                                aria-label="Copiar enlace público"
+                                onClick={() => {
+                                  void copyShareLink(form);
+                                }}
+                              >
+                                <MaterialIcon name="link" className="text-[20px]" />
+                              </button>
+                            ) : null}
+                            <Link
+                              href={`/assign-attendance?formId=${form.id}`}
+                              className="rounded-lg p-2 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary"
+                              title="Asignar empleados"
+                              aria-label="Asignar empleados"
+                            >
+                              <MaterialIcon name="group_add" className="text-[20px]" />
+                            </Link>
+                            <Link
+                              href={`/attendance-forms/${form.id}/edit`}
+                              className="rounded-lg p-2 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-secondary"
+                              title="Editar"
+                              aria-label="Editar"
+                            >
+                              <MaterialIcon name="edit" className="text-[20px]" />
+                            </Link>
+                            <button
+                              type="button"
+                              disabled={deletingId === form.id}
+                              className="rounded-lg p-2 text-on-surface-variant transition-colors hover:bg-error-container hover:text-error disabled:opacity-50"
+                              title="Eliminar"
+                              aria-label="Eliminar"
+                              onClick={() => {
+                                void onDelete(form.id, form.title);
+                              }}
+                            >
+                              <MaterialIcon name="delete" className="text-[20px]" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
-        <div className="flex items-center justify-between border-t border-outline-variant/20 bg-surface-container-low p-sm">
+        <div className="flex flex-col gap-sm border-t border-outline-variant/20 bg-surface-container-low p-sm sm:flex-row sm:items-center sm:justify-between">
           <span className="font-body-sm text-on-surface-variant">
             {filtered.length === 0
               ? "Sin resultados"
               : `Mostrando ${(currentPage - 1) * PAGE_SIZE + 1}-${Math.min(currentPage * PAGE_SIZE, filtered.length)} de ${filtered.length} formularios`}
           </span>
-          <div className="flex items-center gap-xs">
+          <div className="flex flex-wrap items-center gap-xs">
             <button
               type="button"
               className="rounded p-1 text-outline transition-colors hover:bg-surface-container-highest disabled:opacity-50"
@@ -504,7 +582,9 @@ export function AttendanceFormsScreen({
                 return (
                   <span key={pageNumber} className="flex items-center gap-1">
                     {showEllipsis ? (
-                      <span className="flex h-8 w-8 items-center justify-center text-outline">…</span>
+                      <span className="flex h-8 w-8 items-center justify-center text-outline">
+                        …
+                      </span>
                     ) : null}
                     <button
                       type="button"
