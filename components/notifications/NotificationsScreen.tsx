@@ -175,10 +175,20 @@ function InboxRow({ item }: Readonly<{ item: AppNotification }>) {
         className={
           item.kind === "course_assigned"
             ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-container text-on-primary-container"
-            : "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary-container text-on-secondary-container"
+            : item.kind === "attendance_form"
+              ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-tertiary-container text-on-tertiary-container"
+              : "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary-container text-on-secondary-container"
         }
       >
-        <MaterialIcon name={item.kind === "course_assigned" ? "school" : "campaign"} />
+        <MaterialIcon
+          name={
+            item.kind === "course_assigned"
+              ? "school"
+              : item.kind === "attendance_form"
+                ? "fact_check"
+                : "campaign"
+          }
+        />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-sm">

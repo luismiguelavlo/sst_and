@@ -1,4 +1,4 @@
-export type NotificationKind = "course_assigned" | "custom";
+export type NotificationKind = "course_assigned" | "custom" | "attendance_form";
 
 export type AppNotification = {
   id: string;
@@ -12,5 +12,5 @@ export type AppNotification = {
 };
 
 export function isNotificationKind(value: string): value is NotificationKind {
-  return value === "course_assigned" || value === "custom";
+  return value === "course_assigned" || value === "custom" || value === "attendance_form";
 }

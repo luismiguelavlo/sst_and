@@ -125,6 +125,25 @@ const certificateStyles = `
   .certificate-ornament-bl { bottom: 10px; left: 10px; border-right: 0; border-top: 0; }
   .certificate-ornament-br { bottom: 10px; right: 10px; border-left: 0; border-top: 0; }
 
+  .certificate-logos {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(16px, 3vw, 36px);
+    width: 100%;
+    margin: 0 0 clamp(14px, 2.2vw, 22px);
+    padding: 0 8px;
+  }
+
+  .certificate-logo {
+    display: block;
+    height: clamp(36px, 5.2vw, 56px);
+    width: auto;
+    max-width: min(180px, 28%);
+    object-fit: contain;
+  }
+
   .certificate-header {
     margin-bottom: clamp(12px, 2vw, 20px);
   }
@@ -306,6 +325,12 @@ const certificateStyles = `
     .certificate-frame {
       margin: 8px;
       outline-offset: 4px;
+    }
+    .certificate-logo {
+      height: 42px;
+      max-width: 160px;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
   }
 `;

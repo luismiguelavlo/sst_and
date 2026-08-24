@@ -36,6 +36,7 @@ export function isAdminOnlyPath(pathname: string): boolean {
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/invitations") ||
     pathname.startsWith("/assign-courses") ||
+    pathname.startsWith("/attendance-forms") ||
     pathname.startsWith("/employees") ||
     pathname.startsWith("/course-catalog/new") ||
     /^\/course-catalog\/[^/]+\/edit\/?$/.test(pathname)
@@ -56,6 +57,7 @@ export function isWorkerAllowedPath(pathname: string): boolean {
     pathname.startsWith("/courses/") ||
     pathname === "/settings" ||
     pathname.startsWith("/certificates") ||
-    pathname.startsWith("/notifications")
+    pathname.startsWith("/notifications") ||
+    pathname.startsWith("/my-attendance")
   );
 }

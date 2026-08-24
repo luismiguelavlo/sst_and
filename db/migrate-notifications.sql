@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS campus_sst.notifications (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES campus_sst.users (id) ON DELETE CASCADE,
   created_by uuid REFERENCES campus_sst.users (id) ON DELETE SET NULL,
-  kind varchar(32) NOT NULL CHECK (kind IN ('course_assigned', 'custom')),
+  kind varchar(32) NOT NULL CHECK (kind IN ('course_assigned', 'custom', 'attendance_form')),
   title varchar(200) NOT NULL,
   body text NOT NULL DEFAULT '',
   href text,

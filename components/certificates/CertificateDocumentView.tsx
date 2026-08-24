@@ -4,6 +4,21 @@ type CertificateDocumentViewProps = Readonly<{
   certificate: CertificateDocument;
 }>;
 
+const CERTIFICATE_LOGOS = [
+  {
+    src: "/Bienesraizessantander.svg",
+    alt: "Bienes Raíces Santander",
+  },
+  {
+    src: "/grupomanzanares.svg",
+    alt: "Grupo Manzanares",
+  },
+  {
+    src: "/invercerro.svg",
+    alt: "Invercerro",
+  },
+] as const;
+
 export function CertificateDocumentView({ certificate }: CertificateDocumentViewProps) {
   return (
     <article className="certificate-sheet" aria-label={`Certificado ${certificate.code}`}>
@@ -12,6 +27,17 @@ export function CertificateDocumentView({ certificate }: CertificateDocumentView
         <div className="certificate-ornament certificate-ornament-tr" aria-hidden />
         <div className="certificate-ornament certificate-ornament-bl" aria-hidden />
         <div className="certificate-ornament certificate-ornament-br" aria-hidden />
+
+        <div className="certificate-logos" aria-label="Empresas del grupo">
+          {CERTIFICATE_LOGOS.map((logo) => (
+            <img
+              key={logo.src}
+              className="certificate-logo"
+              src={logo.src}
+              alt={logo.alt}
+            />
+          ))}
+        </div>
 
         <header className="certificate-header">
           <p className="certificate-brand">Campus SST</p>

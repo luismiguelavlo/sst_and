@@ -168,6 +168,25 @@ export async function notifyCourseAssignments(input: {
   }
 }
 
+export async function notifyAttendanceFormPublished(input: {
+  formId: string;
+  formTitle: string;
+  createdBy: string;
+  userIds: readonly string[];
+}): Promise<void> {
+  if (!UUID_PATTERN.test(input.formId) || input.userIds.length === 0) {
+    return;
+  }
+  await createNotifications({
+    userIds: input.userIds,
+    createdBy: input.createdBy,
+    kind: "attendance_form",
+    title: "Nuevo formulario de asistencia",
+    body: `Tienes un nuevo formulario por diligenciar: «${input.formTitle.trim()}».`,
+    href: `/my-attendance/${input.formId}`,
+  });
+}
+
 function toNotification(row: NotificationRow): AppNotification {
   return {
     id: row.id,
