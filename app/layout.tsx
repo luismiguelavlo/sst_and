@@ -12,6 +12,11 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Campus SST",
   description: "Formación en seguridad y salud en el trabajo para el personal de la organización.",
+  icons: {
+    icon: [{ url: "/grupomanzanares.svg", type: "image/svg+xml" }],
+    shortcut: "/grupomanzanares.svg",
+    apple: "/grupomanzanares.svg",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
