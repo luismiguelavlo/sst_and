@@ -13,9 +13,21 @@ import type { SstCategory } from "@/lib/sst";
 
 type CertificatesGalleryProps = Readonly<{
   certificates: readonly CertificateListItem[];
+  title?: string;
+  description?: string;
+  emptyTitle?: string;
+  emptyDescription?: string;
+  showCatalogLink?: boolean;
 }>;
 
-export function CertificatesGallery({ certificates }: CertificatesGalleryProps) {
+export function CertificatesGallery({
+  certificates,
+  title = "Mis certificados",
+  description = "Consulta e imprime tus certificados de competencias SST. Se generan automáticamente al completar un curso con certificación habilitada.",
+  emptyTitle = "Aún no tienes certificados",
+  emptyDescription = "Completa todas las lecciones de un curso con certificación para emitir el tuyo.",
+  showCatalogLink = true,
+}: CertificatesGalleryProps) {
   const [query, setQuery] = useState("");
   const [year, setYear] = useState("");
   const [category, setCategory] = useState<SstCategory | "">("");
@@ -45,11 +57,8 @@ export function CertificatesGallery({ certificates }: CertificatesGalleryProps) 
   return (
     <div className="flex w-full flex-col font-body-md text-on-surface">
       <div className="mb-lg pt-md">
-        <h1 className="mb-xs font-headline-lg text-primary">Mis certificados</h1>
-        <p className="max-w-2xl font-body-md text-on-surface-variant">
-          Consulta e imprime tus certificados de competencias SST. Se generan automáticamente al
-          completar un curso con certificación habilitada.
-        </p>
+        <h1 className="mb-xs font-headline-lg text-primary">{title}</h1>
+        <p className="max-w-2xl font-body-md text-on-surface-variant">{description}</p>
       </div>
 
       <div className="mb-xl flex flex-col items-start justify-between gap-md md:flex-row md:items-center">
@@ -109,16 +118,16 @@ export function CertificatesGallery({ certificates }: CertificatesGalleryProps) 
       {visible.length === 0 ? (
         <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-lg text-center shadow-sm">
           <MaterialIcon name="workspace_premium" className="mb-sm text-[40px] text-primary" />
-          <p className="font-headline-md text-on-surface">Aún no tienes certificados</p>
-          <p className="mt-xs font-body-sm text-on-surface-variant">
-            Completa todas las lecciones de un curso con certificación para emitir el tuyo.
-          </p>
-          <Link
-            href="/course-catalog"
-            className="mt-md inline-flex items-center gap-xs rounded-lg bg-primary px-md py-sm font-label-md text-on-primary"
-          >
-            Ir al catálogo
-          </Link>
+          <p className="font-headline-md text-on-surface">{emptyTitle}</p>
+          <p className="mt-xs font-body-sm text-on-surface-variant">{emptyDescription}</p>
+          {showCatalogLink ? (
+            <Link
+              href="/course-catalog"
+              className="mt-md inline-flex items-center gap-xs rounded-lg bg-primary px-md py-sm font-label-md text-on-primary"
+            >
+              Ir al catálogo
+            </Link>
+          ) : null}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-gutter md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

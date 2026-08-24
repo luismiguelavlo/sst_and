@@ -1,14 +1,20 @@
 import "server-only";
 
 import { CERTIFICATE_FALLBACK_COVER } from "@/lib/certificates";
-import { maybeIssueCertificate } from "@/lib/certificates/repository";
-import { initialsFromName } from "@/lib/credentials";
+import { listCertificatesForUser, maybeIssueCertificate } from "@/lib/certificates/repository";
+import { initialsFromName, type CredentialStatus } from "@/lib/credentials";
 import { getSql } from "@/lib/db";
 import type {
   EmployeeProgressRow,
   EmployeeProgressStats,
   ProgressStatus,
 } from "@/lib/employee-progress";
+import type {
+  EmployeeCourseProgress,
+  EmployeeDossier,
+  EmployeeLessonProgress,
+} from "@/lib/employees";
+import { lessonKindIcon, lessonKindLabel, type LessonKind } from "@/lib/lessons";
 import type { LessonProgressState, MyCourseItem, MyCourseStatus } from "@/lib/my-courses";
 import {
   isSstCategory,
@@ -352,6 +358,7 @@ function toProgressRow(row: ProgressQueryRow): EmployeeProgressRow {
 
   return {
     id: `${row.user_id}-${row.course_title ?? "none"}-${row.deadline?.toISOString() ?? "na"}`,
+    userId: row.user_id,
     name: row.name,
     email: row.email,
     courseTitle: row.course_title ?? "Sin cursos",
@@ -411,4 +418,161 @@ function resolveStatus(
 
 function formatActivity(date: Date): string {
   return new Intl.DateTimeFormat("es", { day: "numeric", month: "short" }).format(date);
+}
+
+export async function getEmployeeDossier(userId: string): Promise<EmployeeDossier | null> {
+  if (!UUID_PATTERN.test(userId)) {
+    return null;
+  }
+
+  const sql = getSql();
+  const users = await sql<
+    {
+      id: string;
+      name: string;
+      email: string;
+      job_title: string;
+      cedula: string | null;
+      status: string;
+      bio: string | null;
+      photo_url: string | null;
+      created_at: Date;
+    }[]
+  >`
+    SELECT
+      id::text,
+      name,
+      email,
+      job_title,
+      cedula,
+      status,
+      bio,
+      photo_url,
+      created_at
+    FROM campus_sst.users
+    WHERE id = ${userId}::uuid AND role = 'user'
+    LIMIT 1
+  `;
+  const user = users[0];
+  if (!user || !isCredentialStatus(user.status)) {
+    return null;
+  }
+
+  const [courses, certificates, lessonRows, certLinks] = await Promise.all([
+    listMyCoursesForUser(userId),
+    listCertificatesForUser(userId),
+    sql<
+      {
+        id: string;
+        course_id: string;
+        title: string;
+        kind: string;
+        viewed_at: Date | null;
+      }[]
+    >`
+      SELECT
+        s.id::text,
+        s.course_id::text,
+        s.title,
+        s.kind,
+        p.viewed_at
+      FROM campus_sst.course_sections s
+      LEFT JOIN campus_sst.lesson_progress p
+        ON p.section_id = s.id AND p.user_id = ${userId}::uuid
+      WHERE s.course_id IN (
+        SELECT course_id FROM campus_sst.course_assignments WHERE user_id = ${userId}::uuid
+        UNION
+        SELECT course_id FROM campus_sst.lesson_progress WHERE user_id = ${userId}::uuid
+      )
+      ORDER BY s.course_id, s.position ASC
+    `,
+    sql<{ id: string; course_id: string }[]>`
+      SELECT id::text, course_id::text
+      FROM campus_sst.certificates
+      WHERE user_id = ${userId}::uuid
+    `,
+  ]);
+
+  const certificateByCourse = new Map(certLinks.map((row) => [row.course_id, row.id]));
+  const lessonsByCourse = new Map<string, EmployeeLessonProgress[]>();
+  for (const row of lessonRows) {
+    const kind = toLessonKind(row.kind);
+    const list = lessonsByCourse.get(row.course_id) ?? [];
+    list.push({
+      id: row.id,
+      title: row.title,
+      kindLabel: lessonKindLabel(kind),
+      kindIcon: lessonKindIcon(kind),
+      completed: row.viewed_at !== null,
+      completedAtLabel: row.viewed_at ? formatDeadline(row.viewed_at) : null,
+    });
+    lessonsByCourse.set(row.course_id, list);
+  }
+
+  const photo = user.photo_url && user.photo_url.startsWith("http") ? user.photo_url : null;
+
+  return {
+    profile: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      jobTitle: user.job_title,
+      cedula: user.cedula,
+      status: user.status,
+      bio: user.bio?.trim() || "",
+      photoUrl: photo,
+      createdAtLabel: formatDeadline(user.created_at),
+      avatar: photo
+        ? { kind: "photo", src: photo, alt: `Foto de ${user.name}` }
+        : {
+            kind: "initials",
+            initials: initialsFromName(user.name),
+            className: "bg-primary-container text-on-primary-container",
+          },
+    },
+    courses: courses.map((course) => toEmployeeCourse(course, lessonsByCourse, certificateByCourse)),
+    certificates,
+  };
+}
+
+function toEmployeeCourse(
+  course: MyCourseItem,
+  lessonsByCourse: ReadonlyMap<string, EmployeeLessonProgress[]>,
+  certificateByCourse: ReadonlyMap<string, string>,
+): EmployeeCourseProgress {
+  return {
+    id: course.id,
+    slug: course.slug,
+    title: course.title,
+    categoryLabel: course.categoryLabel,
+    levelLabel: course.levelLabel,
+    coverUrl: course.coverUrl,
+    coverAlt: course.coverAlt,
+    status: course.status,
+    progressPercent: course.progressPercent,
+    lessonsLabel: course.lessonsLabel,
+    deadlineLabel: course.deadlineLabel,
+    assignedLabel: course.assignedLabel,
+    message: course.message,
+    certificateId: certificateByCourse.get(course.id) ?? null,
+    lessons: lessonsByCourse.get(course.id) ?? [],
+  };
+}
+
+function toLessonKind(kind: string): LessonKind {
+  if (
+    kind === "video" ||
+    kind === "uploaded_video" ||
+    kind === "quiz" ||
+    kind === "image" ||
+    kind === "document" ||
+    kind === "reading"
+  ) {
+    return kind;
+  }
+  return "reading";
+}
+
+function isCredentialStatus(value: string): value is CredentialStatus {
+  return value === "active" || value === "locked" || value === "pending";
 }

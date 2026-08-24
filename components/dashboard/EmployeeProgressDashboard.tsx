@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
 import {
@@ -64,7 +65,7 @@ export function EmployeeProgressDashboard({
         <h1 className="font-headline-lg text-on-surface">Progreso de empleados</h1>
         <p className="mt-xs max-w-2xl font-body-md text-on-surface-variant">
           Incluye cursos asignados (aunque no se hayan iniciado), plazos y el avance al abrir cada
-          lección.
+          lección. Abre el nombre del empleado para ver su expediente, lecciones y certificados.
         </p>
       </div>
 
@@ -264,13 +265,13 @@ function ProgressRow({ row, striped }: Readonly<{ row: EmployeeProgressRow; stri
       }
     >
       <td className="px-md py-sm">
-        <div className="flex items-center gap-sm">
+        <Link href={`/employees/${row.userId}`} className="flex items-center gap-sm hover:opacity-90">
           <EmployeeAvatarView avatar={row.avatar} />
           <div>
-            <div className="font-label-md text-on-surface">{row.name}</div>
+            <div className="font-label-md text-primary">{row.name}</div>
             <div className="font-label-sm font-normal text-on-surface-variant">{row.email}</div>
           </div>
-        </div>
+        </Link>
       </td>
       <td className="max-w-[200px] truncate px-md py-sm font-body-sm font-medium text-on-surface">
         <div className="truncate">{row.courseTitle}</div>

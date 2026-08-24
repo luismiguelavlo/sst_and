@@ -185,6 +185,7 @@ export async function getCertificateForUser(
     hours: row.hours,
     issuedAt: row.issued_at,
     issuedOnLabel: formatIssuedOn(row.issued_at),
+    recipientUserId: row.user_id,
     recipientName: row.recipient_name,
     recipientJobTitle: row.recipient_job_title,
     courseTitle: row.course_title,

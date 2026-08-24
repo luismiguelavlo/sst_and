@@ -36,6 +36,7 @@ export function isAdminOnlyPath(pathname: string): boolean {
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/invitations") ||
     pathname.startsWith("/assign-courses") ||
+    pathname.startsWith("/employees") ||
     pathname.startsWith("/course-catalog/new") ||
     /^\/course-catalog\/[^/]+\/edit\/?$/.test(pathname)
   );

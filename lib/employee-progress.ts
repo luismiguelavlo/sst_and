@@ -6,6 +6,7 @@ export type EmployeeAvatar =
 
 export type EmployeeProgressRow = {
   id: string;
+  userId: string;
   name: string;
   email: string;
   courseTitle: string;

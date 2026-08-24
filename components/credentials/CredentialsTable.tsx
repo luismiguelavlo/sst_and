@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
 import type { CredentialFilter, UserCredential } from "@/lib/credentials";
@@ -184,7 +185,12 @@ function CredentialRow({
           <span className="font-label-md text-label-md text-on-tertiary-fixed">{item.initials}</span>
         </div>
         <div className="flex min-w-0 flex-col">
-          <span className="truncate font-label-md text-label-md text-on-surface">{item.name}</span>
+          <Link
+            href={`/employees/${item.id}`}
+            className="truncate font-label-md text-label-md text-primary hover:underline"
+          >
+            {item.name}
+          </Link>
           <span className="truncate font-body-sm text-body-sm text-on-surface-variant">
             {item.email}
           </span>
@@ -197,6 +203,13 @@ function CredentialRow({
         <StatusBadge status={item.status} />
       </div>
       <div className="col-span-3 flex items-center justify-end gap-xs">
+        <Link
+          href={`/employees/${item.id}`}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-variant hover:text-primary"
+          title="Ver expediente"
+        >
+          <MaterialIcon name="folder_shared" className="text-[20px]" />
+        </Link>
         {item.status === "locked" ? (
           <button
             className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-variant"

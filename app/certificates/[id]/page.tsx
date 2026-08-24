@@ -45,12 +45,18 @@ export default async function CertificateDetailPage({
   }
 
   const autoPrint = query.print === "1";
+  const viewingOther =
+    user.role === "admin" && certificate.recipientUserId !== user.id;
+  const backHref = viewingOther
+    ? `/employees/${certificate.recipientUserId}`
+    : "/certificates";
+  const backLabel = viewingOther ? "← Expediente del empleado" : "← Mis certificados";
 
   return (
     <div className={`${display.variable} ${body.variable} min-h-screen bg-[#e8eef8] text-[#0d1c2e]`}>
       <div className="certificate-chrome print:hidden mx-auto flex w-full max-w-[1100px] items-center justify-between gap-md px-md py-md">
-        <Link href="/certificates" className="font-label-md text-primary hover:underline">
-          ← Mis certificados
+        <Link href={backHref} className="font-label-md text-primary hover:underline">
+          {backLabel}
         </Link>
         <Link
           href={`/courses/${certificate.courseSlug}`}

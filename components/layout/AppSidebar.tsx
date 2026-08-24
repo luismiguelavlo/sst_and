@@ -75,7 +75,9 @@ export function AppSidebar({ open, onClose, role }: Readonly<AppSidebarProps>) {
                   (pathname.startsWith("/courses/") && !pathname.startsWith("/my-courses"))
                 : item.href === "/my-courses"
                   ? pathname === "/my-courses"
-                  : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                  : item.href === "/dashboard"
+                    ? pathname.startsWith("/dashboard") || pathname.startsWith("/employees")
+                    : pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
               <Link
                 key={item.href}

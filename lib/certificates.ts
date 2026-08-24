@@ -20,6 +20,7 @@ export type CertificateDocument = {
   hours: number;
   issuedAt: Date;
   issuedOnLabel: string;
+  recipientUserId: string;
   recipientName: string;
   recipientJobTitle: string;
   courseTitle: string;
