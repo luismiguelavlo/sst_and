@@ -53,6 +53,7 @@ type ResponseExportRow = {
   topic_selected: string;
   quality_rating: number | null;
   quality_comment: string;
+  signature_data?: string | null;
   custom_answers: unknown;
 };
 
@@ -371,6 +372,7 @@ export async function listAttendanceResponsesForExport(
       r.topic_selected,
       r.quality_rating,
       r.quality_comment,
+      r.signature_data,
       r.custom_answers
     FROM campus_sst.attendance_responses r
     INNER JOIN campus_sst.attendance_forms f ON f.id = r.form_id
@@ -392,6 +394,7 @@ export async function listAttendanceResponsesForExport(
     topicSelected: row.topic_selected,
     qualityRating: row.quality_rating,
     qualityComment: row.quality_comment,
+    signatureData: row.signature_data?.trim() || null,
     customAnswers: parseCustomAnswers(row.custom_answers),
   }));
 }

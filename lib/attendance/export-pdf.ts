@@ -3,6 +3,9 @@ import "server-only";
 import PDFDocument from "pdfkit";
 import type { AttendanceResponseExportRow } from "@/lib/attendance";
 
+const SIGNATURE_MAX_WIDTH = 220;
+const SIGNATURE_MAX_HEIGHT = 70;
+
 export async function responsesToPdf(
   rows: readonly AttendanceResponseExportRow[],
   fieldLabels: Readonly<Record<string, string>> = {},
@@ -45,7 +48,8 @@ export async function responsesToPdf(
     doc.moveDown(0.8);
 
     rows.forEach((row, index) => {
-      ensureSpace(doc, 72);
+      const signatureBuffer = dataUrlToBuffer(row.signatureData);
+      ensureSpace(doc, signatureBuffer ? 150 : 72);
 
       doc.font("Helvetica-Bold").fontSize(11).fillColor("#0d1c2e");
       doc.text(`${index + 1}. ${row.firstName} ${row.lastName}`.trim(), {
@@ -87,6 +91,27 @@ export async function responsesToPdf(
         doc.text(`${label}: ${value}`, { width: contentWidth });
       }
 
+      if (signatureBuffer) {
+        doc.moveDown(0.2);
+        doc.font("Helvetica-Bold").fontSize(9).fillColor("#3d4f5f");
+        doc.text("Firma:", { width: contentWidth });
+        ensureSpace(doc, SIGNATURE_MAX_HEIGHT + 8);
+        const imageX = doc.page.margins.left;
+        const imageY = doc.y;
+        try {
+          doc.image(signatureBuffer, imageX, imageY, {
+            fit: [SIGNATURE_MAX_WIDTH, SIGNATURE_MAX_HEIGHT],
+          });
+          doc.y = imageY + SIGNATURE_MAX_HEIGHT + 4;
+        } catch {
+          doc.font("Helvetica").fontSize(9).fillColor("#8a3a3a");
+          doc.text("(No se pudo renderizar la firma)", { width: contentWidth });
+        }
+      } else if (row.signatureData) {
+        doc.font("Helvetica").fontSize(9).fillColor("#8a3a3a");
+        doc.text("Firma: (formato no compatible)", { width: contentWidth });
+      }
+
       doc.moveDown(0.35);
       const lineY = doc.y;
       doc
@@ -116,5 +141,21 @@ function ensureSpace(doc: PDFKit.PDFDocument, needed: number): void {
   const bottom = doc.page.height - doc.page.margins.bottom;
   if (doc.y + needed > bottom) {
     doc.addPage();
+  }
+}
+
+function dataUrlToBuffer(dataUrl: string | null): Buffer | null {
+  if (!dataUrl) {
+    return null;
+  }
+  const trimmed = dataUrl.trim();
+  const match = /^data:image\/(png|jpe?g);base64,(.+)$/i.exec(trimmed);
+  if (!match?.[2]) {
+    return null;
+  }
+  try {
+    return Buffer.from(match[2], "base64");
+  } catch {
+    return null;
   }
 }

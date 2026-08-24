@@ -104,6 +104,7 @@ export type AttendanceResponseExportRow = {
   topicSelected: string;
   qualityRating: number | null;
   qualityComment: string;
+  signatureData: string | null;
   customAnswers: Record<string, string>;
 };
 
@@ -309,6 +310,7 @@ export function responsesToCsv(
     "tema_visto",
     "calificacion",
     "comentario_calidad",
+    "tiene_firma",
     ...customCols.map((key) => fieldLabels[key] ?? `campo_${key}`),
   ];
   const lines = [
@@ -328,6 +330,7 @@ export function responsesToCsv(
         csvCell(row.topicSelected),
         csvCell(row.qualityRating === null ? "" : String(row.qualityRating)),
         csvCell(row.qualityComment),
+        csvCell(row.signatureData ? "si" : "no"),
         ...customCols.map((key) => csvCell(row.customAnswers[key] ?? "")),
       ].join(","),
     ),
