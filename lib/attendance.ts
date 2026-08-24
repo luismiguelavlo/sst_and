@@ -129,7 +129,7 @@ export const FIXED_FIELD_COUNT = 8;
 
 export const ATTENDANCE_COMPANIES = [
   "Grupo Manzanares",
-  "Dinámicas Raíces",
+  "Bienes Raíces Santander",
   "Promotora de Inversiones El Cerro",
   "Osya",
 ] as const;
