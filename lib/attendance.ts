@@ -107,6 +107,23 @@ export type AttendanceResponseExportRow = {
   customAnswers: Record<string, string>;
 };
 
+export type AttendanceResponseListItem = {
+  id: string;
+  source: "assigned" | "public";
+  firstName: string;
+  lastName: string;
+  cedula: string;
+  jobTitle: string;
+  company: string;
+  topicSelected: string;
+  qualityRating: number | null;
+  qualityComment: string;
+  submittedAtLabel: string;
+  userEmail: string | null;
+  userName: string | null;
+  customAnswers: Record<string, string>;
+};
+
 /** Campos fijos que siempre aparecen al diligenciar (sin contar calidad/firma). */
 export const FIXED_FIELD_COUNT = 8;
 

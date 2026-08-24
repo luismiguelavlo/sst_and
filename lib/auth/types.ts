@@ -32,7 +32,11 @@ export function homePathForRole(role: AppRole): string {
 }
 
 export function isPublicPath(pathname: string): boolean {
-  return pathname === "/a" || pathname.startsWith("/a/");
+  return (
+    pathname === "/a" ||
+    pathname.startsWith("/a/") ||
+    pathname === "/api/attendance/public-submit"
+  );
 }
 
 export function isAdminOnlyPath(pathname: string): boolean {

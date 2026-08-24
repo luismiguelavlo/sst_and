@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
 import { useToast } from "@/components/ui/ToastProvider";
-import { submitAttendanceFormAction, submitPublicAttendanceFormAction } from "@/lib/attendance/actions";
+import { submitAttendanceFormAction } from "@/lib/attendance/actions";
 import {
   ATTENDANCE_COMPANIES,
   type AttendanceFormForFill,
@@ -62,23 +62,47 @@ export function AttendanceFillForm({
       qualityComment: form.enableQualityRating ? qualityComment : "",
       signatureData: form.enableSignature ? signatureData : null,
     };
-    const result =
-      mode === "public"
-        ? await submitPublicAttendanceFormAction(payload)
-        : await submitAttendanceFormAction(payload);
-    setBusy(false);
-    if (!result.ok) {
-      showToast(result.error, { variant: "error" });
-      return;
-    }
-    if (mode === "public") {
-      setDone(true);
+
+    try {
+      if (mode === "public") {
+        const response = await fetch("/api/attendance/public-submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        let result: { ok: boolean; error?: string } = { ok: false, error: "No se pudo enviar." };
+        try {
+          result = (await response.json()) as { ok: boolean; error?: string };
+        } catch {
+          result = {
+            ok: false,
+            error: response.ok
+              ? "Respuesta inválida del servidor."
+              : `Error al enviar (${response.status}). Intenta de nuevo.`,
+          };
+        }
+        if (!result.ok) {
+          showToast(result.error ?? "No se pudo enviar el formulario.", { variant: "error" });
+          return;
+        }
+        setDone(true);
+        showToast("Asistencia registrada. Gracias.");
+        return;
+      }
+
+      const result = await submitAttendanceFormAction(payload);
+      if (!result.ok) {
+        showToast(result.error, { variant: "error" });
+        return;
+      }
       showToast("Asistencia registrada. Gracias.");
-      return;
+      router.push("/my-attendance");
+      router.refresh();
+    } catch {
+      showToast("No se pudo enviar. Revisa tu conexión e intenta de nuevo.", { variant: "error" });
+    } finally {
+      setBusy(false);
     }
-    showToast("Asistencia registrada. Gracias.");
-    router.push("/my-attendance");
-    router.refresh();
   }
 
   if (done) {
@@ -326,6 +350,8 @@ function SignaturePad({ onChange }: Readonly<{ onChange: (value: string | null) 
       return;
     }
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, width, height);
     ctx.lineWidth = 2;
     ctx.lineCap = "round";
     ctx.strokeStyle = "#142175";
@@ -377,7 +403,7 @@ function SignaturePad({ onChange }: Readonly<{ onChange: (value: string | null) 
     if (!canvas) {
       return;
     }
-    onChange(canvas.toDataURL("image/png"));
+    onChange(canvas.toDataURL("image/jpeg", 0.72));
   }
 
   function clear() {
@@ -390,6 +416,13 @@ function SignaturePad({ onChange }: Readonly<{ onChange: (value: string | null) 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.restore();
+    const ratio = window.devicePixelRatio || 1;
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.clientWidth || 560, 140);
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#142175";
     onChange(null);
   }
 

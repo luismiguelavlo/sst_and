@@ -208,7 +208,7 @@ export async function submitAttendanceFormAction(
   }
 }
 
-/** Envío público por enlace compartido (sin sesión). */
+/** Envío público por enlace compartido (sin sesión). Preferir /api/attendance/public-submit. */
 export async function submitPublicAttendanceFormAction(
   input: AttendanceSubmissionInput,
 ): Promise<AttendanceSubmitResult> {
@@ -224,8 +224,6 @@ export async function submitPublicAttendanceFormAction(
 
   try {
     await submitAttendanceResponse(null, normalizeSubmission(form, input));
-    revalidatePath("/attendance-forms");
-    revalidatePath("/assign-attendance");
     return { ok: true };
   } catch (caught) {
     return {

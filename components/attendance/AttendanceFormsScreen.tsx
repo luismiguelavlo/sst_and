@@ -387,19 +387,42 @@ export function AttendanceFormsScreen({
                       <td className="p-md text-right">
                         <div className="flex items-center justify-end gap-xs">
                           {isActive ? (
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-xs rounded-lg bg-primary/10 px-sm py-xs font-label-sm text-primary transition-colors hover:bg-primary/15"
-                              aria-label="Copiar enlace público"
-                              title="Copiar enlace público"
-                              onClick={() => {
-                                void copyShareLink(form);
-                              }}
+                            <>
+                              <Link
+                                href={`/attendance-forms/${form.id}/responses`}
+                                className="inline-flex items-center gap-xs rounded-lg bg-surface-container px-sm py-xs font-label-sm text-on-surface transition-colors hover:bg-surface-container-high"
+                                title="Ver respuestas"
+                              >
+                                <MaterialIcon name="group" className="text-[18px]" />
+                                <span className="hidden sm:inline">
+                                  Respuestas ({form.responseCount})
+                                </span>
+                              </Link>
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-xs rounded-lg bg-primary/10 px-sm py-xs font-label-sm text-primary transition-colors hover:bg-primary/15"
+                                aria-label="Copiar enlace público"
+                                title="Copiar enlace público"
+                                onClick={() => {
+                                  void copyShareLink(form);
+                                }}
+                              >
+                                <MaterialIcon name="link" className="text-[18px]" />
+                                <span className="hidden sm:inline">Copiar enlace</span>
+                              </button>
+                            </>
+                          ) : (
+                            <Link
+                              href={`/attendance-forms/${form.id}/responses`}
+                              className="inline-flex items-center gap-xs rounded-lg bg-surface-container px-sm py-xs font-label-sm text-on-surface transition-colors hover:bg-surface-container-high"
+                              title="Ver respuestas"
                             >
-                              <MaterialIcon name="link" className="text-[18px]" />
-                              <span className="hidden sm:inline">Copiar enlace</span>
-                            </button>
-                          ) : null}
+                              <MaterialIcon name="group" className="text-[18px]" />
+                              <span className="hidden sm:inline">
+                                Respuestas ({form.responseCount})
+                              </span>
+                            </Link>
+                          )}
                           <div className="flex items-center justify-end gap-xs opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
                           <Link
                             href={`/assign-attendance?formId=${form.id}`}

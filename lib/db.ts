@@ -21,6 +21,8 @@ export function getSql() {
   if (!globalForSql.campusSql) {
     globalForSql.campusSql = postgres(url, {
       max: 10,
+      connect_timeout: 15,
+      idle_timeout: 20,
       ssl: sslForUrl(url),
     });
   }

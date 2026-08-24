@@ -15,6 +15,7 @@ import {
   type AttendanceFormStatus,
   type AttendancePendingItem,
   type AttendanceResponseExportRow,
+  type AttendanceResponseListItem,
   type AttendanceSubmissionInput,
 } from "@/lib/attendance";
 
@@ -391,6 +392,57 @@ export async function listAttendanceResponsesForExport(
     topicSelected: row.topic_selected,
     qualityRating: row.quality_rating,
     qualityComment: row.quality_comment,
+    customAnswers: parseCustomAnswers(row.custom_answers),
+  }));
+}
+
+export async function listAttendanceResponsesForForm(
+  formId: string,
+): Promise<AttendanceResponseListItem[]> {
+  if (!UUID_PATTERN.test(formId)) {
+    return [];
+  }
+  const sql = getSql();
+  const rows = await sql<
+    (ResponseExportRow & { id: string; user_id: string | null })[]
+  >`
+    SELECT
+      r.id::text,
+      r.form_id::text,
+      f.title AS form_title,
+      r.submitted_at,
+      r.user_id::text AS user_id,
+      u.email AS user_email,
+      u.name AS user_name,
+      r.first_name,
+      r.last_name,
+      r.cedula,
+      r.job_title,
+      r.company,
+      r.topic_selected,
+      r.quality_rating,
+      r.quality_comment,
+      r.custom_answers
+    FROM campus_sst.attendance_responses r
+    INNER JOIN campus_sst.attendance_forms f ON f.id = r.form_id
+    LEFT JOIN campus_sst.users u ON u.id = r.user_id
+    WHERE r.form_id = ${formId}::uuid
+    ORDER BY r.submitted_at DESC
+  `;
+  return rows.map((row) => ({
+    id: row.id,
+    source: row.user_id ? "assigned" : "public",
+    firstName: row.first_name,
+    lastName: row.last_name,
+    cedula: row.cedula,
+    jobTitle: row.job_title,
+    company: row.company,
+    topicSelected: row.topic_selected,
+    qualityRating: row.quality_rating,
+    qualityComment: row.quality_comment,
+    submittedAtLabel: formatDateTime(row.submitted_at),
+    userEmail: row.user_email,
+    userName: row.user_name,
     customAnswers: parseCustomAnswers(row.custom_answers),
   }));
 }
