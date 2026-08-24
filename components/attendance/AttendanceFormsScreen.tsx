@@ -160,6 +160,13 @@ export function AttendanceFormsScreen({
             Filtros Avanzados
           </button>
           <Link
+            href="/assign-attendance"
+            className="flex items-center gap-xs rounded-lg bg-surface-container-high px-md py-sm font-label-md text-on-surface shadow-sm transition-all hover:bg-surface-container-highest"
+          >
+            <MaterialIcon name="group_add" className="text-[20px]" />
+            Asignar
+          </Link>
+          <Link
             href="/attendance-forms/new"
             className="flex items-center gap-xs rounded-lg bg-secondary-container px-md py-sm font-label-md text-on-secondary-container shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
           >
@@ -340,6 +347,9 @@ export function AttendanceFormsScreen({
                       <td className="p-md text-right">
                         <div className="inline-flex items-center gap-xs rounded-full bg-surface-container px-2 py-1">
                           <span className="font-label-md text-on-surface">{form.responseCount}</span>
+                          <span className="font-body-sm text-on-surface-variant">
+                            / {form.assigneeCount}
+                          </span>
                         </div>
                         <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-container-highest">
                           <div
@@ -376,6 +386,14 @@ export function AttendanceFormsScreen({
                       </td>
                       <td className="p-md text-right">
                         <div className="flex items-center justify-end gap-xs opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
+                          <Link
+                            href={`/assign-attendance?formId=${form.id}`}
+                            className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary"
+                            aria-label="Asignar empleados"
+                            title="Asignar empleados"
+                          >
+                            <MaterialIcon name="group_add" className="text-[20px]" />
+                          </Link>
                           <Link
                             href={`/attendance-forms/${form.id}/edit`}
                             className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary"

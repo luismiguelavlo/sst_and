@@ -7,17 +7,21 @@ import {
   responsesToCsv,
   validateAttendanceDraft,
   validateAttendanceSubmission,
+  type AttendanceActiveAssignment,
   type AttendanceFormDraft,
   type AttendanceFormListItem,
   type AttendanceSubmissionInput,
 } from "@/lib/attendance";
 import {
   createAttendanceForm,
+  createAttendanceFormAssignments,
   deleteAttendanceForm,
+  deleteAttendanceFormAssignment,
   getAttendanceForm,
   getPublishedAttendanceFormForFill,
   hasUserSubmittedAttendanceForm,
-  listActiveWorkerUserIds,
+  isUserAssignedToAttendanceForm,
+  listActiveAttendanceAssignments,
   listAttendanceForms,
   listAttendanceResponsesForExport,
   submitAttendanceResponse,
@@ -37,6 +41,14 @@ export type AttendanceExportResult =
   | { ok: true; csv: string; fileName: string }
   | { ok: false; error: string };
 
+export type AssignAttendanceResult =
+  | { ok: true; created: number; active: AttendanceActiveAssignment[] }
+  | { ok: false; error: string };
+
+export type UnassignAttendanceResult =
+  | { ok: true; active: AttendanceActiveAssignment[] }
+  | { ok: false; error: string };
+
 export async function saveAttendanceFormAction(
   input: AttendanceFormDraft,
 ): Promise<AttendanceActionResult> {
@@ -47,28 +59,14 @@ export async function saveAttendanceFormAction(
   }
 
   try {
-    const previous = input.id ? await getAttendanceForm(input.id) : null;
-    const wasPublished = previous?.status === "published";
     const saved = input.id
       ? await updateAttendanceForm(input.id, input)
       : await createAttendanceForm(input, admin.id);
 
-    if (input.status === "published" && !wasPublished) {
-      const workerIds = await listActiveWorkerUserIds();
-      if (workerIds.length > 0) {
-        await notifyAttendanceFormPublished({
-          formId: saved.id,
-          formTitle: input.title,
-          createdBy: admin.id,
-          userIds: workerIds,
-        });
-      }
-    }
-
     revalidatePath("/attendance-forms");
     revalidatePath(`/attendance-forms/${saved.id}/edit`);
+    revalidatePath("/assign-attendance");
     revalidatePath("/my-attendance");
-    revalidatePath("/notifications");
     return { ok: true, id: saved.id };
   } catch (caught) {
     return {
@@ -83,6 +81,7 @@ export async function deleteAttendanceFormAction(id: string): Promise<Attendance
   try {
     await deleteAttendanceForm(id);
     revalidatePath("/attendance-forms");
+    revalidatePath("/assign-attendance");
     revalidatePath("/my-attendance");
     return { ok: true };
   } catch (caught) {
@@ -106,6 +105,68 @@ export async function loadAttendanceFormAction(id: string): Promise<AttendanceFo
   return getAttendanceForm(id);
 }
 
+export async function assignAttendanceFormsAction(input: {
+  formIds: readonly string[];
+  userIds: readonly string[];
+}): Promise<AssignAttendanceResult> {
+  const admin = await requireAdmin();
+  try {
+    const result = await createAttendanceFormAssignments({
+      formIds: input.formIds,
+      userIds: input.userIds,
+      assignedBy: admin.id,
+    });
+
+    for (const formId of result.notifiedFormIds) {
+      const form = await getAttendanceForm(formId);
+      if (!form) {
+        continue;
+      }
+      try {
+        await notifyAttendanceFormPublished({
+          formId,
+          formTitle: form.title,
+          createdBy: admin.id,
+          userIds: input.userIds,
+        });
+      } catch {
+        // La asignación ya quedó; las alertas no deben revertirla.
+      }
+    }
+
+    revalidatePath("/assign-attendance");
+    revalidatePath("/attendance-forms");
+    revalidatePath("/my-attendance");
+    revalidatePath("/notifications");
+    const active = await listActiveAttendanceAssignments();
+    return { ok: true, created: result.created, active };
+  } catch (caught) {
+    return {
+      ok: false,
+      error: caught instanceof Error ? caught.message : "No se pudo asignar el formulario.",
+    };
+  }
+}
+
+export async function unassignAttendanceFormAction(
+  assignmentId: string,
+): Promise<UnassignAttendanceResult> {
+  await requireAdmin();
+  try {
+    await deleteAttendanceFormAssignment(assignmentId);
+    revalidatePath("/assign-attendance");
+    revalidatePath("/attendance-forms");
+    revalidatePath("/my-attendance");
+    const active = await listActiveAttendanceAssignments();
+    return { ok: true, active };
+  } catch (caught) {
+    return {
+      ok: false,
+      error: caught instanceof Error ? caught.message : "No se pudo quitar la asignación.",
+    };
+  }
+}
+
 export async function submitAttendanceFormAction(
   input: AttendanceSubmissionInput,
 ): Promise<AttendanceSubmitResult> {
@@ -117,6 +178,10 @@ export async function submitAttendanceFormAction(
   const form = await getPublishedAttendanceFormForFill(input.formId);
   if (!form) {
     return { ok: false, error: "El formulario no está disponible." };
+  }
+
+  if (!(await isUserAssignedToAttendanceForm(form.id, user.id))) {
+    return { ok: false, error: "Este formulario no te fue asignado." };
   }
 
   if (await hasUserSubmittedAttendanceForm(form.id, user.id)) {
@@ -139,6 +204,7 @@ export async function submitAttendanceFormAction(
     revalidatePath("/my-attendance");
     revalidatePath(`/my-attendance/${form.id}`);
     revalidatePath("/attendance-forms");
+    revalidatePath("/assign-attendance");
     return { ok: true };
   } catch (caught) {
     return {

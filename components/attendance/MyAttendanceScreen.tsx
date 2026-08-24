@@ -12,7 +12,7 @@ export function MyAttendanceScreen({
       <header className="space-y-xs">
         <h1 className="font-display-lg tracking-tight text-on-surface">Formularios de asistencia</h1>
         <p className="max-w-2xl font-body-lg text-on-surface-variant">
-          Solo aparecen los formularios publicados que aún no has diligenciado.
+          Solo aparecen los formularios que te asignaron y que aún no has diligenciado.
         </p>
       </header>
 

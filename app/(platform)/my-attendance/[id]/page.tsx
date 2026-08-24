@@ -7,6 +7,7 @@ import { homePathForRole } from "@/lib/auth/types";
 import {
   getPublishedAttendanceFormForFill,
   hasUserSubmittedAttendanceForm,
+  isUserAssignedToAttendanceForm,
 } from "@/lib/attendance/repository";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,10 @@ export default async function FillAttendancePage({ params }: PageProps) {
   const form = await getPublishedAttendanceFormForFill(id);
   if (!form) {
     notFound();
+  }
+
+  if (!(await isUserAssignedToAttendanceForm(form.id, user.id))) {
+    redirect("/my-attendance");
   }
 
   if (await hasUserSubmittedAttendanceForm(form.id, user.id)) {

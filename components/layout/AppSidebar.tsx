@@ -18,6 +18,7 @@ const NAV_ITEMS: readonly {
   { href: "/course-catalog", label: "Cursos SST", icon: "library_books", roles: ["admin", "user"] },
   { href: "/assign-courses", label: "Asignar cursos", icon: "assignment_ind", roles: ["admin"] },
   { href: "/attendance-forms", label: "Asistencia", icon: "fact_check", roles: ["admin"] },
+  { href: "/assign-attendance", label: "Asignar asistencia", icon: "group_add", roles: ["admin"] },
   { href: "/my-attendance", label: "Asistencia", icon: "fact_check", roles: ["user"] },
   { href: "/notifications", label: "Notificaciones", icon: "notifications", roles: ["admin", "user"] },
   { href: "/certificates", label: "Mis certificados", icon: "workspace_premium", roles: ["admin", "user"] },

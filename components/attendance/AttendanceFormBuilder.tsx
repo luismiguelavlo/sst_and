@@ -123,6 +123,13 @@ export function AttendanceFormBuilder({ initialDraft }: AttendanceFormBuilderPro
           </button>
         </div>
       </div>
+      <p className="rounded-lg bg-surface-container-high px-md py-sm font-body-sm text-on-surface-variant">
+        Publicar deja el formulario listo. Luego asígnalo a empleados en{" "}
+        <a href="/assign-attendance" className="font-label-md text-primary hover:underline">
+          Asignar asistencia
+        </a>
+        ; solo ellos lo verán y recibirán la notificación.
+      </p>
 
       <div className="grid grid-cols-1 gap-md lg:grid-cols-3">
         <div className="space-y-md lg:col-span-2">

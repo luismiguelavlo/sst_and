@@ -99,6 +99,11 @@ async function main() {
   await sql.unsafe(migrateUploadedVideo);
   const migrateAttendanceForms = readFileSync(join(root, "db/migrate-attendance-forms.sql"), "utf8");
   await sql.unsafe(migrateAttendanceForms);
+  const migrateAttendanceAssignments = readFileSync(
+    join(root, "db/migrate-attendance-assignments.sql"),
+    "utf8",
+  );
+  await sql.unsafe(migrateAttendanceAssignments);
 
   for (const user of seeds) {
     const { hash, salt } = hashPassword(user.password);

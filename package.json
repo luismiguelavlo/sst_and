@@ -9,7 +9,8 @@
     "lint": "eslint",
     "db:up": "podman-compose up -d",
     "db:down": "podman-compose down",
-    "db:setup": "node --env-file=.env.local scripts/setup-db.mjs"
+    "db:setup": "node --env-file=.env.local scripts/setup-db.mjs",
+    "db:migrate-attendance": "node --env-file=.env.local scripts/migrate-attendance.mjs"
   },
   "dependencies": {
     "cloudinary": "^2.10.0",

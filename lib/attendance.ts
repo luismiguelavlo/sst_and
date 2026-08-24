@@ -35,7 +35,24 @@ export type AttendanceFormListItem = {
   status: AttendanceFormStatus;
   fieldCount: number;
   responseCount: number;
+  assigneeCount: number;
   updatedAtLabel: string;
+};
+
+export type AttendanceAssignableForm = {
+  id: string;
+  title: string;
+  meta: string;
+};
+
+export type AttendanceActiveAssignment = {
+  id: string;
+  formId: string;
+  formTitle: string;
+  employeeName: string;
+  employeeEmail: string;
+  assignedAt: string;
+  submitted: boolean;
 };
 
 export type AttendancePendingItem = {

@@ -6,6 +6,8 @@ import {
   isCustomFieldType,
   normalizeTopicOptions,
   topicSummary,
+  type AttendanceActiveAssignment,
+  type AttendanceAssignableForm,
   type AttendanceCustomField,
   type AttendanceFormDraft,
   type AttendanceFormForFill,
@@ -33,6 +35,7 @@ type FormRow = {
   created_at: Date;
   updated_at: Date;
   response_count?: number;
+  assignee_count?: number;
 };
 
 type ResponseExportRow = {
@@ -68,13 +71,19 @@ export async function listAttendanceForms(): Promise<AttendanceFormListItem[]> {
       f.status,
       f.created_at,
       f.updated_at,
-      coalesce(r.response_count, 0)::int AS response_count
+      coalesce(r.response_count, 0)::int AS response_count,
+      coalesce(a.assignee_count, 0)::int AS assignee_count
     FROM campus_sst.attendance_forms f
     LEFT JOIN (
       SELECT form_id, count(*)::int AS response_count
       FROM campus_sst.attendance_responses
       GROUP BY form_id
     ) r ON r.form_id = f.id
+    LEFT JOIN (
+      SELECT form_id, count(*)::int AS assignee_count
+      FROM campus_sst.attendance_form_assignments
+      GROUP BY form_id
+    ) a ON a.form_id = f.id
     ORDER BY f.updated_at DESC
   `;
   return rows.filter((row) => isAttendanceFormStatus(row.status)).map(toListItem);
@@ -164,13 +173,15 @@ export async function listPendingAttendanceFormsForUser(
       f.created_at,
       f.updated_at
     FROM campus_sst.attendance_forms f
+    INNER JOIN campus_sst.attendance_form_assignments a
+      ON a.form_id = f.id AND a.user_id = ${userId}::uuid
     WHERE f.status = 'published'
       AND NOT EXISTS (
         SELECT 1
         FROM campus_sst.attendance_responses r
         WHERE r.form_id = f.id AND r.user_id = ${userId}::uuid
       )
-    ORDER BY f.updated_at DESC
+    ORDER BY a.created_at DESC
   `;
   return pending.map((row) => ({
     id: row.id,
@@ -180,6 +191,24 @@ export async function listPendingAttendanceFormsForUser(
     eventDateLabel: row.event_date ? formatDate(row.event_date) : "Sin fecha",
     createdAtLabel: formatDate(row.created_at),
   }));
+}
+
+export async function isUserAssignedToAttendanceForm(
+  formId: string,
+  userId: string,
+): Promise<boolean> {
+  if (!UUID_PATTERN.test(formId) || !UUID_PATTERN.test(userId)) {
+    return false;
+  }
+  const sql = getSql();
+  const rows = await sql<{ exists: boolean }[]>`
+    SELECT EXISTS (
+      SELECT 1
+      FROM campus_sst.attendance_form_assignments
+      WHERE form_id = ${formId}::uuid AND user_id = ${userId}::uuid
+    ) AS exists
+  `;
+  return Boolean(rows[0]?.exists);
 }
 
 export async function hasUserSubmittedAttendanceForm(
@@ -373,6 +402,144 @@ export async function listActiveWorkerUserIds(): Promise<string[]> {
   return rows.map((row) => row.id);
 }
 
+export async function listAssignableAttendanceForms(): Promise<AttendanceAssignableForm[]> {
+  const sql = getSql();
+  const rows = await sql<
+    { id: string; title: string; topic: string; topic_options: unknown; event_date: Date | null }[]
+  >`
+    SELECT
+      id::text,
+      title,
+      topic,
+      topic_options,
+      event_date
+    FROM campus_sst.attendance_forms
+    WHERE status = 'published'
+    ORDER BY updated_at DESC
+  `;
+  return rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    meta: [
+      topicSummary(parseTopicOptions(row.topic_options, row.topic)),
+      row.event_date ? formatDate(row.event_date) : "Sin fecha",
+    ].join(" · "),
+  }));
+}
+
+export async function createAttendanceFormAssignments(input: {
+  formIds: readonly string[];
+  userIds: readonly string[];
+  assignedBy: string;
+}): Promise<{ created: number; notifiedFormIds: string[] }> {
+  const formIds = [...new Set(input.formIds.filter((id) => UUID_PATTERN.test(id)))];
+  const userIds = [...new Set(input.userIds.filter((id) => UUID_PATTERN.test(id)))];
+  if (formIds.length === 0) {
+    throw new Error("Selecciona al menos un formulario publicado.");
+  }
+  if (userIds.length === 0) {
+    throw new Error("Selecciona al menos un empleado.");
+  }
+  if (!UUID_PATTERN.test(input.assignedBy)) {
+    throw new Error("Administrador inválido.");
+  }
+
+  const sql = getSql();
+  const published = await sql<{ id: string }[]>`
+    SELECT id::text
+    FROM campus_sst.attendance_forms
+    WHERE status = 'published' AND id IN ${sql(formIds)}
+  `;
+  const validFormIds = published.map((row) => row.id);
+  if (validFormIds.length === 0) {
+    throw new Error("Solo se pueden asignar formularios publicados.");
+  }
+
+  let created = 0;
+  const notifiedFormIds = new Set<string>();
+  await sql.begin(async (tx) => {
+    for (const formId of validFormIds) {
+      for (const userId of userIds) {
+        const rows = await tx<{ id: string }[]>`
+          INSERT INTO campus_sst.attendance_form_assignments (
+            form_id, user_id, assigned_by
+          )
+          VALUES (
+            ${formId}::uuid,
+            ${userId}::uuid,
+            ${input.assignedBy}::uuid
+          )
+          ON CONFLICT (form_id, user_id) DO NOTHING
+          RETURNING id::text
+        `;
+        if (rows[0]) {
+          created += 1;
+          notifiedFormIds.add(formId);
+        }
+      }
+    }
+  });
+
+  return { created, notifiedFormIds: [...notifiedFormIds] };
+}
+
+export async function listActiveAttendanceAssignments(): Promise<AttendanceActiveAssignment[]> {
+  const sql = getSql();
+  const rows = await sql<
+    {
+      id: string;
+      form_id: string;
+      form_title: string;
+      employee_name: string;
+      employee_email: string;
+      created_at: Date;
+      submitted: boolean;
+    }[]
+  >`
+    SELECT
+      a.id::text,
+      a.form_id::text,
+      f.title AS form_title,
+      u.name AS employee_name,
+      u.email AS employee_email,
+      a.created_at,
+      EXISTS (
+        SELECT 1
+        FROM campus_sst.attendance_responses r
+        WHERE r.form_id = a.form_id AND r.user_id = a.user_id
+      ) AS submitted
+    FROM campus_sst.attendance_form_assignments a
+    INNER JOIN campus_sst.attendance_forms f ON f.id = a.form_id
+    INNER JOIN campus_sst.users u ON u.id = a.user_id
+    ORDER BY a.created_at DESC
+    LIMIT 80
+  `;
+  return rows.map((row) => ({
+    id: row.id,
+    formId: row.form_id,
+    formTitle: row.form_title,
+    employeeName: row.employee_name,
+    employeeEmail: row.employee_email,
+    assignedAt: formatDateTime(row.created_at),
+    submitted: row.submitted,
+  }));
+}
+
+export async function deleteAttendanceFormAssignment(assignmentId: string): Promise<void> {
+  if (!UUID_PATTERN.test(assignmentId)) {
+    throw new Error("Asignación inválida.");
+  }
+  const sql = getSql();
+  const rows = await sql<{ id: string }[]>`
+    DELETE FROM campus_sst.attendance_form_assignments
+    WHERE id = ${assignmentId}::uuid
+    RETURNING id::text
+  `;
+  if (!rows[0]) {
+    throw new Error("La asignación no existe.");
+  }
+}
+
 function toListItem(row: FormRow): AttendanceFormListItem {
   const fields = parseCustomFields(row.custom_fields);
   const topics = parseTopicOptions(row.topic_options, row.topic);
@@ -389,6 +556,7 @@ function toListItem(row: FormRow): AttendanceFormListItem {
     status: row.status as AttendanceFormStatus,
     fieldCount: 8 + fields.length + extras,
     responseCount: row.response_count ?? 0,
+    assigneeCount: row.assignee_count ?? 0,
     updatedAtLabel: formatDateTime(row.updated_at),
   };
 }
