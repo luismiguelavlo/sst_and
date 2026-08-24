@@ -5,7 +5,8 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
 import { useToast } from "@/components/ui/ToastProvider";
-import { deleteAttendanceFormAction, exportAttendanceResponsesAction } from "@/lib/attendance/actions";
+import { deleteAttendanceFormAction, exportAttendanceResponsesAction, type AttendanceExportFormat } from "@/lib/attendance/actions";
+import { downloadBase64File, downloadTextFile } from "@/lib/attendance/download-export";
 import type { AttendanceFormListItem, AttendanceFormStatus } from "@/lib/attendance";
 
 const PAGE_SIZE = 8;
@@ -116,22 +117,21 @@ export function AttendanceFormsScreen({
     }
   }
 
-  async function exportSelected() {
+  async function exportSelected(format: AttendanceExportFormat) {
     if (selected.length === 0) {
       return;
     }
-    const result = await exportAttendanceResponsesAction(selected);
+    const result = await exportAttendanceResponsesAction(selected, format);
     if (!result.ok) {
       showToast(result.error, { variant: "error" });
       return;
     }
-    const blob = new Blob([result.csv], { type: "text/csv;charset=utf-8" });
-    const href = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = href;
-    anchor.download = result.fileName;
-    anchor.click();
-    URL.revokeObjectURL(href);
+    if (result.format === "pdf") {
+      downloadBase64File(result.pdfBase64, result.fileName, "application/pdf");
+      showToast("PDF descargado.");
+      return;
+    }
+    downloadTextFile(result.csv, result.fileName, "text/csv;charset=utf-8");
     showToast("Resultados descargados (Excel/CSV).");
   }
 
@@ -176,13 +176,29 @@ export function AttendanceFormsScreen({
           <button
             type="button"
             disabled={selected.length === 0}
+            className="group flex items-center gap-xs rounded-lg bg-surface-container-high px-md py-sm font-label-md text-on-surface shadow-sm transition-all hover:bg-surface-container-highest disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => {
+              void exportSelected("pdf");
+            }}
+          >
+            <MaterialIcon name="picture_as_pdf" className="text-[20px]" />
+            Descargar PDF
+            {selected.length > 0 ? (
+              <span className="ml-xs rounded-full bg-surface-container-highest px-2 py-0.5 text-[10px] font-bold text-on-surface">
+                {selected.length}
+              </span>
+            ) : null}
+          </button>
+          <button
+            type="button"
+            disabled={selected.length === 0}
             className="group flex items-center gap-xs rounded-lg bg-primary px-lg py-sm font-label-md text-on-primary shadow-md transition-all hover:-translate-y-0.5 hover:bg-primary-container hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-sm disabled:transform-none"
             onClick={() => {
-              void exportSelected();
+              void exportSelected("csv");
             }}
           >
             <MaterialIcon name="download" className="text-[20px]" />
-            Descargar Resultados (Excel)
+            Descargar Excel
             {selected.length > 0 ? (
               <span className="ml-xs rounded-full bg-on-primary px-2 py-0.5 text-[10px] font-bold text-primary">
                 {selected.length}

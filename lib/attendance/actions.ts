@@ -12,6 +12,7 @@ import {
   type AttendanceFormListItem,
   type AttendanceSubmissionInput,
 } from "@/lib/attendance";
+import { responsesToPdf } from "@/lib/attendance/export-pdf";
 import {
   createAttendanceForm,
   createAttendanceFormAssignments,
@@ -37,8 +38,11 @@ export type AttendanceDeleteResult = { ok: true } | { ok: false; error: string }
 
 export type AttendanceSubmitResult = { ok: true } | { ok: false; error: string };
 
+export type AttendanceExportFormat = "csv" | "pdf";
+
 export type AttendanceExportResult =
-  | { ok: true; csv: string; fileName: string }
+  | { ok: true; format: "csv"; csv: string; fileName: string }
+  | { ok: true; format: "pdf"; pdfBase64: string; fileName: string }
   | { ok: false; error: string };
 
 export type AssignAttendanceResult =
@@ -248,6 +252,7 @@ function normalizeSubmission(
 
 export async function exportAttendanceResponsesAction(
   formIds: readonly string[],
+  format: AttendanceExportFormat = "csv",
 ): Promise<AttendanceExportResult> {
   await requireAdmin();
   if (formIds.length === 0) {
@@ -268,10 +273,21 @@ export async function exportAttendanceResponsesAction(
         fieldLabels[field.id] = field.label;
       }
     }
+    const stamp = new Date().toISOString().slice(0, 10);
+    if (format === "pdf") {
+      const pdf = await responsesToPdf(rows, fieldLabels);
+      return {
+        ok: true,
+        format: "pdf",
+        pdfBase64: pdf.toString("base64"),
+        fileName: `asistencia-respuestas-${stamp}.pdf`,
+      };
+    }
     return {
       ok: true,
+      format: "csv",
       csv: responsesToCsv(rows, fieldLabels),
-      fileName: `asistencia-respuestas-${new Date().toISOString().slice(0, 10)}.csv`,
+      fileName: `asistencia-respuestas-${stamp}.csv`,
     };
   } catch (caught) {
     return {

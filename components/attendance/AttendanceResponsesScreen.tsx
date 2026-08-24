@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
 import { useToast } from "@/components/ui/ToastProvider";
-import { exportAttendanceResponsesAction } from "@/lib/attendance/actions";
+import {
+  exportAttendanceResponsesAction,
+  type AttendanceExportFormat,
+} from "@/lib/attendance/actions";
+import { downloadBase64File, downloadTextFile } from "@/lib/attendance/download-export";
 import type {
   AttendanceCustomField,
   AttendanceFormDraft,
@@ -22,22 +26,21 @@ export function AttendanceResponsesScreen({
     form.customFields.map((field: AttendanceCustomField) => [field.id, field.label]),
   );
 
-  async function downloadExcel() {
+  async function downloadExport(format: AttendanceExportFormat) {
     if (!form.id) {
       return;
     }
-    const result = await exportAttendanceResponsesAction([form.id]);
+    const result = await exportAttendanceResponsesAction([form.id], format);
     if (!result.ok) {
       showToast(result.error, { variant: "error" });
       return;
     }
-    const blob = new Blob([result.csv], { type: "text/csv;charset=utf-8" });
-    const href = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = href;
-    anchor.download = result.fileName;
-    anchor.click();
-    URL.revokeObjectURL(href);
+    if (result.format === "pdf") {
+      downloadBase64File(result.pdfBase64, result.fileName, "application/pdf");
+      showToast("PDF descargado.");
+      return;
+    }
+    downloadTextFile(result.csv, result.fileName, "text/csv;charset=utf-8");
     showToast("Resultados descargados (Excel/CSV).");
   }
 
@@ -59,17 +62,30 @@ export function AttendanceResponsesScreen({
             formulario (empleados asignados y enlace público).
           </p>
         </div>
-        <button
-          type="button"
-          disabled={responses.length === 0}
-          className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm font-label-md text-on-primary shadow-sm transition-all hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-50"
-          onClick={() => {
-            void downloadExcel();
-          }}
-        >
-          <MaterialIcon name="download" className="text-[20px]" />
-          Descargar Excel
-        </button>
+        <div className="flex flex-wrap items-center gap-sm">
+          <button
+            type="button"
+            disabled={responses.length === 0}
+            className="flex items-center gap-xs rounded-lg bg-surface-container-high px-md py-sm font-label-md text-on-surface shadow-sm transition-all hover:bg-surface-container-highest disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => {
+              void downloadExport("pdf");
+            }}
+          >
+            <MaterialIcon name="picture_as_pdf" className="text-[20px]" />
+            Descargar PDF
+          </button>
+          <button
+            type="button"
+            disabled={responses.length === 0}
+            className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm font-label-md text-on-primary shadow-sm transition-all hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => {
+              void downloadExport("csv");
+            }}
+          >
+            <MaterialIcon name="download" className="text-[20px]" />
+            Descargar Excel
+          </button>
+        </div>
       </div>
 
       {responses.length === 0 ? (
