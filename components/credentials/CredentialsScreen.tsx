@@ -75,6 +75,13 @@ export function CredentialsScreen({
           }}
           onResetPassword={(id) => {
             void (async () => {
+              const employee = credentials.find((item) => item.id === id);
+              const confirmed = window.confirm(
+                `¿Restablecer la contraseña de ${employee?.name ?? "este empleado"}?\n\nSe generará una contraseña nueva y la anterior dejará de funcionar.`,
+              );
+              if (!confirmed) {
+                return;
+              }
               const result = await resetWorkerAccountPassword(id);
               if (!result.ok || !result.password) {
                 showToast(result.ok ? "No se pudo restablecer." : result.error, {
@@ -87,11 +94,21 @@ export function CredentialsScreen({
                   item.id === id ? { ...item, passwordHint: result.password ?? "" } : item,
                 ),
               );
-              showToast(`Nueva contraseña: ${result.password}`, { variant: "info", duration: 8000 });
+              showToast(`Contraseña restablecida: ${result.password}`, {
+                variant: "info",
+                duration: 10000,
+              });
             })();
           }}
           onRevoke={(id) => {
             void (async () => {
+              const employee = credentials.find((item) => item.id === id);
+              const confirmed = window.confirm(
+                `¿Revocar el acceso de ${employee?.name ?? "este empleado"}?\n\nEsta acción elimina la cuenta del colaborador.`,
+              );
+              if (!confirmed) {
+                return;
+              }
               const result = await revokeWorkerAccount(id);
               if (!result.ok) {
                 showToast(result.error, { variant: "error" });

@@ -210,6 +210,27 @@ function CredentialRow({
         >
           <MaterialIcon name="folder_shared" className="text-[20px]" />
         </Link>
+        <button
+          className={
+            copied
+              ? "flex h-8 w-8 items-center justify-center rounded-full bg-primary text-on-primary transition-colors"
+              : "flex h-8 w-8 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10"
+          }
+          title="Copiar credenciales"
+          type="button"
+          onClick={onCopy}
+        >
+          <MaterialIcon name={copied ? "check" : "content_copy"} className="text-[20px]" />
+        </button>
+        <button
+          className="flex h-8 w-8 items-center justify-center rounded-full text-secondary transition-colors hover:bg-secondary-container/40"
+          title="Restablecer contraseña"
+          type="button"
+          aria-label={`Restablecer contraseña de ${item.name}`}
+          onClick={onResetPassword}
+        >
+          <MaterialIcon name="lock_reset" className="text-[20px]" />
+        </button>
         {item.status === "locked" ? (
           <button
             className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-variant"
@@ -219,41 +240,16 @@ function CredentialRow({
           >
             <MaterialIcon name="lock_open" className="text-[20px]" />
           </button>
-        ) : (
-          <>
-            <button
-              className={
-                copied
-                  ? "flex h-8 w-8 items-center justify-center rounded-full bg-primary text-on-primary transition-colors"
-                  : "flex h-8 w-8 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10"
-              }
-              title="Copiar credenciales"
-              type="button"
-              onClick={onCopy}
-            >
-              <MaterialIcon name={copied ? "check" : "content_copy"} className="text-[20px]" />
-            </button>
-            {item.status === "active" ? (
-              <button
-                className="flex h-8 w-8 items-center justify-center rounded-full text-error opacity-0 transition-colors group-hover:opacity-100 hover:bg-error-container"
-                title="Restablecer contraseña"
-                type="button"
-                onClick={onResetPassword}
-              >
-                <MaterialIcon name="lock_reset" className="text-[20px]" />
-              </button>
-            ) : (
-              <button
-                className="flex h-8 w-8 items-center justify-center rounded-full text-error opacity-0 transition-colors group-hover:opacity-100 hover:bg-error-container"
-                title="Revocar"
-                type="button"
-                onClick={onRevoke}
-              >
-                <MaterialIcon name="person_remove" className="text-[20px]" />
-              </button>
-            )}
-          </>
-        )}
+        ) : null}
+        <button
+          className="flex h-8 w-8 items-center justify-center rounded-full text-error transition-colors hover:bg-error-container"
+          title="Revocar acceso"
+          type="button"
+          aria-label={`Revocar acceso de ${item.name}`}
+          onClick={onRevoke}
+        >
+          <MaterialIcon name="person_remove" className="text-[20px]" />
+        </button>
       </div>
       {showSeparator ? (
         <div className="absolute right-md bottom-0 left-md h-px bg-outline-variant/20" />
