@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { CampusAssistant } from "@/components/assistant/CampusAssistant";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import type { SessionUser } from "@/lib/auth/types";
@@ -31,6 +32,7 @@ export function PlatformShell({
           <div className="min-w-0 w-full">{children}</div>
         </main>
       </div>
+      <CampusAssistant />
     </div>
   );
 }

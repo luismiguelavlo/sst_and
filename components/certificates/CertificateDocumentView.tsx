@@ -41,8 +41,7 @@ export function CertificateDocumentView({ certificate }: CertificateDocumentView
         </p>
         <p className="certificate-course">{certificate.courseTitle}</p>
         <p className="certificate-meta">
-          {certificate.categoryLabel} · Nivel {certificate.levelLabel} · {certificate.hours}{" "}
-          {certificate.hours === 1 ? "hora" : "horas"} de formación
+          {certificate.categoryLabel} · Nivel {certificate.levelLabel}
         </p>
 
         <div className="certificate-footer">
