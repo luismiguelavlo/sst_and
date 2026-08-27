@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
+import { ShareAssistantLinkButton } from "@/components/assistant/ShareAssistantLinkButton";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
 import type { AppRole } from "@/lib/auth/types";
 
@@ -97,6 +98,11 @@ export function AppSidebar({ open, onClose, role }: Readonly<AppSidebarProps>) {
           })}
         </nav>
         <div className="mt-auto border-t border-outline-variant/20 p-md">
+          {role === "admin" ? (
+            <div className="mb-1">
+              <ShareAssistantLinkButton variant="sidebar" />
+            </div>
+          ) : null}
           <Link
             href="/settings"
             className={

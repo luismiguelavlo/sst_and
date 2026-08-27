@@ -35,7 +35,9 @@ export function isPublicPath(pathname: string): boolean {
   return (
     pathname === "/a" ||
     pathname.startsWith("/a/") ||
-    pathname === "/api/attendance/public-submit"
+    pathname === "/api/attendance/public-submit" ||
+    pathname === "/assistant" ||
+    pathname.startsWith("/assistant/")
   );
 }
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { logout } from "@/lib/auth/actions";
+import { ShareAssistantLinkButton } from "@/components/assistant/ShareAssistantLinkButton";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import type { SessionUser } from "@/lib/auth/types";
@@ -64,6 +65,7 @@ export function AppHeader({
         </form>
       </div>
       <div className="flex shrink-0 items-center gap-sm sm:gap-md">
+        {user.role === "admin" ? <ShareAssistantLinkButton /> : null}
         <NotificationBell initialUnread={initialUnreadNotifications} />
         <Link
           href="/settings"
