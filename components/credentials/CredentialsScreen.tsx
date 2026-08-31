@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CredentialsTable } from "@/components/credentials/CredentialsTable";
+import { BulkCredentialImport } from "@/components/credentials/BulkCredentialImport";
 import { NewCredentialForm } from "@/components/credentials/NewCredentialForm";
 import { useToast } from "@/components/ui/ToastProvider";
 import {
@@ -30,11 +31,22 @@ export function CredentialsScreen({
     showToast("Empleado guardado correctamente");
   }
 
+  function handleBulkImported(imported: UserCredential[]) {
+    if (imported.length === 0) {
+      return;
+    }
+    setCredentials((current) => [...imported, ...current]);
+    setCreatedToday((count) => count + imported.length);
+    const activeImported = imported.filter((item) => item.status === "active").length;
+    setActiveUsers((count) => count + activeImported);
+  }
+
   return (
     <div className="relative flex w-full flex-col">
       <div className="mt-lg grid grid-cols-1 items-start gap-md lg:grid-cols-12">
         <div className="flex flex-col gap-md lg:col-span-4">
           <NewCredentialForm onCreated={handleCreated} />
+          <BulkCredentialImport onImported={handleBulkImported} />
           <div className="grid grid-cols-2 gap-sm">
             <div className="flex flex-col items-center justify-center gap-xs rounded-xl bg-surface-container-low p-sm text-center">
               <div className="leading-none font-display-lg text-[28px] text-primary sm:text-display-lg">

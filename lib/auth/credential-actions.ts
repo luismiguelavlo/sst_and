@@ -7,7 +7,17 @@ import {
   resetWorkerPassword,
   setWorkerStatus,
 } from "@/lib/auth/users";
-import { generatePassword, type CredentialStatus, type UserCredential } from "@/lib/credentials";
+import {
+  generatePassword,
+  getLoginUrl,
+  type CredentialStatus,
+  type UserCredential,
+} from "@/lib/credentials";
+import {
+  validateBulkImportRow,
+  type BulkImportInputRow,
+  type BulkImportResultRow,
+} from "@/lib/credentials/bulk-import";
 
 export type WorkerActionResult =
   | { ok: true; credential?: UserCredential; password?: string }
@@ -51,6 +61,92 @@ export async function revokeWorkerAccount(id: string): Promise<WorkerActionResul
   await requireAdmin();
   await deleteWorkerUser(id);
   return { ok: true };
+}
+
+const BULK_IMPORT_MAX_ROWS = 500;
+
+export type BulkCreateWorkerAccountsResult =
+  | {
+      ok: true;
+      results: BulkImportResultRow[];
+      credentials: UserCredential[];
+      createdCount: number;
+    }
+  | { ok: false; error: string };
+
+export async function bulkCreateWorkerAccounts(
+  rows: BulkImportInputRow[],
+): Promise<BulkCreateWorkerAccountsResult> {
+  await requireAdmin();
+
+  if (rows.length === 0) {
+    return { ok: false, error: "No hay filas para importar." };
+  }
+  if (rows.length > BULK_IMPORT_MAX_ROWS) {
+    return {
+      ok: false,
+      error: `Máximo ${BULK_IMPORT_MAX_ROWS} filas por importación.`,
+    };
+  }
+
+  const invitationLink = getLoginUrl();
+  const seenEmails = new Set<string>();
+  const results: BulkImportResultRow[] = [];
+  const credentials: UserCredential[] = [];
+
+  for (const row of rows) {
+    const validationError = validateBulkImportRow(row);
+    const emailKey = row.email.trim().toLowerCase();
+
+    if (validationError) {
+      results.push({
+        ...row,
+        password: "",
+        invitationLink,
+        status: validationError,
+      });
+      continue;
+    }
+
+    if (seenEmails.has(emailKey)) {
+      results.push({
+        ...row,
+        password: "",
+        invitationLink,
+        status: "Correo duplicado en el archivo.",
+      });
+      continue;
+    }
+    seenEmails.add(emailKey);
+
+    const password = generatePassword();
+    try {
+      const credential = await createWorkerUser({
+        name: row.name.trim(),
+        email: row.email.trim(),
+        cedula: row.cedula.trim(),
+        password,
+        status: "active",
+        jobTitle: row.jobTitle.trim() || "Empleado",
+      });
+      credentials.push(credential);
+      results.push({
+        ...row,
+        password,
+        invitationLink,
+        status: "Creado",
+      });
+    } catch (error) {
+      results.push({
+        ...row,
+        password: "",
+        invitationLink,
+        status: error instanceof Error ? error.message : "No se pudo crear el acceso.",
+      });
+    }
+  }
+
+  return { ok: true, results, credentials, createdCount: credentials.length };
 }
 
 export type { CredentialStatus };

@@ -144,6 +144,7 @@ export async function createWorkerUser(input: {
   cedula: string;
   password: string;
   status: UserStatus;
+  jobTitle?: string;
 }): Promise<UserCredential> {
   const existing = await findUserByEmail(input.email);
   if (existing) {
@@ -161,7 +162,7 @@ export async function createWorkerUser(input: {
       ${hash},
       ${salt},
       ${input.name.trim()},
-      ${"Empleado"},
+      ${input.jobTitle?.trim() || "Empleado"},
       ${"user"},
       ${WORKER_BIO},
       ${DEFAULT_PROFILE_PHOTO},

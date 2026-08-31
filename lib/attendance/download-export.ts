@@ -19,6 +19,15 @@ export function downloadBase64File(
   triggerBlobDownload(blob, fileName);
 }
 
+export function downloadBinaryFile(
+  data: ArrayBuffer,
+  fileName: string,
+  mimeType: string,
+): void {
+  const blob = new Blob([data], { type: mimeType });
+  triggerBlobDownload(blob, fileName);
+}
+
 function triggerBlobDownload(blob: Blob, fileName: string): void {
   const href = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
