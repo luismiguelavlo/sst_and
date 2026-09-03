@@ -109,6 +109,8 @@ function toSubmissionInput(raw: Record<string, unknown>): AttendanceSubmissionIn
         : raw.signatureData === null
           ? null
           : null,
+    dataProcessingConsentAccepted: raw.dataProcessingConsentAccepted === true,
+    dataProcessingPolicyVersion: stringOrEmpty(raw.dataProcessingPolicyVersion),
   };
 }
 

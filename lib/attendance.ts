@@ -1,3 +1,5 @@
+import { ATTENDANCE_DATA_POLICY } from "@/lib/privacy/attendance-data-policy";
+
 export type AttendanceFormStatus = "draft" | "published";
 
 export type CustomFieldType = "text" | "select" | "number" | "textarea";
@@ -88,6 +90,8 @@ export type AttendanceSubmissionInput = {
   qualityRating: number | null;
   qualityComment: string;
   signatureData: string | null;
+  dataProcessingConsentAccepted: boolean;
+  dataProcessingPolicyVersion: string;
 };
 
 export type AttendanceResponseExportRow = {
@@ -106,6 +110,9 @@ export type AttendanceResponseExportRow = {
   qualityComment: string;
   signatureData: string | null;
   customAnswers: Record<string, string>;
+  dataProcessingConsent: boolean;
+  dataProcessingConsentAtLabel: string | null;
+  dataProcessingPolicyVersion: string | null;
 };
 
 export type AttendanceResponseListItem = {
@@ -123,6 +130,9 @@ export type AttendanceResponseListItem = {
   userEmail: string | null;
   userName: string | null;
   customAnswers: Record<string, string>;
+  dataProcessingConsent: boolean;
+  dataProcessingConsentAtLabel: string | null;
+  dataProcessingPolicyVersion: string | null;
 };
 
 /** Campos fijos que siempre aparecen al diligenciar (sin contar calidad/firma). */
@@ -282,6 +292,12 @@ export function validateAttendanceSubmission(
   if (form.enableSignature && (input.signatureData?.trim().length ?? 0) < 8) {
     return "La firma es obligatoria.";
   }
+  if (!input.dataProcessingConsentAccepted) {
+    return "Debes aceptar el tratamiento de datos personales para enviar la asistencia.";
+  }
+  if (input.dataProcessingPolicyVersion.trim() !== ATTENDANCE_DATA_POLICY.version) {
+    return "La política de datos no está actualizada. Recarga la página e intenta de nuevo.";
+  }
   return null;
 }
 
@@ -311,6 +327,9 @@ export function responsesToCsv(
     "calificacion",
     "comentario_calidad",
     "tiene_firma",
+    "consentimiento_datos",
+    "consentimiento_fecha",
+    "consentimiento_politica_version",
     ...customCols.map((key) => fieldLabels[key] ?? `campo_${key}`),
   ];
   const lines = [
@@ -331,6 +350,9 @@ export function responsesToCsv(
         csvCell(row.qualityRating === null ? "" : String(row.qualityRating)),
         csvCell(row.qualityComment),
         csvCell(row.signatureData ? "si" : "no"),
+        csvCell(row.dataProcessingConsent ? "si" : "no"),
+        csvCell(row.dataProcessingConsentAtLabel ?? ""),
+        csvCell(row.dataProcessingPolicyVersion ?? ""),
         ...customCols.map((key) => csvCell(row.customAnswers[key] ?? "")),
       ].join(","),
     ),

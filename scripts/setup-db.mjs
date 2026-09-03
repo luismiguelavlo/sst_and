@@ -109,6 +109,11 @@ async function main() {
     "utf8",
   );
   await sql.unsafe(migrateAttendancePublic);
+  const migrateAttendancePrivacyConsent = readFileSync(
+    join(root, "db/migrate-attendance-privacy-consent.sql"),
+    "utf8",
+  );
+  await sql.unsafe(migrateAttendancePrivacyConsent);
 
   for (const user of seeds) {
     const { hash, salt } = hashPassword(user.password);

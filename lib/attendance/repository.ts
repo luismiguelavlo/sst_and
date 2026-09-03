@@ -55,6 +55,9 @@ type ResponseExportRow = {
   quality_comment: string;
   signature_data?: string | null;
   custom_answers: unknown;
+  data_processing_consent?: boolean;
+  data_processing_consent_at?: Date | null;
+  data_processing_policy_version?: string | null;
 };
 
 export async function listAttendanceForms(): Promise<AttendanceFormListItem[]> {
@@ -319,12 +322,16 @@ export async function submitAttendanceResponse(
   if (userId !== null && !UUID_PATTERN.test(userId)) {
     throw new Error("Usuario inválido.");
   }
+  if (!input.dataProcessingConsentAccepted) {
+    throw new Error("Debes aceptar el tratamiento de datos personales.");
+  }
   const sql = getSql();
   try {
     await sql`
       INSERT INTO campus_sst.attendance_responses (
         form_id, user_id, first_name, last_name, cedula, job_title, company,
-        topic_selected, custom_answers, quality_rating, quality_comment, signature_data
+        topic_selected, custom_answers, quality_rating, quality_comment, signature_data,
+        data_processing_consent, data_processing_consent_at, data_processing_policy_version
       )
       VALUES (
         ${input.formId}::uuid,
@@ -338,7 +345,10 @@ export async function submitAttendanceResponse(
         ${sql.json(input.customAnswers)},
         ${input.qualityRating},
         ${input.qualityComment.trim()},
-        ${input.signatureData?.trim() || null}
+        ${input.signatureData?.trim() || null},
+        ${true},
+        now(),
+        ${input.dataProcessingPolicyVersion.trim()}
       )
     `;
   } catch (error) {
@@ -373,7 +383,10 @@ export async function listAttendanceResponsesForExport(
       r.quality_rating,
       r.quality_comment,
       r.signature_data,
-      r.custom_answers
+      r.custom_answers,
+      r.data_processing_consent,
+      r.data_processing_consent_at,
+      r.data_processing_policy_version
     FROM campus_sst.attendance_responses r
     INNER JOIN campus_sst.attendance_forms f ON f.id = r.form_id
     LEFT JOIN campus_sst.users u ON u.id = r.user_id
@@ -396,6 +409,11 @@ export async function listAttendanceResponsesForExport(
     qualityComment: row.quality_comment,
     signatureData: row.signature_data?.trim() || null,
     customAnswers: parseCustomAnswers(row.custom_answers),
+    dataProcessingConsent: Boolean(row.data_processing_consent),
+    dataProcessingConsentAtLabel: row.data_processing_consent_at
+      ? formatDateTime(row.data_processing_consent_at)
+      : null,
+    dataProcessingPolicyVersion: row.data_processing_policy_version ?? null,
   }));
 }
 
@@ -425,7 +443,10 @@ export async function listAttendanceResponsesForForm(
       r.topic_selected,
       r.quality_rating,
       r.quality_comment,
-      r.custom_answers
+      r.custom_answers,
+      r.data_processing_consent,
+      r.data_processing_consent_at,
+      r.data_processing_policy_version
     FROM campus_sst.attendance_responses r
     INNER JOIN campus_sst.attendance_forms f ON f.id = r.form_id
     LEFT JOIN campus_sst.users u ON u.id = r.user_id
@@ -447,6 +468,11 @@ export async function listAttendanceResponsesForForm(
     userEmail: row.user_email,
     userName: row.user_name,
     customAnswers: parseCustomAnswers(row.custom_answers),
+    dataProcessingConsent: Boolean(row.data_processing_consent),
+    dataProcessingConsentAtLabel: row.data_processing_consent_at
+      ? formatDateTime(row.data_processing_consent_at)
+      : null,
+    dataProcessingPolicyVersion: row.data_processing_policy_version ?? null,
   }));
 }
 

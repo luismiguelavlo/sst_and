@@ -125,6 +125,16 @@ export function AttendanceResponsesScreen({
                 <p className="font-label-sm text-outline">
                   {row.submittedAtLabel}
                   {row.qualityRating !== null ? ` · Calidad ${row.qualityRating}/5` : ""}
+                  {row.dataProcessingConsent ? (
+                    <span className="block text-secondary">
+                      Datos aceptados
+                      {row.dataProcessingConsentAtLabel
+                        ? ` · ${row.dataProcessingConsentAtLabel}`
+                        : ""}
+                    </span>
+                  ) : (
+                    <span className="block text-on-surface-variant">Sin consentimiento registrado</span>
+                  )}
                 </p>
               </li>
             ))}
@@ -152,6 +162,9 @@ export function AttendanceResponsesScreen({
                     </th>
                     <th className="p-sm font-label-sm tracking-wider text-outline uppercase">
                       Calidad
+                    </th>
+                    <th className="p-sm font-label-sm tracking-wider text-outline uppercase">
+                      Consentimiento
                     </th>
                   </tr>
                 </thead>
@@ -210,6 +223,23 @@ export function AttendanceResponsesScreen({
                       </td>
                       <td className="p-sm font-body-sm text-on-surface">
                         {row.qualityRating === null ? "—" : `${row.qualityRating}/5`}
+                      </td>
+                      <td className="max-w-[180px] p-sm font-body-sm text-on-surface-variant">
+                        {row.dataProcessingConsent ? (
+                          <>
+                            <span className="font-label-sm text-secondary">Aceptado</span>
+                            {row.dataProcessingConsentAtLabel ? (
+                              <p className="mt-0.5">{row.dataProcessingConsentAtLabel}</p>
+                            ) : null}
+                            {row.dataProcessingPolicyVersion ? (
+                              <p className="mt-0.5 text-outline">
+                                Política v{row.dataProcessingPolicyVersion}
+                              </p>
+                            ) : null}
+                          </>
+                        ) : (
+                          <span className="text-outline">No registrado</span>
+                        )}
                       </td>
                     </tr>
                   ))}

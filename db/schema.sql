@@ -183,6 +183,9 @@ CREATE TABLE IF NOT EXISTS campus_sst.attendance_responses (
   quality_rating smallint CHECK (quality_rating IS NULL OR (quality_rating BETWEEN 1 AND 5)),
   quality_comment text NOT NULL DEFAULT '',
   signature_data text,
+  data_processing_consent boolean NOT NULL DEFAULT false,
+  data_processing_consent_at timestamptz,
+  data_processing_policy_version varchar(32),
   submitted_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (form_id, user_id)
 );

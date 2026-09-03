@@ -9,6 +9,8 @@ import {
   ATTENDANCE_COMPANIES,
   type AttendanceFormForFill,
 } from "@/lib/attendance";
+import { DataProcessingConsent } from "@/components/attendance/DataProcessingConsent";
+import { ATTENDANCE_DATA_POLICY } from "@/lib/privacy/attendance-data-policy";
 
 type Prefill = Readonly<{
   firstName: string;
@@ -43,11 +45,18 @@ export function AttendanceFillForm({
   const [qualityRating, setQualityRating] = useState<number | null>(null);
   const [qualityComment, setQualityComment] = useState("");
   const [signatureData, setSignatureData] = useState<string | null>(null);
+  const [dataProcessingConsent, setDataProcessingConsent] = useState(false);
+  const [consentError, setConsentError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!dataProcessingConsent) {
+      setConsentError("Debes aceptar el tratamiento de datos personales para continuar.");
+      return;
+    }
+    setConsentError(null);
     setBusy(true);
     const payload = {
       formId: form.id,
@@ -61,6 +70,8 @@ export function AttendanceFillForm({
       qualityRating: form.enableQualityRating ? qualityRating : null,
       qualityComment: form.enableQualityRating ? qualityComment : "",
       signatureData: form.enableSignature ? signatureData : null,
+      dataProcessingConsentAccepted: dataProcessingConsent,
+      dataProcessingPolicyVersion: ATTENDANCE_DATA_POLICY.version,
     };
 
     try {
@@ -292,6 +303,18 @@ export function AttendanceFillForm({
         ) : null}
       </section>
 
+      <DataProcessingConsent
+        checked={dataProcessingConsent}
+        onChange={(checked) => {
+          setDataProcessingConsent(checked);
+          if (checked) {
+            setConsentError(null);
+          }
+        }}
+        disabled={busy}
+        error={consentError}
+      />
+
       <div className="flex flex-wrap items-center justify-end gap-sm">
         {mode === "assigned" ? (
           <button
@@ -304,7 +327,7 @@ export function AttendanceFillForm({
         ) : null}
         <button
           type="submit"
-          disabled={busy}
+          disabled={busy || !dataProcessingConsent}
           className="rounded-lg bg-primary px-lg py-sm font-label-md text-on-primary shadow-sm transition-all hover:bg-primary-container disabled:opacity-60"
         >
           {busy ? "Enviando..." : "Enviar asistencia"}

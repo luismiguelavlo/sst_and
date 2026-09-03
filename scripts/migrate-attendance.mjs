@@ -19,6 +19,7 @@ const migrations = [
   "db/migrate-attendance-forms.sql",
   "db/migrate-attendance-assignments.sql",
   "db/migrate-attendance-public.sql",
+  "db/migrate-attendance-privacy-consent.sql",
 ];
 
 try {
