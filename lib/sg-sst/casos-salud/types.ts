@@ -1,3 +1,5 @@
+import type { DraftValidationMode } from "@/lib/sg-sst/draft-mode";
+
 export const HEALTH_CASE_TYPES = [
   "accidente_laboral",
   "enfermedad_laboral",
@@ -114,7 +116,17 @@ export function emptyHealthCaseDraft(workerId = ""): SstHealthCaseDraft {
   };
 }
 
-export function validateHealthCaseDraft(input: SstHealthCaseDraft): string | null {
+export function validateHealthCaseDraft(
+  input: SstHealthCaseDraft,
+  mode: DraftValidationMode = "form",
+): string | null {
+  // Importación Excel: solo workerId; defaults cubren el resto.
+  if (mode === "import") {
+    if (!input.workerId.trim()) {
+      return "Selecciona un trabajador de la base maestra.";
+    }
+    return null;
+  }
   if (!input.workerId.trim()) {
     return "Selecciona un trabajador de la base maestra.";
   }

@@ -22,6 +22,10 @@ import {
   parseTrainingsExcelFile,
 } from "@/lib/sg-sst/capacitaciones/excel-client";
 import {
+  formatChunkImportToast,
+  runChunkedBulkImport,
+} from "@/lib/sg-sst/import-chunks";
+import {
   TRAINING_MODALITIES,
   TRAINING_MODALITY_LABELS,
   TRAINING_STATUS_LABELS,
@@ -159,15 +163,16 @@ export function TrainingsMasterScreen({
 
   function confirmImport() {
     startTransition(async () => {
-      const result = await bulkImportTrainingsAction({ rows: preview });
+      const result = await runChunkedBulkImport(preview, (chunk) =>
+        bulkImportTrainingsAction({ rows: chunk }),
+      );
       if (!result.ok) {
         showToast(result.error, { variant: "error" });
         return;
       }
-      showToast(
-        `Importación: ${result.created} creados, ${result.updated} actualizados, ${result.failed} con error.`,
-        { variant: result.failed > 0 ? "info" : "success" },
-      );
+      showToast(formatChunkImportToast(result), {
+        variant: result.failed > 0 ? "info" : "success",
+      });
       setPreview([]);
       setFileName("");
       router.refresh();

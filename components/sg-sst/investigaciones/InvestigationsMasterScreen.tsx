@@ -26,6 +26,10 @@ import {
   parseInvestigationsExcelFile,
 } from "@/lib/sg-sst/investigaciones/excel-client";
 import {
+  formatChunkImportToast,
+  runChunkedBulkImport,
+} from "@/lib/sg-sst/import-chunks";
+import {
   INVESTIGATION_LEGAL_DAYS,
   INVESTIGATION_METHODOLOGIES,
   INVESTIGATION_METHODOLOGY_LABELS,
@@ -159,15 +163,16 @@ export function InvestigationsMasterScreen({
 
   function confirmImport() {
     startTransition(async () => {
-      const result = await bulkImportInvestigationsAction({ rows: preview });
+      const result = await runChunkedBulkImport(preview, (chunk) =>
+        bulkImportInvestigationsAction({ rows: chunk }),
+      );
       if (!result.ok) {
         showToast(result.error, { variant: "error" });
         return;
       }
-      showToast(
-        `Importación: ${result.created} creados, ${result.updated} actualizados, ${result.failed} con error.`,
-        { variant: result.failed > 0 ? "info" : "success" },
-      );
+      showToast(formatChunkImportToast(result), {
+        variant: result.failed > 0 ? "info" : "success",
+      });
       setPreview([]);
       setFileName("");
       router.refresh();

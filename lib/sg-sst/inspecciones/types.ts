@@ -1,5 +1,6 @@
 import { computeDaysRemaining } from "@/lib/sg-sst/alerts/engine";
 import type { SstWorkflowStatus } from "@/lib/sg-sst/alerts/types";
+import type { DraftValidationMode } from "@/lib/sg-sst/draft-mode";
 
 export const INSPECTION_TYPES = [
   "locativas",
@@ -303,7 +304,11 @@ export function draftFromInspection(item: SstInspection): SstInspectionDraft {
 export function validateFindingDraft(
   input: SstInspectionFindingDraft,
   index?: number,
+  mode: DraftValidationMode = "form",
 ): string | null {
+  if (mode === "import") {
+    return null;
+  }
   const prefix = index != null ? `Hallazgo ${index + 1}: ` : "";
   if (!input.title.trim()) {
     return `${prefix}El título del hallazgo es obligatorio.`;
@@ -317,7 +322,14 @@ export function validateFindingDraft(
   return null;
 }
 
-export function validateInspectionDraft(input: SstInspectionDraft): string | null {
+export function validateInspectionDraft(
+  input: SstInspectionDraft,
+  mode: DraftValidationMode = "form",
+): string | null {
+  // Importación Excel: identidad mínima; defaults cubren el resto.
+  if (mode === "import") {
+    return null;
+  }
   if (!isInspectionType(input.inspectionType)) {
     return "Tipo de inspección inválido.";
   }

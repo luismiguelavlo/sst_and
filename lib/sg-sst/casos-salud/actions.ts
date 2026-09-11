@@ -17,11 +17,14 @@ import {
   updateHealthCase,
 } from "@/lib/sg-sst/casos-salud/repository";
 import {
+  isHealthCaseStatus,
+  isHealthCaseType,
   validateHealthCaseDraft,
   type HealthCaseStats,
   type SstHealthCase,
   type SstHealthCaseDraft,
 } from "@/lib/sg-sst/casos-salud/types";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 import {
   findWorkerByCode,
   findWorkerByDocumentNumber,
@@ -147,8 +150,19 @@ export async function bulkImportHealthCasesAction(input: {
         continue;
       }
 
-      const draft: SstHealthCaseDraft = { ...row.draft, workerId };
-      const validationError = validateHealthCaseDraft(draft);
+      const draft: SstHealthCaseDraft = {
+        ...row.draft,
+        workerId,
+        caseType: isHealthCaseType(row.draft.caseType)
+          ? row.draft.caseType
+          : "restriccion",
+        openedAt: row.draft.openedAt.trim() || todayIsoDate(),
+        status: isHealthCaseStatus(row.draft.status)
+          ? row.draft.status
+          : "abierto",
+        responsibleName: row.draft.responsibleName.trim() || "Sin responsable",
+      };
+      const validationError = validateHealthCaseDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({

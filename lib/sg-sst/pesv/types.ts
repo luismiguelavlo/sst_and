@@ -1,4 +1,6 @@
 import { computeDaysRemaining } from "@/lib/sg-sst/alerts/engine";
+import type { DraftValidationMode } from "@/lib/sg-sst/draft-mode";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 
 export const PESV_VEHICLE_STATUSES = ["apto", "alerta", "detenido"] as const;
 export type PesvVehicleStatus = (typeof PESV_VEHICLE_STATUSES)[number];
@@ -278,13 +280,104 @@ export function draftFromDriver(driver: SstPesvDriver): SstPesvDriverDraft {
 export function emptyPreopDraft(vehicleId = ""): SstPesvPreopDraft {
   return {
     vehicleId,
-    inspectionDate: new Date().toISOString().slice(0, 10),
+    inspectionDate: todayIsoDate(),
     category: "general",
     finding: "",
     status: "abierto",
     odometerKm: null,
     evidenceUrl: "",
   };
+}
+
+/** Completa placa/enums faltantes para importación de vehículos. */
+export function normalizeVehicleDraftForImport(
+  draft: SstPesvVehicleDraft,
+  rowNumber = 0,
+): SstPesvVehicleDraft {
+  const defaults = emptyVehicleDraft();
+  const plate =
+    draft.plate.trim().toUpperCase() ||
+    `SIN-PLACA-${rowNumber || Date.now().toString(36).toUpperCase()}`;
+  return {
+    ...draft,
+    plate,
+    vehicleType: draft.vehicleType.trim() || defaults.vehicleType,
+    status: isPesvVehicleStatus(draft.status) ? draft.status : defaults.status,
+    odometerKm:
+      Number.isFinite(draft.odometerKm) && draft.odometerKm >= 0
+        ? draft.odometerKm
+        : 0,
+  };
+}
+
+/** Completa enums faltantes para importación de conductores. */
+export function normalizeDriverDraftForImport(
+  draft: SstPesvDriverDraft,
+): SstPesvDriverDraft {
+  const defaults = emptyDriverDraft(draft.workerId);
+  return {
+    ...draft,
+    fitnessConcept: isPesvFitnessConcept(draft.fitnessConcept)
+      ? draft.fitnessConcept
+      : defaults.fitnessConcept,
+    authorizationStatus:
+      draft.authorizationStatus == null ||
+      isPesvAuthStatus(draft.authorizationStatus)
+        ? draft.authorizationStatus
+        : undefined,
+  };
+}
+
+export function validateVehicleDraft(
+  input: SstPesvVehicleDraft,
+  mode: DraftValidationMode = "form",
+): string | null {
+  if (mode === "import") {
+    if (!input.plate.trim()) {
+      return "La placa es obligatoria.";
+    }
+    return null;
+  }
+
+  if (!input.plate.trim()) {
+    return "La placa es obligatoria.";
+  }
+  if (!input.vehicleType.trim()) {
+    return "El tipo de vehículo es obligatorio.";
+  }
+  if (!isPesvVehicleStatus(input.status)) {
+    return "Estado de vehículo inválido.";
+  }
+  if (!Number.isFinite(input.odometerKm) || input.odometerKm < 0) {
+    return "El odómetro debe ser un número ≥ 0.";
+  }
+  return null;
+}
+
+export function validateDriverDraft(
+  input: SstPesvDriverDraft,
+  mode: DraftValidationMode = "form",
+): string | null {
+  if (mode === "import") {
+    if (!input.workerId.trim()) {
+      return "Selecciona un trabajador de la base maestra.";
+    }
+    return null;
+  }
+
+  if (!input.workerId.trim()) {
+    return "Selecciona un trabajador de la base maestra.";
+  }
+  if (!isPesvFitnessConcept(input.fitnessConcept)) {
+    return "Concepto de aptitud inválido.";
+  }
+  if (
+    input.authorizationStatus != null &&
+    !isPesvAuthStatus(input.authorizationStatus)
+  ) {
+    return "Estado de autorización inválido.";
+  }
+  return null;
 }
 
 export function draftFromPreop(preop: SstPesvPreop): SstPesvPreopDraft {
@@ -360,38 +453,6 @@ export function isIncidentCategory(category: string): boolean {
 
 export function isAccidentCategory(category: string): boolean {
   return /accidente/i.test(category);
-}
-
-export function validateVehicleDraft(input: SstPesvVehicleDraft): string | null {
-  if (!input.plate.trim()) {
-    return "La placa es obligatoria.";
-  }
-  if (!input.vehicleType.trim()) {
-    return "El tipo de vehículo es obligatorio.";
-  }
-  if (!isPesvVehicleStatus(input.status)) {
-    return "Estado de vehículo inválido.";
-  }
-  if (!Number.isFinite(input.odometerKm) || input.odometerKm < 0) {
-    return "El odómetro debe ser un número ≥ 0.";
-  }
-  return null;
-}
-
-export function validateDriverDraft(input: SstPesvDriverDraft): string | null {
-  if (!input.workerId.trim()) {
-    return "Selecciona un trabajador de la base maestra.";
-  }
-  if (!isPesvFitnessConcept(input.fitnessConcept)) {
-    return "Concepto de aptitud inválido.";
-  }
-  if (
-    input.authorizationStatus != null &&
-    !isPesvAuthStatus(input.authorizationStatus)
-  ) {
-    return "Estado de autorización inválido.";
-  }
-  return null;
 }
 
 export function validatePreopDraft(input: SstPesvPreopDraft): string | null {

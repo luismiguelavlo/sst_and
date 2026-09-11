@@ -3,9 +3,11 @@ import {
   type SstFarmRecord,
 } from "@/lib/sg-sst/fincas/types";
 
-export const FARM_EXCEL_MAX_ROWS = 500;
+export const FARM_EXCEL_MAX_ROWS = 2000;
+export const FARM_IMPORT_CHUNK_SIZE = 25;
 
 export type FarmExcelImportRow = {
+  rowNumber: number;
   name: string;
   code: string;
   company: string;
@@ -18,12 +20,16 @@ export type FarmExcelImportRow = {
 export type FarmExcelImportResultRow = {
   row: number;
   code: string;
+  name: string;
   ok: boolean;
   action?: "created" | "updated";
   error?: string;
 };
 
-const HEADER_MAP: Record<keyof FarmExcelImportRow, string[]> = {
+const HEADER_ALIASES: Record<
+  keyof Omit<FarmExcelImportRow, "rowNumber">,
+  readonly string[]
+> = {
   name: [
     "nombre",
     "name",
@@ -31,11 +37,12 @@ const HEADER_MAP: Record<keyof FarmExcelImportRow, string[]> = {
     "centro_trabajo",
     "finca",
     "predio",
+    "sede",
   ],
-  code: ["codigo", "código", "code", "cod"],
-  company: ["empresa", "razon_social", "razón_social", "company"],
+  code: ["codigo", "code", "cod", "id_centro", "id"],
+  company: ["empresa", "razon_social", "company"],
   municipality: ["municipio", "municipality", "ciudad", "lugar"],
-  address: ["direccion", "dirección", "address", "ubicacion", "ubicación"],
+  address: ["direccion", "address", "ubicacion"],
   observations: ["observaciones", "notes", "obs"],
   active: ["activo", "active", "estado"],
 };
@@ -56,40 +63,104 @@ function parseActive(value: string): boolean {
   return true;
 }
 
-export function farmRowsFromMatrix(matrix: string[][]): FarmExcelImportRow[] {
-  if (matrix.length < 2) return [];
-  const headers = matrix[0]!.map(normalizeHeader);
-  const indexOf = (keys: string[]) =>
-    headers.findIndex((h) => keys.includes(h));
+function cellToString(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (typeof value === "number" && Number.isFinite(value)) {
+    // Evitar 1e+21 / decimales en códigos numéricos de Excel
+    if (Number.isInteger(value) || Math.abs(value) >= 1e6) {
+      return String(Math.round(value));
+    }
+    return String(value);
+  }
+  return String(value).trim();
+}
 
-  const nameIdx = indexOf(HEADER_MAP.name);
-  const codeIdx = indexOf(HEADER_MAP.code);
-  if (nameIdx < 0 || codeIdx < 0) {
-    throw new Error("Faltan columnas obligatorias: nombre y código.");
+/**
+ * Mapeo exclusivo: cada columna alimenta como máximo un campo;
+ * la primera columna que coincida gana.
+ */
+function mapHeaders(headers: readonly string[]): Partial<
+  Record<keyof typeof HEADER_ALIASES, number>
+> {
+  const map: Partial<Record<keyof typeof HEADER_ALIASES, number>> = {};
+  const usedColumns = new Set<number>();
+
+  for (const [field, aliases] of Object.entries(HEADER_ALIASES) as [
+    keyof typeof HEADER_ALIASES,
+    readonly string[],
+  ][]) {
+    const normalizedAliases = aliases.map(normalizeHeader);
+    const index = headers.findIndex(
+      (header, i) =>
+        !usedColumns.has(i) && normalizedAliases.includes(normalizeHeader(header)),
+    );
+    if (index >= 0) {
+      map[field] = index;
+      usedColumns.add(index);
+    }
+  }
+  return map;
+}
+
+export function farmRowsFromMatrix(
+  matrix: readonly (readonly unknown[])[],
+): FarmExcelImportRow[] {
+  if (matrix.length < 2) return [];
+  const headerRow = (matrix[0] ?? []).map((h) => cellToString(h));
+  const headerMap = mapHeaders(headerRow);
+
+  if (headerMap.name === undefined && headerMap.code === undefined) {
+    throw new Error(
+      "El Excel debe incluir al menos una columna de nombre (centro_de_trabajo) o codigo.",
+    );
   }
 
-  const companyIdx = indexOf(HEADER_MAP.company);
-  const municipalityIdx = indexOf(HEADER_MAP.municipality);
-  const addressIdx = indexOf(HEADER_MAP.address);
-  const observationsIdx = indexOf(HEADER_MAP.observations);
-  const activeIdx = indexOf(HEADER_MAP.active);
-
   const rows: FarmExcelImportRow[] = [];
+  const seenCodes = new Set<string>();
+
   for (let i = 1; i < matrix.length; i += 1) {
     const line = matrix[i] ?? [];
-    const name = String(line[nameIdx] ?? "").trim();
-    const code = normalizeFarmCode(String(line[codeIdx] ?? ""));
+    const name =
+      headerMap.name !== undefined ? cellToString(line[headerMap.name]) : "";
+    const code =
+      headerMap.code !== undefined
+        ? normalizeFarmCode(cellToString(line[headerMap.code]))
+        : "";
     if (!name && !code) continue;
+
+    // Si el código se repite en el mismo archivo, nos quedamos con la última fila
+    // pero no descartamos silenciosamente el resto del archivo.
+    if (code && seenCodes.has(code)) {
+      const existingIdx = rows.findIndex((r) => r.code === code);
+      if (existingIdx >= 0) rows.splice(existingIdx, 1);
+    }
+    if (code) seenCodes.add(code);
+
     rows.push({
+      rowNumber: i + 1,
       name,
       code,
-      company: companyIdx >= 0 ? String(line[companyIdx] ?? "").trim() : "",
+      company:
+        headerMap.company !== undefined
+          ? cellToString(line[headerMap.company])
+          : "",
       municipality:
-        municipalityIdx >= 0 ? String(line[municipalityIdx] ?? "").trim() : "",
-      address: addressIdx >= 0 ? String(line[addressIdx] ?? "").trim() : "",
+        headerMap.municipality !== undefined
+          ? cellToString(line[headerMap.municipality])
+          : "",
+      address:
+        headerMap.address !== undefined
+          ? cellToString(line[headerMap.address])
+          : "",
       observations:
-        observationsIdx >= 0 ? String(line[observationsIdx] ?? "").trim() : "",
-      active: activeIdx >= 0 ? parseActive(String(line[activeIdx] ?? "")) : true,
+        headerMap.observations !== undefined
+          ? cellToString(line[headerMap.observations])
+          : "",
+      active:
+        headerMap.active !== undefined
+          ? parseActive(cellToString(line[headerMap.active]))
+          : true,
     });
   }
   return rows;
@@ -99,12 +170,11 @@ export function buildFarmExportRows(farms: readonly SstFarmRecord[]) {
   return farms.map((farm) => ({
     codigo: farm.code,
     nombre: farm.name,
+    centro_de_trabajo: farm.name,
     empresa: farm.company,
     municipio: farm.municipality,
     direccion: farm.address,
     activo: farm.active ? "si" : "no",
-    trabajadores: farm.workersCount,
-    registros_cumplimiento: farm.recordsCount,
     observaciones: farm.observations,
   }));
 }
@@ -118,7 +188,16 @@ export function buildFarmTemplateRows() {
       municipio: "Santa Rosa de Cabal",
       direccion: "Vereda El Rosario",
       activo: "si",
-      observaciones: "Predio principal",
+      observaciones: "Ejemplo — reemplazar / agregar filas",
+    },
+    {
+      codigo: "PAR",
+      nombre: "Centro El Paraíso",
+      empresa: "Grupo Manzanares S.A.S.",
+      municipio: "Pereira",
+      direccion: "",
+      activo: "si",
+      observaciones: "",
     },
   ];
 }

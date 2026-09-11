@@ -7,6 +7,7 @@ import {
   type SstSemaphoreLevel,
   type SstWorkflowStatus,
 } from "@/lib/sg-sst/alerts/types";
+import type { DraftValidationMode } from "@/lib/sg-sst/draft-mode";
 
 export const RESTRICTION_KINDS = [
   "restriccion",
@@ -148,7 +149,17 @@ export function emptyRestrictionDraft(workerId = ""): SstRestrictionDraft {
   };
 }
 
-export function validateRestrictionDraft(input: SstRestrictionDraft): string | null {
+export function validateRestrictionDraft(
+  input: SstRestrictionDraft,
+  mode: DraftValidationMode = "form",
+): string | null {
+  // Importación Excel: solo workerId; defaults cubren el resto.
+  if (mode === "import") {
+    if (!input.workerId.trim()) {
+      return "Selecciona un trabajador de la base maestra.";
+    }
+    return null;
+  }
   if (!input.workerId.trim()) {
     return "Selecciona un trabajador de la base maestra.";
   }

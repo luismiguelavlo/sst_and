@@ -33,6 +33,12 @@ export async function parseWorkersExcelFile(file: File): Promise<WorkerExcelImpo
       row.map((cell) => {
         if (cell instanceof Date) return cell.toISOString().slice(0, 10);
         if (cell === null || cell === undefined) return "";
+        // Evitar notación científica en cédulas leídas como número.
+        if (typeof cell === "number" && Number.isFinite(cell)) {
+          if (Number.isInteger(cell) || Math.abs(cell) >= 1e10) {
+            return String(Math.round(cell));
+          }
+        }
         return String(cell).trim();
       }),
     );

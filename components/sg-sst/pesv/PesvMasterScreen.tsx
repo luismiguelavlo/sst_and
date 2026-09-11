@@ -28,6 +28,10 @@ import {
   parsePesvVehiclesExcelFile,
 } from "@/lib/sg-sst/pesv/excel-client";
 import {
+  formatChunkImportToast,
+  runChunkedBulkImport,
+} from "@/lib/sg-sst/import-chunks";
+import {
   PESV_AUTH_LABELS,
   PESV_AUTH_STATUSES,
   PESV_FITNESS_CONCEPTS,
@@ -229,16 +233,19 @@ export function PesvMasterScreen({
     startTransition(async () => {
       const result =
         importKind === "drivers"
-          ? await bulkImportPesvDriversAction({ rows: driverPreview })
-          : await bulkImportPesvVehiclesAction({ rows: vehiclePreview });
+          ? await runChunkedBulkImport(driverPreview, (chunk) =>
+              bulkImportPesvDriversAction({ rows: chunk }),
+            )
+          : await runChunkedBulkImport(vehiclePreview, (chunk) =>
+              bulkImportPesvVehiclesAction({ rows: chunk }),
+            );
       if (!result.ok) {
         showToast(result.error, { variant: "error" });
         return;
       }
-      showToast(
-        `Importación: ${result.created} creados, ${result.updated} actualizados, ${result.failed} con error.`,
-        { variant: result.failed > 0 ? "info" : "success" },
-      );
+      showToast(formatChunkImportToast(result), {
+        variant: result.failed > 0 ? "info" : "success",
+      });
       setDriverPreview([]);
       setVehiclePreview([]);
       setFileName("");

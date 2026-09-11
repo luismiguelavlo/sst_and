@@ -6,6 +6,10 @@ import { useRouter } from "next/navigation";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { SstFarm } from "@/lib/sg-sst/alerts/types";
+import {
+  formatChunkImportToast,
+  runChunkedBulkImport,
+} from "@/lib/sg-sst/import-chunks";
 import { bulkImportWorkersAction } from "@/lib/sg-sst/workers/actions";
 import {
   downloadWorkersExcel,
@@ -86,16 +90,18 @@ export function WorkersMasterScreen({
   }
 
   function confirmImport() {
+    if (preview.length === 0) return;
     startTransition(async () => {
-      const result = await bulkImportWorkersAction({ rows: preview });
+      const result = await runChunkedBulkImport(preview, (chunk) =>
+        bulkImportWorkersAction({ rows: chunk }),
+      );
       if (!result.ok) {
         showToast(result.error, { variant: "error" });
         return;
       }
-      showToast(
-        `Importación: ${result.created} creados, ${result.updated} actualizados, ${result.failed} con error.`,
-        { variant: result.failed > 0 ? "info" : "success" },
-      );
+      showToast(formatChunkImportToast(result), {
+        variant: result.failed > 0 ? "info" : "success",
+      });
       setPreview([]);
       setFileName("");
       router.refresh();

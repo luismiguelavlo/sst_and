@@ -6,6 +6,7 @@ import {
   DEFAULT_ALERT_THRESHOLDS,
   type SstSemaphoreLevel,
 } from "@/lib/sg-sst/alerts/types";
+import type { DraftValidationMode } from "@/lib/sg-sst/draft-mode";
 
 export const EMO_EXAM_TYPES = [
   "ingreso",
@@ -157,7 +158,17 @@ export function resolveNextDueDate(draft: SstEmoDraft): string | null {
   return null;
 }
 
-export function validateEmoDraft(input: SstEmoDraft): string | null {
+export function validateEmoDraft(
+  input: SstEmoDraft,
+  mode: DraftValidationMode = "form",
+): string | null {
+  // Importación Excel: solo workerId; defaults cubren el resto.
+  if (mode === "import") {
+    if (!input.workerId.trim()) {
+      return "Selecciona un trabajador de la base maestra.";
+    }
+    return null;
+  }
   if (!input.workerId.trim()) {
     return "Selecciona un trabajador de la base maestra.";
   }

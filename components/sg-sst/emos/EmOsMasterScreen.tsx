@@ -15,6 +15,10 @@ import {
 } from "@/lib/sg-sst/emos/excel-client";
 import { EMO_EXCEL_MAX_ROWS, type EmoExcelImportRow } from "@/lib/sg-sst/emos/excel";
 import {
+  formatChunkImportToast,
+  runChunkedBulkImport,
+} from "@/lib/sg-sst/import-chunks";
+import {
   EMO_CONCEPT_LABELS,
   EMO_EXAM_TYPE_LABELS,
   EMO_CONCEPTS,
@@ -114,15 +118,16 @@ export function EmOsMasterScreen({
 
   function confirmImport() {
     startTransition(async () => {
-      const result = await bulkImportEmosAction({ rows: preview });
+      const result = await runChunkedBulkImport(preview, (chunk) =>
+        bulkImportEmosAction({ rows: chunk }),
+      );
       if (!result.ok) {
         showToast(result.error, { variant: "error" });
         return;
       }
-      showToast(
-        `Importación: ${result.created} creados, ${result.updated} actualizados, ${result.failed} con error.`,
-        { variant: result.failed > 0 ? "info" : "success" },
-      );
+      showToast(formatChunkImportToast(result), {
+        variant: result.failed > 0 ? "info" : "success",
+      });
       setPreview([]);
       setFileName("");
       router.refresh();

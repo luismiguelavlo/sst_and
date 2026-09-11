@@ -27,6 +27,8 @@ import {
   updateVehicle,
 } from "@/lib/sg-sst/pesv/repository";
 import {
+  normalizeDriverDraftForImport,
+  normalizeVehicleDraftForImport,
   validateDriverDraft,
   validatePreopDraft,
   validateVehicleDraft,
@@ -243,12 +245,12 @@ export async function bulkImportPesvDriversAction(input: {
         vehicleId = vehicle?.id ?? null;
       }
 
-      const draft: SstPesvDriverDraft = {
+      const draft = normalizeDriverDraftForImport({
         ...row.draft,
         workerId,
         vehicleId,
-      };
-      const validationError = validateDriverDraft(draft);
+      });
+      const validationError = validateDriverDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({
@@ -332,29 +334,25 @@ export async function bulkImportPesvVehiclesAction(input: {
     for (const row of input.rows) {
       let responsibleWorkerId: string | null = null;
       if (row.responsibleDocumentOrCode) {
-        responsibleWorkerId = await resolveWorkerId(row.responsibleDocumentOrCode);
-        if (!responsibleWorkerId) {
-          failed += 1;
-          results.push({
-            rowNumber: row.rowNumber,
-            key: row.plateKey,
-            status: "error",
-            message: `Responsable no encontrado: "${row.responsibleDocumentOrCode}"`,
-          });
-          continue;
-        }
+        // Responsable desconocido: se importa sin vincular (campo opcional).
+        responsibleWorkerId = await resolveWorkerId(
+          row.responsibleDocumentOrCode,
+        );
       }
 
-      const draft: SstPesvVehicleDraft = {
-        ...row.draft,
-        responsibleWorkerId,
-      };
-      const validationError = validateVehicleDraft(draft);
+      const draft = normalizeVehicleDraftForImport(
+        {
+          ...row.draft,
+          responsibleWorkerId,
+        },
+        row.rowNumber,
+      );
+      const validationError = validateVehicleDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({
           rowNumber: row.rowNumber,
-          key: row.plateKey,
+          key: draft.plate || row.plateKey,
           status: "error",
           message: validationError,
         });
@@ -362,7 +360,7 @@ export async function bulkImportPesvVehiclesAction(input: {
       }
 
       try {
-        const existing = await findVehicleByPlate(row.plateKey);
+        const existing = await findVehicleByPlate(draft.plate);
         if (existing) {
           const saved = await updateVehicle(
             existing.id,
@@ -392,7 +390,7 @@ export async function bulkImportPesvVehiclesAction(input: {
         failed += 1;
         results.push({
           rowNumber: row.rowNumber,
-          key: row.plateKey,
+          key: draft.plate || row.plateKey,
           status: "error",
           message: caught instanceof Error ? caught.message : "Error al guardar",
         });

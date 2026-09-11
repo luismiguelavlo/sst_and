@@ -1,3 +1,5 @@
+import type { DraftValidationMode } from "@/lib/sg-sst/draft-mode";
+
 export const LEAVE_ORIGINS = [
   "comun",
   "laboral_at",
@@ -251,7 +253,17 @@ export function emptyLeaveDraft(workerId = ""): SstLeaveDraft {
   };
 }
 
-export function validateLeaveDraft(input: SstLeaveDraft): string | null {
+export function validateLeaveDraft(
+  input: SstLeaveDraft,
+  mode: DraftValidationMode = "form",
+): string | null {
+  // Importación Excel: solo workerId; defaults cubren el resto.
+  if (mode === "import") {
+    if (!input.workerId.trim()) {
+      return "Selecciona un trabajador de la base maestra.";
+    }
+    return null;
+  }
   if (!input.workerId.trim()) {
     return "Selecciona un trabajador de la base maestra.";
   }

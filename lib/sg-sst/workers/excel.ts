@@ -40,8 +40,16 @@ const HEADER_ALIASES: Record<string, readonly string[]> = {
   company: ["empresa", "company", "razon_social"],
   jobTitle: ["cargo", "puesto", "job_title"],
   area: ["area", "área"],
-  workCenter: ["centro_trabajo", "centro", "work_center"],
-  farm: ["finca", "predio", "farm"],
+  workCenter: ["centro_trabajo_texto", "work_center", "lugar_trabajo"],
+  farm: [
+    "finca",
+    "predio",
+    "farm",
+    "centro_de_trabajo",
+    "centro_trabajo",
+    "centro",
+    "sede",
+  ],
   supervisorName: ["jefe_inmediato", "supervisor", "jefe"],
   hireDate: ["fecha_ingreso", "ingreso", "hire_date"],
   contractType: ["tipo_contrato", "contrato", "contract_type"],
@@ -75,8 +83,10 @@ function mapHeaders(headers: readonly string[]): Partial<Record<string, number>>
   headers.forEach((header, index) => {
     const normalized = normalizeHeader(header);
     for (const [field, aliases] of Object.entries(HEADER_ALIASES)) {
+      if (map[field] !== undefined) continue; // primera columna gana
       if (aliases.map(normalizeHeader).includes(normalized)) {
         map[field] = index;
+        break;
       }
     }
   });
@@ -86,6 +96,18 @@ function mapHeaders(headers: readonly string[]): Partial<Record<string, number>>
 function cell(row: readonly string[], index: number | undefined): string {
   if (index === undefined) return "";
   return (row[index] ?? "").trim();
+}
+
+/** Excel a veces manda cédulas como 1088294102.0 o notación científica. */
+function normalizeDocumentNumber(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^\d+\.0+$/.test(trimmed)) return trimmed.replace(/\.0+$/, "");
+  if (/^\d+(\.\d+)?e\+?\d+$/i.test(trimmed)) {
+    const n = Number(trimmed);
+    if (Number.isFinite(n) && n > 0) return String(Math.round(n));
+  }
+  return trimmed.replace(/\s+/g, "");
 }
 
 function parseBool(value: string): boolean {
@@ -141,9 +163,9 @@ export function workerRowsFromMatrix(
 ): WorkerExcelImportRow[] {
   if (matrix.length === 0) return [];
   const headerMap = mapHeaders(matrix[0] ?? []);
-  if (headerMap.fullName === undefined || headerMap.documentNumber === undefined) {
+  if (headerMap.fullName === undefined && headerMap.documentNumber === undefined) {
     throw new Error(
-      "El Excel debe incluir columnas: nombre_completo (o nombre) y numero_identificacion (o cedula).",
+      "El Excel debe incluir al menos nombre_completo (o nombre) o numero_identificacion (o cedula).",
     );
   }
 
@@ -151,7 +173,9 @@ export function workerRowsFromMatrix(
   for (let index = 1; index < matrix.length; index += 1) {
     const raw = matrix[index] ?? [];
     const fullName = cell(raw, headerMap.fullName);
-    const documentNumber = cell(raw, headerMap.documentNumber);
+    const documentNumber = normalizeDocumentNumber(
+      cell(raw, headerMap.documentNumber),
+    );
     if (!fullName && !documentNumber) continue;
 
     const status = parseStatus(cell(raw, headerMap.status));
@@ -204,6 +228,7 @@ export function buildWorkerExportRows(workers: readonly SstWorker[]): Record<str
     area: worker.area,
     centro_trabajo: worker.workCenter,
     finca: worker.farmName ?? "",
+    centro_de_trabajo: worker.farmName ?? "",
     jefe_inmediato: worker.supervisorName,
     fecha_ingreso: worker.hireDate ?? "",
     tipo_contrato: worker.contractType,
@@ -235,7 +260,8 @@ export function buildWorkerTemplateRows(): Record<string, string | number>[] {
       cargo: "Operador de Cosecha y Poda de Altura",
       area: "Campo y Producción Agrícola",
       centro_trabajo: "Sede Rural Occidente (Valle Central)",
-      finca: "Finca La Esperanza",
+      finca: "Planta Principal",
+      centro_de_trabajo: "Planta Principal",
       jefe_inmediato: "Sup. Ramón Vélez",
       fecha_ingreso: "2021-01-15",
       tipo_contrato: "Término Fijo (Renovable)",

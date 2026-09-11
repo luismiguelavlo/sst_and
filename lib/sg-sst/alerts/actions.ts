@@ -9,6 +9,7 @@ import {
 } from "@/lib/sg-sst/alerts/engine";
 import {
   RECORD_TYPE_META,
+  normalizeSstRecordDraftForImport,
   validateSstRecordDraft,
   validateThresholdDraft,
   type SstAlertKind,
@@ -225,13 +226,16 @@ export async function bulkImportComplianceRecordsAction(input: {
         }
       }
 
-      const draft: SstRecordDraft = {
-        ...row.draft,
-        farmId,
-        workerId,
-        subjectName: row.draft.subjectName.trim(),
-      };
-      const validationError = validateSstRecordDraft(draft);
+      const draft = normalizeSstRecordDraftForImport(
+        {
+          ...row.draft,
+          farmId,
+          workerId,
+          subjectName: row.draft.subjectName.trim(),
+        },
+        row.rowNumber,
+      );
+      const validationError = validateSstRecordDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({

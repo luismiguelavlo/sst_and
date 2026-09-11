@@ -154,7 +154,24 @@ export function emptyWorkerDraft(): SstWorkerDraft {
   };
 }
 
-export function validateWorkerDraft(input: SstWorkerDraft): string | null {
+export type { DraftValidationMode } from "@/lib/sg-sst/draft-mode";
+import type { DraftValidationMode } from "@/lib/sg-sst/draft-mode";
+
+export function validateWorkerDraft(
+  input: SstWorkerDraft,
+  mode: DraftValidationMode = "form",
+): string | null {
+  // Importación Excel: solo identidad mínima; el resto se completa con defaults.
+  if (mode === "import") {
+    if (!input.fullName.trim()) {
+      return "El nombre completo está vacío.";
+    }
+    if (!input.documentNumber.trim()) {
+      return "El número de identificación está vacío.";
+    }
+    return null;
+  }
+
   if (input.fullName.trim().length < 3) {
     return "El nombre completo debe tener al menos 3 caracteres.";
   }

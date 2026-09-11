@@ -1,5 +1,7 @@
 import { computeDaysRemaining } from "@/lib/sg-sst/alerts/engine";
 import type { SstWorkflowStatus } from "@/lib/sg-sst/alerts/types";
+import type { DraftValidationMode } from "@/lib/sg-sst/draft-mode";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 
 export const ACCIDENT_EVENT_TYPES = [
   "accidente_trabajo",
@@ -184,7 +186,7 @@ export function emptyCausesDraft(): SstAccidentCausesDraft {
 export function emptyAccidentDraft(workerId = ""): SstAccidentEventDraft {
   return {
     workerId,
-    eventDate: new Date().toISOString().slice(0, 10),
+    eventDate: todayIsoDate(),
     eventTime: "",
     companySnapshot: "",
     jobTitleSnapshot: "",
@@ -206,6 +208,23 @@ export function emptyAccidentDraft(workerId = ""): SstAccidentEventDraft {
     evidenceUrl: "",
     evidenceName: "",
     causes: emptyCausesDraft(),
+  };
+}
+
+/** Completa fechas/enums faltantes para importación Excel. */
+export function normalizeAccidentDraftForImport(
+  draft: SstAccidentEventDraft,
+): SstAccidentEventDraft {
+  const defaults = emptyAccidentDraft(draft.workerId);
+  return {
+    ...draft,
+    eventDate: draft.eventDate.trim() || todayIsoDate(),
+    eventType: isAccidentEventType(draft.eventType)
+      ? draft.eventType
+      : defaults.eventType,
+    status: isAccidentStatus(draft.status) ? draft.status : defaults.status,
+    lostDays:
+      Number.isFinite(draft.lostDays) && draft.lostDays >= 0 ? draft.lostDays : 0,
   };
 }
 
@@ -250,7 +269,17 @@ export function draftFromAccident(item: SstAccidentEvent): SstAccidentEventDraft
   };
 }
 
-export function validateAccidentDraft(input: SstAccidentEventDraft): string | null {
+export function validateAccidentDraft(
+  input: SstAccidentEventDraft,
+  mode: DraftValidationMode = "form",
+): string | null {
+  if (mode === "import") {
+    if (!input.workerId.trim()) {
+      return "Selecciona un trabajador de la base maestra.";
+    }
+    return null;
+  }
+
   if (!input.workerId.trim()) {
     return "Selecciona un trabajador de la base maestra.";
   }

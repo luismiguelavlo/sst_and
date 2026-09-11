@@ -164,7 +164,7 @@ function parseRecordType(raw: string, fallback: SstRecordType): SstRecordType {
   if (isSstRecordType(key)) {
     return key;
   }
-  throw new Error(`Tipo de registro no reconocido: "${raw}"`);
+  return fallback;
 }
 
 function parseWorkflowStatus(raw: string): SstWorkflowStatus {
@@ -179,7 +179,7 @@ function parseWorkflowStatus(raw: string): SstWorkflowStatus {
   if (isSstWorkflowStatus(raw.trim())) {
     return raw.trim() as SstWorkflowStatus;
   }
-  throw new Error(`Estado no reconocido: "${raw}"`);
+  return "open";
 }
 
 export function complianceRowsFromMatrix(
@@ -193,9 +193,13 @@ export function complianceRowsFromMatrix(
     return [];
   }
   const headerMap = mapHeaders(matrix[0] ?? []);
-  if (headerMap.title === undefined || headerMap.code === undefined || headerMap.subjectName === undefined) {
+  if (
+    headerMap.title === undefined &&
+    headerMap.code === undefined &&
+    headerMap.subjectName === undefined
+  ) {
     throw new Error(
-      "El Excel debe incluir columnas: titulo, codigo y sujeto (o trabajador).",
+      "El Excel debe incluir al menos una columna de identidad: titulo, codigo o sujeto.",
     );
   }
 
@@ -209,14 +213,12 @@ export function complianceRowsFromMatrix(
       continue;
     }
 
-    const recordType = parseRecordType(
+    let recordType = parseRecordType(
       cellValue(raw, headerMap.recordType),
       options.defaultType,
     );
     if (!options.allowedTypes.includes(recordType)) {
-      throw new Error(
-        `Fila ${index + 1}: el tipo "${recordType}" no pertenece a este módulo.`,
-      );
+      recordType = options.defaultType;
     }
 
     const draft: SstRecordDraft = {

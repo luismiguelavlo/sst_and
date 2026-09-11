@@ -27,6 +27,10 @@ import {
   parseDocumentsExcelFile,
 } from "@/lib/sg-sst/documentos/excel-client";
 import {
+  formatChunkImportToast,
+  runChunkedBulkImport,
+} from "@/lib/sg-sst/import-chunks";
+import {
   DEFAULT_SG_DOC_COMPANY,
   draftFromDocument,
   emptyDocumentDraft,
@@ -135,15 +139,16 @@ export function DocumentsMasterScreen({
 
   function confirmImport() {
     startTransition(async () => {
-      const result = await bulkImportDocumentsAction({ rows: preview });
+      const result = await runChunkedBulkImport(preview, (chunk) =>
+        bulkImportDocumentsAction({ rows: chunk }),
+      );
       if (!result.ok) {
         showToast(result.error, { variant: "error" });
         return;
       }
-      showToast(
-        `Importación: ${result.created} creados, ${result.updated} actualizados, ${result.failed} con error.`,
-        { variant: result.failed > 0 ? "info" : "success" },
-      );
+      showToast(formatChunkImportToast(result), {
+        variant: result.failed > 0 ? "info" : "success",
+      });
       setPreview([]);
       setFileName("");
       router.refresh();

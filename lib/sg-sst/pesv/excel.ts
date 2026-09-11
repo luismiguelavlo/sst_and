@@ -3,6 +3,8 @@ import {
   PESV_FITNESS_LABELS,
   PESV_PREOP_STATUS_LABELS,
   PESV_VEHICLE_STATUS_LABELS,
+  emptyDriverDraft,
+  emptyVehicleDraft,
   parseFitnessLabel,
   parseVehicleStatusLabel,
   parseYesNo,
@@ -135,10 +137,13 @@ export function driverRowsFromMatrix(
     throw new Error("El archivo debe tener encabezados y al menos una fila.");
   }
   const headerMap = mapHeaders(matrix[0], DRIVER_HEADER_ALIASES);
-  if (headerMap.worker === undefined) {
-    throw new Error("Falta la columna trabajador / documento.");
+  if (headerMap.worker === undefined && headerMap.folio === undefined) {
+    throw new Error(
+      "Falta al menos una columna usable: trabajador / documento o folio.",
+    );
   }
 
+  const defaults = emptyDriverDraft();
   const rows: PesvDriverExcelImportRow[] = [];
   for (let index = 1; index < matrix.length; index += 1) {
     const raw = matrix[index];
@@ -148,12 +153,9 @@ export function driverRowsFromMatrix(
     if (!workerRef) continue;
 
     const fitnessRaw = cellValue(raw, headerMap.fitness);
-    const fitness = fitnessRaw
-      ? parseFitnessLabel(fitnessRaw)
-      : "pendiente";
-    if (!fitness) {
-      throw new Error(`Fila ${index + 1}: concepto de aptitud inválido.`);
-    }
+    const fitness =
+      (fitnessRaw ? parseFitnessLabel(fitnessRaw) : null) ??
+      defaults.fitnessConcept;
 
     const draft: SstPesvDriverDraft = {
       workerId: "",
@@ -189,31 +191,40 @@ export function vehicleRowsFromMatrix(
     throw new Error("El archivo debe tener encabezados y al menos una fila.");
   }
   const headerMap = mapHeaders(matrix[0], VEHICLE_HEADER_ALIASES);
-  if (headerMap.plate === undefined) {
-    throw new Error("Falta la columna placa.");
+  if (
+    headerMap.plate === undefined &&
+    headerMap.vehicleType === undefined &&
+    headerMap.brand === undefined
+  ) {
+    throw new Error(
+      "Falta al menos una columna usable: placa, tipo o marca.",
+    );
   }
 
+  const defaults = emptyVehicleDraft();
   const rows: PesvVehicleExcelImportRow[] = [];
   for (let index = 1; index < matrix.length; index += 1) {
     const raw = matrix[index];
     if (!raw || raw.every((cell) => !String(cell).trim())) continue;
 
-    const plate = cellValue(raw, headerMap.plate).toUpperCase();
-    if (!plate) continue;
+    const plateRaw = cellValue(raw, headerMap.plate).toUpperCase();
+    const brand = cellValue(raw, headerMap.brand);
+    const vehicleType = cellValue(raw, headerMap.vehicleType);
+    if (!plateRaw && !brand && !vehicleType) continue;
+
+    const plate = plateRaw || `SIN-PLACA-${index + 1}`;
 
     const statusRaw = cellValue(raw, headerMap.status);
-    const status = statusRaw ? parseVehicleStatusLabel(statusRaw) : "apto";
-    if (!status) {
-      throw new Error(`Fila ${index + 1}: estado de vehículo inválido.`);
-    }
+    const status =
+      (statusRaw ? parseVehicleStatusLabel(statusRaw) : null) ?? defaults.status;
 
     const kmRaw = cellValue(raw, headerMap.odometerKm);
     const odometerKm = kmRaw ? Number(kmRaw.replace(/[^\d.-]/g, "")) : 0;
 
     const draft: SstPesvVehicleDraft = {
       plate,
-      vehicleType: cellValue(raw, headerMap.vehicleType) || "camioneta",
-      brand: cellValue(raw, headerMap.brand),
+      vehicleType: vehicleType || defaults.vehicleType,
+      brand,
       model: cellValue(raw, headerMap.model),
       responsibleWorkerId: null,
       workCenter: cellValue(raw, headerMap.workCenter),

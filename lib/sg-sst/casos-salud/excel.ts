@@ -6,6 +6,7 @@ import {
   type SstHealthCase,
   type SstHealthCaseDraft,
 } from "@/lib/sg-sst/casos-salud/types";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 
 export const HEALTH_CASE_EXCEL_MAX_ROWS = 500;
 
@@ -73,13 +74,13 @@ function cellValue(row: string[], index: number | undefined): string {
 }
 
 function excelDateToIso(raw: string): string {
-  if (!raw) return "";
+  if (!raw) return todayIsoDate();
   if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
   const parsed = Date.parse(raw);
   if (!Number.isNaN(parsed)) {
     return new Date(parsed).toISOString().slice(0, 10);
   }
-  return raw;
+  return todayIsoDate();
 }
 
 function mapHeaders(
@@ -101,15 +102,12 @@ function mapHeaders(
 }
 
 export function healthCaseRowsFromMatrix(matrix: string[][]): HealthCaseExcelImportRow[] {
-  if (matrix.length < 2) {
-    throw new Error("El archivo debe tener encabezados y al menos una fila.");
-  }
+  if (matrix.length < 2) return [];
   const headerMap = mapHeaders(matrix[0]);
-  if (headerMap.worker === undefined || headerMap.caseType === undefined) {
-    throw new Error("Faltan columnas obligatorias: trabajador y tipo_caso.");
-  }
-  if (headerMap.openedAt === undefined) {
-    throw new Error("Falta la columna fecha_apertura.");
+  if (headerMap.worker === undefined) {
+    throw new Error(
+      "El Excel debe incluir al menos la columna trabajador / documento.",
+    );
   }
 
   const rows: HealthCaseExcelImportRow[] = [];
@@ -118,30 +116,30 @@ export function healthCaseRowsFromMatrix(matrix: string[][]): HealthCaseExcelImp
     if (!raw || raw.every((cell) => !String(cell).trim())) continue;
 
     const workerRef = cellValue(raw, headerMap.worker);
-    const caseType = parseHealthCaseTypeLabel(cellValue(raw, headerMap.caseType));
+    if (!workerRef) continue;
+
+    const caseType =
+      parseHealthCaseTypeLabel(cellValue(raw, headerMap.caseType)) ??
+      "restriccion";
     const openedAt = excelDateToIso(cellValue(raw, headerMap.openedAt));
     const statusRaw = cellValue(raw, headerMap.status);
     const status = statusRaw
-      ? parseHealthCaseStatusLabel(statusRaw)
+      ? (parseHealthCaseStatusLabel(statusRaw) ?? "abierto")
       : ("abierto" as const);
 
-    if (!workerRef && !openedAt) continue;
-    if (!caseType) {
-      throw new Error(`Fila ${index + 1}: tipo de caso inválido.`);
-    }
-    if (!status) {
-      throw new Error(`Fila ${index + 1}: estado inválido.`);
-    }
+    const nextFollowUpRaw = cellValue(raw, headerMap.nextFollowUp);
+    const closedAtRaw = cellValue(raw, headerMap.closedAt);
 
     const draft: SstHealthCaseDraft = {
       workerId: "",
       caseType,
       openedAt,
       status,
-      responsibleName: cellValue(raw, headerMap.responsibleName),
+      responsibleName:
+        cellValue(raw, headerMap.responsibleName) || "Sin responsable",
       issuer: cellValue(raw, headerMap.issuer),
-      nextFollowUp: excelDateToIso(cellValue(raw, headerMap.nextFollowUp)) || null,
-      closedAt: excelDateToIso(cellValue(raw, headerMap.closedAt)) || null,
+      nextFollowUp: nextFollowUpRaw ? excelDateToIso(nextFollowUpRaw) : null,
+      closedAt: closedAtRaw ? excelDateToIso(closedAtRaw) : null,
       adminObservations: cellValue(raw, headerMap.adminObservations),
       evidenceUrl: cellValue(raw, headerMap.evidenceUrl),
       evidenceName: cellValue(raw, headerMap.evidenceName),

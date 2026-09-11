@@ -1,4 +1,5 @@
 import { computeDaysRemaining } from "@/lib/sg-sst/alerts/engine";
+import type { DraftValidationMode } from "@/lib/sg-sst/draft-mode";
 
 export const EQUIPMENT_TYPES = [
   "tractor",
@@ -171,7 +172,35 @@ export function draftFromOperator(item: SstOperator): SstOperatorDraft {
   };
 }
 
-export function validateOperatorDraft(input: SstOperatorDraft): string | null {
+/** Completa campos faltantes para importación Excel. */
+export function normalizeOperatorDraftForImport(
+  draft: SstOperatorDraft,
+): SstOperatorDraft {
+  const defaults = emptyOperatorDraft(draft.workerId);
+  return {
+    ...draft,
+    equipmentName: draft.equipmentName.trim() || "Sin equipo",
+    equipmentType: isEquipmentType(draft.equipmentType)
+      ? draft.equipmentType
+      : defaults.equipmentType,
+    trainingName: draft.trainingName.trim() || "Sin capacitación",
+    fitnessConcept: isFitnessConcept(draft.fitnessConcept)
+      ? draft.fitnessConcept
+      : defaults.fitnessConcept,
+  };
+}
+
+export function validateOperatorDraft(
+  input: SstOperatorDraft,
+  mode: DraftValidationMode = "form",
+): string | null {
+  if (mode === "import") {
+    if (!input.workerId.trim()) {
+      return "Selecciona un trabajador de la base maestra.";
+    }
+    return null;
+  }
+
   if (!input.workerId.trim()) {
     return "Selecciona un trabajador de la base maestra.";
   }

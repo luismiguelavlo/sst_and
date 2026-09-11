@@ -100,10 +100,24 @@ export async function getFarmStats(): Promise<FarmStats> {
 export async function findFarmByCode(code: string): Promise<SstFarmRecord | null> {
   const sql = getSql();
   const normalized = normalizeFarmCode(code);
+  if (!normalized) return null;
   const rows = await sql<FarmAdminRow[]>`
     SELECT ${sql.unsafe(FARM_SELECT)}
     FROM campus_sst.sst_farms f
     WHERE UPPER(f.code) = ${normalized}
+    LIMIT 1
+  `;
+  return rows[0] ? mapFarm(rows[0]) : null;
+}
+
+export async function findFarmByName(name: string): Promise<SstFarmRecord | null> {
+  const sql = getSql();
+  const normalized = name.trim().toLowerCase();
+  if (!normalized) return null;
+  const rows = await sql<FarmAdminRow[]>`
+    SELECT ${sql.unsafe(FARM_SELECT)}
+    FROM campus_sst.sst_farms f
+    WHERE LOWER(f.name) = ${normalized}
     LIMIT 1
   `;
   return rows[0] ? mapFarm(rows[0]) : null;

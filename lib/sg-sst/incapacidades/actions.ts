@@ -19,6 +19,9 @@ import {
   updateLeave,
 } from "@/lib/sg-sst/incapacidades/repository";
 import {
+  isLeaveOrigin,
+  isLeaveStatus,
+  isReintegrationStatus,
   validateLeaveDraft,
   type LeaveStats,
   type LeaveWorkerRanking,
@@ -26,6 +29,7 @@ import {
   type SstLeaveDraft,
   type SstLeaveView,
 } from "@/lib/sg-sst/incapacidades/types";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 import {
   findWorkerByCode,
   findWorkerByDocumentNumber,
@@ -153,8 +157,28 @@ export async function bulkImportLeavesAction(input: {
         continue;
       }
 
-      const draft: SstLeaveDraft = { ...row.draft, workerId };
-      const validationError = validateLeaveDraft(draft);
+      const today = todayIsoDate();
+      let startDate = row.draft.startDate.trim() || today;
+      let endDate = row.draft.endDate.trim() || today;
+      if (endDate < startDate) endDate = startDate;
+
+      const draft: SstLeaveDraft = {
+        ...row.draft,
+        workerId,
+        startDate,
+        endDate,
+        origin: isLeaveOrigin(row.draft.origin) ? row.draft.origin : "comun",
+        status:
+          row.draft.status != null && isLeaveStatus(row.draft.status)
+            ? row.draft.status
+            : row.draft.status,
+        reintegrationStatus:
+          row.draft.reintegrationStatus != null &&
+          isReintegrationStatus(row.draft.reintegrationStatus)
+            ? row.draft.reintegrationStatus
+            : "no_aplica",
+      };
+      const validationError = validateLeaveDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({

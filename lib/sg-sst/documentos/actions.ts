@@ -16,6 +16,9 @@ import {
   updateDocument,
 } from "@/lib/sg-sst/documentos/repository";
 import {
+  emptyDocumentDraft,
+  isSgDocStatus,
+  isSgDocType,
   validateDocumentDraft,
   type DocumentStats,
   type SstSgDocumentDraft,
@@ -117,13 +120,26 @@ export async function bulkImportDocumentsAction(input: {
     let failed = 0;
 
     for (const row of input.rows) {
-      const validationError = validateDocumentDraft(row.draft);
+      const defaults = emptyDocumentDraft();
+      const draft: SstSgDocumentDraft = {
+        ...row.draft,
+        title: row.draft.title.trim() || "Sin título",
+        code: row.draft.code.trim() || `DOC-IMP-${row.rowNumber}`,
+        docType: isSgDocType(row.draft.docType) ? row.draft.docType : defaults.docType,
+        status: isSgDocStatus(row.draft.status) ? row.draft.status : defaults.status,
+        company: row.draft.company.trim() || defaults.company,
+        responsibleName: row.draft.responsibleName.trim() || "Sin responsable",
+        versionLabel: row.draft.versionLabel.trim() || defaults.versionLabel,
+        elaboratedAt: row.draft.elaboratedAt.trim() || defaults.elaboratedAt,
+        lastReviewedAt: row.draft.lastReviewedAt.trim() || defaults.lastReviewedAt,
+      };
+      const validationError = validateDocumentDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({
           rowNumber: row.rowNumber,
-          code: row.code,
-          title: row.draft.title,
+          code: draft.code || row.code,
+          title: draft.title,
           status: "error",
           message: validationError,
         });
@@ -131,11 +147,11 @@ export async function bulkImportDocumentsAction(input: {
       }
 
       try {
-        const existing = await findDocumentByCode(row.draft.code);
+        const existing = await findDocumentByCode(draft.code);
         if (existing) {
           const saved = await updateDocument(
             existing.id,
-            { ...row.draft, id: existing.id },
+            { ...draft, id: existing.id },
             admin.id,
           );
           updated += 1;
@@ -148,7 +164,7 @@ export async function bulkImportDocumentsAction(input: {
             id: saved.id,
           });
         } else {
-          const saved = await createDocument(row.draft, admin.id);
+          const saved = await createDocument(draft, admin.id);
           created += 1;
           results.push({
             rowNumber: row.rowNumber,
@@ -163,8 +179,8 @@ export async function bulkImportDocumentsAction(input: {
         failed += 1;
         results.push({
           rowNumber: row.rowNumber,
-          code: row.code,
-          title: row.draft.title,
+          code: draft.code || row.code,
+          title: draft.title,
           status: "error",
           message: caught instanceof Error ? caught.message : "Error al guardar",
         });

@@ -1,5 +1,7 @@
 import { computeDaysRemaining } from "@/lib/sg-sst/alerts/engine";
 import type { SstWorkflowStatus } from "@/lib/sg-sst/alerts/types";
+import type { DraftValidationMode } from "@/lib/sg-sst/draft-mode";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 
 export const BRIGADE_TYPES = [
   "primeros_auxilios",
@@ -513,7 +515,15 @@ export function enrichEquipmentAsView(
 
 export function validateBrigadeDraft(
   input: SstBrigadeMemberDraft,
+  mode: DraftValidationMode = "form",
 ): string | null {
+  if (mode === "import") {
+    if (!input.workerId.trim()) {
+      return "Selecciona un trabajador de la base maestra.";
+    }
+    return null;
+  }
+
   if (!input.workerId.trim()) {
     return "Selecciona un trabajador de la base maestra.";
   }
@@ -537,7 +547,15 @@ export function validateBrigadeDraft(
 
 export function validateEquipmentDraft(
   input: SstEmergencyEquipmentDraft,
+  mode: DraftValidationMode = "form",
 ): string | null {
+  if (mode === "import") {
+    if (!input.elementName.trim()) {
+      return "El nombre del elemento es obligatorio.";
+    }
+    return null;
+  }
+
   if (!input.elementName.trim()) {
     return "El nombre del elemento es obligatorio.";
   }
@@ -562,7 +580,14 @@ export function validateEquipmentDraft(
   return null;
 }
 
-export function validateDrillDraft(input: SstEmergencyDrillDraft): string | null {
+export function validateDrillDraft(
+  input: SstEmergencyDrillDraft,
+  mode: DraftValidationMode = "form",
+): string | null {
+  if (mode === "import") {
+    return null;
+  }
+
   if (!input.drillDate.trim()) {
     return "La fecha del simulacro es obligatoria.";
   }
@@ -590,6 +615,71 @@ export function validateDrillDraft(input: SstEmergencyDrillDraft): string | null
     return "Estado inválido.";
   }
   return null;
+}
+
+/** Completa campos faltantes para importación Excel de brigada. */
+export function normalizeBrigadeDraftForImport(
+  draft: SstBrigadeMemberDraft,
+): SstBrigadeMemberDraft {
+  const defaults = emptyBrigadeDraft(draft.workerId);
+  const today = todayIsoDate();
+  return {
+    ...draft,
+    brigadeType: isBrigadeType(draft.brigadeType)
+      ? draft.brigadeType
+      : defaults.brigadeType,
+    trainingTitle: draft.trainingTitle.trim() || "Sin título",
+    trainedAt: draft.trainedAt.trim() || today,
+    dueDate: draft.dueDate.trim() || today,
+    status: isBrigadeManualStatus(draft.status ?? "")
+      ? draft.status
+      : defaults.status,
+  };
+}
+
+/** Completa campos faltantes para importación Excel de equipos. */
+export function normalizeEquipmentDraftForImport(
+  draft: SstEmergencyEquipmentDraft,
+): SstEmergencyEquipmentDraft {
+  const defaults = emptyEquipmentDraft();
+  const today = todayIsoDate();
+  return {
+    ...draft,
+    elementName: draft.elementName.trim() || draft.code?.trim() || "Sin nombre",
+    equipmentType: isEquipmentType(draft.equipmentType)
+      ? draft.equipmentType
+      : defaults.equipmentType,
+    location: draft.location.trim() || "Sin dato",
+    nextInspectionAt: draft.nextInspectionAt.trim() || today,
+    responsibleName: draft.responsibleName.trim() || "Sin responsable",
+    status: isEquipmentManualStatus(draft.status)
+      ? draft.status
+      : defaults.status,
+  };
+}
+
+/** Completa campos faltantes para importación Excel de simulacros. */
+export function normalizeDrillDraftForImport(
+  draft: SstEmergencyDrillDraft,
+): SstEmergencyDrillDraft {
+  const defaults = emptyDrillDraft();
+  return {
+    ...draft,
+    drillDate: draft.drillDate.trim() || todayIsoDate(),
+    place: draft.place.trim() || "Sin dato",
+    drillType: isDrillType(draft.drillType) ? draft.drillType : defaults.drillType,
+    status: isDrillStatus(draft.status) ? draft.status : defaults.status,
+    participantsCount: Number.isFinite(draft.participantsCount)
+      ? Math.max(0, draft.participantsCount)
+      : 0,
+    resultScore:
+      draft.resultScore != null &&
+      Number.isFinite(draft.resultScore) &&
+      draft.resultScore >= 0 &&
+      draft.resultScore <= 100
+        ? draft.resultScore
+        : null,
+  };
 }
 
 function normalizeLabel(raw: string): string {

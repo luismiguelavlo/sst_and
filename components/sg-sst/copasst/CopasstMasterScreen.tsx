@@ -28,6 +28,10 @@ import {
   type CopasstImportBundle,
 } from "@/lib/sg-sst/copasst/excel-client";
 import {
+  formatChunkImportToast,
+  runChunkedBulkImport,
+} from "@/lib/sg-sst/import-chunks";
+import {
   COPASST_COMMITMENT_MANUAL_STATUSES,
   COPASST_COMMITMENT_STATUS_LABELS,
   COPASST_MEETING_STATUS_LABELS,
@@ -204,11 +208,12 @@ export function CopasstMasterScreen({
       let created = 0;
       let updated = 0;
       let failed = 0;
+      let total = 0;
 
       if (importBundle.members.length > 0) {
-        const result = await bulkImportCopasstMembersAction({
-          rows: importBundle.members,
-        });
+        const result = await runChunkedBulkImport(importBundle.members, (chunk) =>
+          bulkImportCopasstMembersAction({ rows: chunk }),
+        );
         if (!result.ok) {
           showToast(result.error, { variant: "error" });
           return;
@@ -216,11 +221,12 @@ export function CopasstMasterScreen({
         created += result.created;
         updated += result.updated;
         failed += result.failed;
+        total += result.total;
       }
       if (importBundle.meetings.length > 0) {
-        const result = await bulkImportCopasstMeetingsAction({
-          rows: importBundle.meetings,
-        });
+        const result = await runChunkedBulkImport(importBundle.meetings, (chunk) =>
+          bulkImportCopasstMeetingsAction({ rows: chunk }),
+        );
         if (!result.ok) {
           showToast(result.error, { variant: "error" });
           return;
@@ -228,11 +234,13 @@ export function CopasstMasterScreen({
         created += result.created;
         updated += result.updated;
         failed += result.failed;
+        total += result.total;
       }
       if (importBundle.commitments.length > 0) {
-        const result = await bulkImportCopasstCommitmentsAction({
-          rows: importBundle.commitments,
-        });
+        const result = await runChunkedBulkImport(
+          importBundle.commitments,
+          (chunk) => bulkImportCopasstCommitmentsAction({ rows: chunk }),
+        );
         if (!result.ok) {
           showToast(result.error, { variant: "error" });
           return;
@@ -240,11 +248,12 @@ export function CopasstMasterScreen({
         created += result.created;
         updated += result.updated;
         failed += result.failed;
+        total += result.total;
       }
       if (importBundle.trainings.length > 0) {
-        const result = await bulkImportCopasstTrainingsAction({
-          rows: importBundle.trainings,
-        });
+        const result = await runChunkedBulkImport(importBundle.trainings, (chunk) =>
+          bulkImportCopasstTrainingsAction({ rows: chunk }),
+        );
         if (!result.ok) {
           showToast(result.error, { variant: "error" });
           return;
@@ -252,10 +261,11 @@ export function CopasstMasterScreen({
         created += result.created;
         updated += result.updated;
         failed += result.failed;
+        total += result.total;
       }
 
       showToast(
-        `Importación: ${created} creados, ${updated} actualizados, ${failed} con error.`,
+        formatChunkImportToast({ ok: true, created, updated, failed, total }),
         { variant: failed > 0 ? "info" : "success" },
       );
       setImportBundle(null);

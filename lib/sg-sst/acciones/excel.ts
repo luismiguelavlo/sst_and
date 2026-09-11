@@ -2,7 +2,9 @@ import {
   ACTION_EFFICACY_LABELS,
   ACTION_KIND_LABELS,
   ACTION_SOURCE_LABELS,
+  ACTION_SOURCE_TYPES,
   ACTION_STATUS_LABELS,
+  emptyActionDraft,
   parseActionKindLabel,
   parseActionStatusLabel,
   parseEfficacyLabel,
@@ -12,6 +14,7 @@ import {
   type SstCorrectiveActionDraft,
   type SstCorrectiveActionView,
 } from "@/lib/sg-sst/acciones/types";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 
 export const ACTION_EXCEL_MAX_ROWS = 500;
 
@@ -127,53 +130,43 @@ export function actionRowsFromMatrix(matrix: string[][]): ActionExcelImportRow[]
     throw new Error("El archivo debe tener encabezados y al menos una fila.");
   }
   const headerMap = mapHeaders(matrix[0]);
-  if (headerMap.sourceType === undefined) {
-    throw new Error("Falta la columna fuente / origen.");
-  }
-  if (headerMap.finding === undefined) {
-    throw new Error("Falta la columna hallazgo.");
-  }
-  if (headerMap.actionPlan === undefined) {
-    throw new Error("Falta la columna plan de acción.");
-  }
-  if (headerMap.responsibleName === undefined) {
-    throw new Error("Falta la columna responsable.");
-  }
-  if (headerMap.commitDate === undefined) {
-    throw new Error("Falta la columna fecha_compromiso.");
+  if (
+    headerMap.finding === undefined &&
+    headerMap.actionPlan === undefined &&
+    headerMap.responsibleName === undefined
+  ) {
+    throw new Error(
+      "Falta al menos una columna de identidad: hallazgo, plan de acción o responsable.",
+    );
   }
 
+  const defaults = emptyActionDraft();
   const rows: ActionExcelImportRow[] = [];
   for (let index = 1; index < matrix.length; index += 1) {
     const raw = matrix[index];
     if (!raw || raw.every((cell) => !String(cell).trim())) continue;
 
-    const sourceType = parseSourceTypeLabel(cellValue(raw, headerMap.sourceType));
     const finding = cellValue(raw, headerMap.finding);
     const actionPlan = cellValue(raw, headerMap.actionPlan);
     const responsibleName = cellValue(raw, headerMap.responsibleName);
-    const commitDate = excelDateToIso(cellValue(raw, headerMap.commitDate));
-
     if (!finding && !actionPlan && !responsibleName) continue;
-    if (!sourceType) {
-      throw new Error(`Fila ${index + 1}: fuente / origen inválido.`);
-    }
+
+    const sourceRaw = cellValue(raw, headerMap.sourceType);
+    const sourceType =
+      (sourceRaw ? parseSourceTypeLabel(sourceRaw) : null) ??
+      ACTION_SOURCE_TYPES[0];
 
     const kindRaw = cellValue(raw, headerMap.actionKind);
-    const actionKind = kindRaw
-      ? parseActionKindLabel(kindRaw)
-      : ("correctiva" as const);
-    if (!actionKind) {
-      throw new Error(`Fila ${index + 1}: tipo de acción inválido.`);
-    }
+    const actionKind =
+      (kindRaw ? parseActionKindLabel(kindRaw) : null) ?? defaults.actionKind;
 
     const efficacyRaw = cellValue(raw, headerMap.efficacyStatus);
-    const efficacyStatus = efficacyRaw
-      ? parseEfficacyLabel(efficacyRaw)
-      : ("pendiente" as const);
-    if (!efficacyStatus) {
-      throw new Error(`Fila ${index + 1}: estado de eficacia inválido.`);
-    }
+    const efficacyStatus =
+      (efficacyRaw ? parseEfficacyLabel(efficacyRaw) : null) ??
+      defaults.efficacyStatus;
+
+    const commitDate =
+      excelDateToIso(cellValue(raw, headerMap.commitDate)) || todayIsoDate();
 
     const draft: SstCorrectiveActionDraft = {
       sourceType,

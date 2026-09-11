@@ -7,6 +7,7 @@ import {
   type SstRestrictionDraft,
   type SstRestrictionView,
 } from "@/lib/sg-sst/restricciones/types";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 
 export const RESTRICTION_EXCEL_MAX_ROWS = 500;
 
@@ -96,13 +97,13 @@ function cellValue(row: string[], index: number | undefined): string {
 }
 
 function excelDateToIso(raw: string): string {
-  if (!raw) return "";
+  if (!raw) return todayIsoDate();
   if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
   const parsed = Date.parse(raw);
   if (!Number.isNaN(parsed)) {
     return new Date(parsed).toISOString().slice(0, 10);
   }
-  return raw;
+  return todayIsoDate();
 }
 
 function mapHeaders(
@@ -136,21 +137,12 @@ function toManualStatusFromParsed(
 export function restrictionRowsFromMatrix(
   matrix: string[][],
 ): RestrictionExcelImportRow[] {
-  if (matrix.length < 2) {
-    throw new Error("El archivo debe tener encabezados y al menos una fila.");
-  }
+  if (matrix.length < 2) return [];
   const headerMap = mapHeaders(matrix[0]);
-  if (headerMap.worker === undefined || headerMap.kind === undefined) {
-    throw new Error("Faltan columnas obligatorias: trabajador y tipo.");
-  }
-  if (headerMap.issuedAt === undefined || headerMap.startDate === undefined) {
-    throw new Error("Faltan columnas obligatorias: fecha_emision y fecha_inicio.");
-  }
-  if (headerMap.detail === undefined) {
-    throw new Error("Falta la columna detalle / restricción.");
-  }
-  if (headerMap.responsibleName === undefined) {
-    throw new Error("Falta la columna responsable.");
+  if (headerMap.worker === undefined) {
+    throw new Error(
+      "El Excel debe incluir al menos la columna trabajador / documento.",
+    );
   }
 
   const rows: RestrictionExcelImportRow[] = [];
@@ -159,30 +151,33 @@ export function restrictionRowsFromMatrix(
     if (!raw || raw.every((cell) => !String(cell).trim())) continue;
 
     const workerRef = cellValue(raw, headerMap.worker);
-    const kind = parseRestrictionKindLabel(cellValue(raw, headerMap.kind));
+    if (!workerRef) continue;
+
+    const kind =
+      parseRestrictionKindLabel(cellValue(raw, headerMap.kind)) ?? "restriccion";
     const issuedAt = excelDateToIso(cellValue(raw, headerMap.issuedAt));
     const startDate = excelDateToIso(cellValue(raw, headerMap.startDate));
-    const detail = cellValue(raw, headerMap.detail);
-    const responsibleName = cellValue(raw, headerMap.responsibleName);
+    const detail = cellValue(raw, headerMap.detail) || "Sin detalle";
+    const responsibleName =
+      cellValue(raw, headerMap.responsibleName) || "Sin responsable";
 
-    if (!workerRef && !issuedAt && !detail) continue;
-    if (!kind) {
-      throw new Error(`Fila ${index + 1}: tipo inválido.`);
-    }
+    const dueDateRaw = cellValue(raw, headerMap.dueDate);
+    const implementedAtRaw = cellValue(raw, headerMap.implementedAt);
+    const nextFollowUpRaw = cellValue(raw, headerMap.nextFollowUp);
 
     const draft: SstRestrictionDraft = {
       workerId: "",
       restrictionKind: kind,
       issuedAt,
       startDate,
-      dueDate: excelDateToIso(cellValue(raw, headerMap.dueDate)) || null,
+      dueDate: dueDateRaw ? excelDateToIso(dueDateRaw) : null,
       detail,
       issuer: cellValue(raw, headerMap.issuer),
       responsibleName,
       measureImplemented: cellValue(raw, headerMap.measureImplemented),
-      implementedAt: excelDateToIso(cellValue(raw, headerMap.implementedAt)) || null,
+      implementedAt: implementedAtRaw ? excelDateToIso(implementedAtRaw) : null,
       status: toManualStatusFromParsed(cellValue(raw, headerMap.status)),
-      nextFollowUp: excelDateToIso(cellValue(raw, headerMap.nextFollowUp)) || null,
+      nextFollowUp: nextFollowUpRaw ? excelDateToIso(nextFollowUpRaw) : null,
       observations: cellValue(raw, headerMap.observations),
       evidenceUrl: cellValue(raw, headerMap.evidenceUrl),
       evidenceName: cellValue(raw, headerMap.evidenceName),

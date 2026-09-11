@@ -17,6 +17,7 @@ import {
   updateOperator,
 } from "@/lib/sg-sst/operadores/repository";
 import {
+  normalizeOperatorDraftForImport,
   validateOperatorDraft,
   type OperatorStats,
   type SstOperatorDraft,
@@ -164,28 +165,17 @@ export async function bulkImportOperatorsAction(input: {
         continue;
       }
 
-      let farmId: string | null = null;
-      if (row.farmNameOrCode.trim()) {
-        farmId = resolveFarmId(row.farmNameOrCode, farms);
-        if (!farmId) {
-          failed += 1;
-          results.push({
-            rowNumber: row.rowNumber,
-            folio: row.folio ?? "",
-            workerRef: row.workerDocumentOrCode,
-            status: "error",
-            message: `Centro de trabajo no encontrado: "${row.farmNameOrCode}"`,
-          });
-          continue;
-        }
-      }
+      // Centro desconocido: se importa igual sin vincular (campo opcional).
+      const farmId = row.farmNameOrCode.trim()
+        ? resolveFarmId(row.farmNameOrCode, farms)
+        : null;
 
-      const draft: SstOperatorDraft = {
+      const draft = normalizeOperatorDraftForImport({
         ...row.draft,
         workerId,
         farmId,
-      };
-      const validationError = validateOperatorDraft(draft);
+      });
+      const validationError = validateOperatorDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({

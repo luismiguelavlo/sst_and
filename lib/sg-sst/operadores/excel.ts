@@ -2,6 +2,7 @@ import {
   EQUIPMENT_TYPE_LABELS,
   FITNESS_CONCEPT_LABELS,
   KEY_STATUS_LABELS,
+  emptyOperatorDraft,
   parseEquipmentTypeLabel,
   parseFitnessConceptLabel,
   parseYesNo,
@@ -123,16 +124,17 @@ export function operatorRowsFromMatrix(matrix: string[][]): OperatorExcelImportR
     throw new Error("El archivo debe tener encabezados y al menos una fila.");
   }
   const headerMap = mapHeaders(matrix[0]);
-  if (headerMap.worker === undefined) {
-    throw new Error("Falta la columna obligatoria: trabajador / documento.");
-  }
-  if (headerMap.equipmentName === undefined) {
-    throw new Error("Falta la columna obligatoria: equipo.");
-  }
-  if (headerMap.trainingName === undefined) {
-    throw new Error("Falta la columna obligatoria: capacitación.");
+  if (
+    headerMap.worker === undefined &&
+    headerMap.equipmentName === undefined &&
+    headerMap.folio === undefined
+  ) {
+    throw new Error(
+      "Falta al menos una columna usable: trabajador, equipo o folio.",
+    );
   }
 
+  const defaults = emptyOperatorDraft();
   const rows: OperatorExcelImportRow[] = [];
   for (let index = 1; index < matrix.length; index += 1) {
     const raw = matrix[index];
@@ -143,17 +145,15 @@ export function operatorRowsFromMatrix(matrix: string[][]): OperatorExcelImportR
     const trainingName = cellValue(raw, headerMap.trainingName);
     if (!workerRef && !equipmentName && !trainingName) continue;
 
-    const typeRaw = cellValue(raw, headerMap.equipmentType) || "tractor";
-    const equipmentType = parseEquipmentTypeLabel(typeRaw);
-    if (!equipmentType) {
-      throw new Error(`Fila ${index + 1}: tipo de equipo inválido.`);
-    }
+    const typeRaw = cellValue(raw, headerMap.equipmentType);
+    const equipmentType =
+      (typeRaw ? parseEquipmentTypeLabel(typeRaw) : null) ??
+      defaults.equipmentType;
 
-    const fitnessRaw = cellValue(raw, headerMap.fitnessConcept) || "pendiente";
-    const fitnessConcept = parseFitnessConceptLabel(fitnessRaw);
-    if (!fitnessConcept) {
-      throw new Error(`Fila ${index + 1}: concepto de aptitud inválido.`);
-    }
+    const fitnessRaw = cellValue(raw, headerMap.fitnessConcept);
+    const fitnessConcept =
+      (fitnessRaw ? parseFitnessConceptLabel(fitnessRaw) : null) ??
+      defaults.fitnessConcept;
 
     const inductionRaw = cellValue(raw, headerMap.inductionDone);
     const inductionParsed = parseYesNo(inductionRaw);

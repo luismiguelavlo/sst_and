@@ -18,6 +18,7 @@ import {
   updateAction,
 } from "@/lib/sg-sst/acciones/repository";
 import {
+  normalizeActionDraftForImport,
   validateActionDraft,
   type ActionStats,
   type SstCorrectiveActionDraft,
@@ -136,21 +137,14 @@ export async function bulkImportActionsAction(input: {
     let failed = 0;
 
     for (const row of input.rows) {
+      // Centro desconocido: se importa igual sin vincular (campo opcional).
       const farmId = resolveFarmId(farms, row.farmName);
-      if (row.farmName?.trim() && !farmId) {
-        failed += 1;
-        results.push({
-          rowNumber: row.rowNumber,
-          folio: row.folio ?? "",
-          farmRef: row.farmName,
-          status: "error",
-          message: `Centro de trabajo no encontrado: "${row.farmName}"`,
-        });
-        continue;
-      }
 
-      const draft: SstCorrectiveActionDraft = { ...row.draft, farmId };
-      const validationError = validateActionDraft(draft);
+      const draft = normalizeActionDraftForImport({
+        ...row.draft,
+        farmId,
+      });
+      const validationError = validateActionDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({

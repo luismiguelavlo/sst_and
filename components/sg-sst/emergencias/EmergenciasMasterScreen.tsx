@@ -31,6 +31,10 @@ import {
   parseEquipmentExcelFile,
 } from "@/lib/sg-sst/emergencias/excel-client";
 import {
+  formatChunkImportToast,
+  runChunkedBulkImport,
+} from "@/lib/sg-sst/import-chunks";
+import {
   BRIGADE_MANUAL_STATUSES,
   BRIGADE_STATUS_LABELS,
   BRIGADE_TYPE_LABELS,
@@ -315,18 +319,23 @@ export function EmergenciasMasterScreen({
     startTransition(async () => {
       const result =
         importKind === "brigada"
-          ? await bulkImportBrigadeAction({ rows: brigadePreview })
+          ? await runChunkedBulkImport(brigadePreview, (chunk) =>
+              bulkImportBrigadeAction({ rows: chunk }),
+            )
           : importKind === "equipos"
-            ? await bulkImportEquipmentAction({ rows: equipmentPreview })
-            : await bulkImportDrillsAction({ rows: drillPreview });
+            ? await runChunkedBulkImport(equipmentPreview, (chunk) =>
+                bulkImportEquipmentAction({ rows: chunk }),
+              )
+            : await runChunkedBulkImport(drillPreview, (chunk) =>
+                bulkImportDrillsAction({ rows: chunk }),
+              );
       if (!result.ok) {
         showToast(result.error, { variant: "error" });
         return;
       }
-      showToast(
-        `Importación: ${result.created} creados, ${result.updated} actualizados, ${result.failed} con error.`,
-        { variant: result.failed > 0 ? "info" : "success" },
-      );
+      showToast(formatChunkImportToast(result), {
+        variant: result.failed > 0 ? "info" : "success",
+      });
       clearPreview();
       router.refresh();
     });

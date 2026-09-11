@@ -30,6 +30,9 @@ import {
   updateEmergencyEquipment,
 } from "@/lib/sg-sst/emergencias/repository";
 import {
+  normalizeBrigadeDraftForImport,
+  normalizeDrillDraftForImport,
+  normalizeEquipmentDraftForImport,
   validateBrigadeDraft,
   validateDrillDraft,
   validateEquipmentDraft,
@@ -279,12 +282,12 @@ export async function bulkImportBrigadeAction(input: {
         continue;
       }
 
-      const draft: SstBrigadeMemberDraft = {
+      const draft = normalizeBrigadeDraftForImport({
         ...row.draft,
         workerId,
         farmId,
-      };
-      const validationError = validateBrigadeDraft(draft);
+      });
+      const validationError = validateBrigadeDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({
@@ -384,12 +387,12 @@ export async function bulkImportEquipmentAction(input: {
         continue;
       }
 
-      const draft: SstEmergencyEquipmentDraft = {
+      const draft = normalizeEquipmentDraftForImport({
         ...row.draft,
         farmId,
         code: row.code || row.draft.code,
-      };
-      const validationError = validateEquipmentDraft(draft);
+      });
+      const validationError = validateEquipmentDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({
@@ -491,8 +494,8 @@ export async function bulkImportDrillsAction(input: {
         continue;
       }
 
-      const draft: SstEmergencyDrillDraft = { ...row.draft, farmId };
-      const validationError = validateDrillDraft(draft);
+      const draft = normalizeDrillDraftForImport({ ...row.draft, farmId });
+      const validationError = validateDrillDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({

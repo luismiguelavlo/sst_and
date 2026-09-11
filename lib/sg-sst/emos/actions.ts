@@ -19,12 +19,15 @@ import {
   updateEmo,
 } from "@/lib/sg-sst/emos/repository";
 import {
+  isEmoConcept,
+  isEmoExamType,
   validateEmoDraft,
   type EmoStats,
   type SstEmo,
   type SstEmoDraft,
   type SstEmoView,
 } from "@/lib/sg-sst/emos/types";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 import {
   findWorkerByCode,
   findWorkerByDocumentNumber,
@@ -162,8 +165,17 @@ export async function bulkImportEmosAction(input: {
         continue;
       }
 
-      const draft: SstEmoDraft = { ...row.draft, workerId };
-      const validationError = validateEmoDraft(draft);
+      const draft: SstEmoDraft = {
+        ...row.draft,
+        workerId,
+        examType: isEmoExamType(row.draft.examType)
+          ? row.draft.examType
+          : "ingreso",
+        examDate: row.draft.examDate.trim() || todayIsoDate(),
+        concept: isEmoConcept(row.draft.concept) ? row.draft.concept : "apto",
+        ips: row.draft.ips.trim() || "Sin dato",
+      };
+      const validationError = validateEmoDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({

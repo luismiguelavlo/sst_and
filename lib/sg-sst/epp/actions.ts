@@ -24,6 +24,7 @@ import {
   updateDelivery,
 } from "@/lib/sg-sst/epp/repository";
 import {
+  normalizeDeliveryDraftForImport,
   validateCatalogDraft,
   validateDeliveryDraft,
   type EppStats,
@@ -221,13 +222,13 @@ export async function bulkImportEppDeliveriesAction(input: {
           ? row.draft.usefulLifeDays
           : catalog.usefulLifeDays;
 
-      const draft: SstEppDeliveryDraft = {
+      const draft = normalizeDeliveryDraftForImport({
         ...row.draft,
         workerId,
         catalogItemId: catalog.id,
         usefulLifeDays,
-      };
-      const validationError = validateDeliveryDraft(draft);
+      });
+      const validationError = validateDeliveryDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({

@@ -19,6 +19,7 @@ import {
   updateAccidentEvent,
 } from "@/lib/sg-sst/accidentes/repository";
 import {
+  normalizeAccidentDraftForImport,
   validateAccidentDraft,
   type AccidentStats,
   type CausesRanking,
@@ -169,25 +170,15 @@ export async function bulkImportAccidentsAction(input: {
         continue;
       }
 
+      // Centro desconocido: se importa igual sin vincular (campo opcional).
       const farmId = resolveFarmId(farms, row.farmName);
-      if (row.farmName?.trim() && !farmId) {
-        failed += 1;
-        results.push({
-          rowNumber: row.rowNumber,
-          eventNumber: row.eventNumber ?? "",
-          workerRef: row.workerDocumentOrCode,
-          status: "error",
-          message: `Centro de trabajo no encontrado: "${row.farmName}"`,
-        });
-        continue;
-      }
 
-      const draft: SstAccidentEventDraft = {
+      const draft = normalizeAccidentDraftForImport({
         ...row.draft,
         workerId,
         farmId: farmId ?? row.draft.farmId ?? null,
-      };
-      const validationError = validateAccidentDraft(draft);
+      });
+      const validationError = validateAccidentDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({

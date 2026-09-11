@@ -1,12 +1,14 @@
 import {
   INSPECTION_STATUS_LABELS,
   INSPECTION_TYPE_LABELS,
+  INSPECTION_TYPES,
   parseInspectionStatusLabel,
   parseInspectionTypeLabel,
   type InspectionManualStatus,
   type SstInspectionDraft,
   type SstInspectionView,
 } from "@/lib/sg-sst/inspecciones/types";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 
 export const INSPECTION_EXCEL_MAX_ROWS = 500;
 
@@ -69,13 +71,13 @@ function cellValue(row: string[], index: number | undefined): string {
 }
 
 function excelDateToIso(raw: string): string {
-  if (!raw) return "";
+  if (!raw) return todayIsoDate();
   if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
   const parsed = Date.parse(raw);
   if (!Number.isNaN(parsed)) {
     return new Date(parsed).toISOString().slice(0, 10);
   }
-  return raw;
+  return todayIsoDate();
 }
 
 function mapHeaders(
@@ -103,18 +105,18 @@ function toManualStatus(raw: string): InspectionManualStatus {
 export function inspectionRowsFromMatrix(
   matrix: string[][],
 ): InspectionExcelImportRow[] {
-  if (matrix.length < 2) {
-    throw new Error("El archivo debe tener encabezados y al menos una fila.");
-  }
+  if (matrix.length < 2) return [];
   const headerMap = mapHeaders(matrix[0]);
-  if (headerMap.type === undefined) {
-    throw new Error("Falta la columna obligatoria: tipo.");
-  }
-  if (headerMap.responsibleName === undefined) {
-    throw new Error("Falta la columna obligatoria: responsable.");
-  }
-  if (headerMap.scheduledDate === undefined) {
-    throw new Error("Falta la columna obligatoria: fecha_programada.");
+  // Identidad usable: al menos una columna de inspección.
+  if (
+    headerMap.type === undefined &&
+    headerMap.responsibleName === undefined &&
+    headerMap.scheduledDate === undefined &&
+    headerMap.folio === undefined
+  ) {
+    throw new Error(
+      "El Excel debe incluir al menos una columna usable (tipo, responsable, fecha_programada o folio).",
+    );
   }
 
   const rows: InspectionExcelImportRow[] = [];
@@ -123,14 +125,19 @@ export function inspectionRowsFromMatrix(
     if (!raw || raw.every((cell) => !String(cell).trim())) continue;
 
     const typeRaw = cellValue(raw, headerMap.type);
-    const responsibleName = cellValue(raw, headerMap.responsibleName);
-    const scheduledDate = excelDateToIso(cellValue(raw, headerMap.scheduledDate));
-    if (!typeRaw && !responsibleName && !scheduledDate) continue;
+    const responsibleRaw = cellValue(raw, headerMap.responsibleName);
+    const scheduledRaw = cellValue(raw, headerMap.scheduledDate);
+    const folio = cellValue(raw, headerMap.folio);
 
-    const inspectionType = parseInspectionTypeLabel(typeRaw);
-    if (!inspectionType) {
-      throw new Error(`Fila ${index + 1}: tipo de inspección inválido.`);
-    }
+    if (!typeRaw && !responsibleRaw && !scheduledRaw && !folio) continue;
+
+    const responsibleName = responsibleRaw || "Sin responsable";
+    const scheduledDate = excelDateToIso(scheduledRaw);
+    const inspectionType =
+      parseInspectionTypeLabel(typeRaw) ?? INSPECTION_TYPES[0];
+
+    const performedRaw = cellValue(raw, headerMap.performedDate);
+    const nextRaw = cellValue(raw, headerMap.nextInspectionDate);
 
     const draft: SstInspectionDraft = {
       inspectionType,
@@ -138,14 +145,13 @@ export function inspectionRowsFromMatrix(
       farmId: null,
       workCenter: cellValue(raw, headerMap.workCenter),
       scheduledDate,
-      performedDate: excelDateToIso(cellValue(raw, headerMap.performedDate)) || null,
+      performedDate: performedRaw ? excelDateToIso(performedRaw) : null,
       status: toManualStatus(cellValue(raw, headerMap.status)),
       findingsSummary: cellValue(raw, headerMap.findingsSummary),
       evidenceUrl: cellValue(raw, headerMap.evidenceUrl),
       evidenceName: cellValue(raw, headerMap.evidenceName),
       generatedAction: cellValue(raw, headerMap.generatedAction),
-      nextInspectionDate:
-        excelDateToIso(cellValue(raw, headerMap.nextInspectionDate)) || null,
+      nextInspectionDate: nextRaw ? excelDateToIso(nextRaw) : null,
       observations: cellValue(raw, headerMap.observations),
     };
 
@@ -153,7 +159,7 @@ export function inspectionRowsFromMatrix(
       rowNumber: index + 1,
       draft,
       farmName: cellValue(raw, headerMap.farm) || undefined,
-      folio: cellValue(raw, headerMap.folio) || undefined,
+      folio: folio || undefined,
     });
   }
   return rows;

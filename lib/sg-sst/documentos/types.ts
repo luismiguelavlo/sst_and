@@ -7,6 +7,7 @@ import {
   type SstSemaphoreLevel,
   type SstWorkflowStatus,
 } from "@/lib/sg-sst/alerts/types";
+import type { DraftValidationMode } from "@/lib/sg-sst/draft-mode";
 
 export const SG_DOC_TYPES = [
   "politica_sst",
@@ -187,7 +188,17 @@ export function toDocumentComplianceWorkflow(
   return "open";
 }
 
-export function validateDocumentDraft(input: SstSgDocumentDraft): string | null {
+export function validateDocumentDraft(
+  input: SstSgDocumentDraft,
+  mode: DraftValidationMode = "form",
+): string | null {
+  if (mode === "import") {
+    if (!input.code.trim() && !input.title.trim()) {
+      return "Fila sin código ni título.";
+    }
+    return null;
+  }
+
   if (!input.code.trim()) {
     return "El código del documento es obligatorio.";
   }

@@ -18,12 +18,15 @@ import {
   updateInvestigation,
 } from "@/lib/sg-sst/investigaciones/repository";
 import {
+  isInvestigationMethodology,
+  isInvestigationStatus,
   validateInvestigationDraft,
   type AccidentOption,
   type InvestigationStats,
   type SstInvestigationDraft,
   type SstInvestigationView,
 } from "@/lib/sg-sst/investigaciones/types";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 
 export type InvestigationActionResult =
   | { ok: true; id: string }
@@ -140,9 +143,20 @@ export async function bulkImportInvestigationsAction(input: {
       const draft: SstInvestigationDraft = {
         ...row.draft,
         accidentId: accident.id,
-        accidentDate: row.draft.accidentDate?.trim() || accident.event_date,
+        accidentDate:
+          row.draft.accidentDate?.trim() || accident.event_date || todayIsoDate(),
+        legalDueDate: row.draft.legalDueDate?.trim() || todayIsoDate(),
+        responsibleName: row.draft.responsibleName.trim() || "Sin responsable",
+        status: isInvestigationStatus(row.draft.status)
+          ? row.draft.status
+          : "pendiente_inicio",
+        methodology: isInvestigationMethodology(row.draft.methodology)
+          ? row.draft.methodology
+          : "ishikawa",
+        causesSummary: row.draft.causesSummary.trim() || "Sin detalle",
+        actionPlan: row.draft.actionPlan.trim() || "Sin detalle",
       };
-      const validationError = validateInvestigationDraft(draft);
+      const validationError = validateInvestigationDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({

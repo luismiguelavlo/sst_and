@@ -5,6 +5,9 @@ import {
   DRILL_TYPE_LABELS,
   EQUIPMENT_STATUS_LABELS,
   EQUIPMENT_TYPE_LABELS,
+  emptyBrigadeDraft,
+  emptyDrillDraft,
+  emptyEquipmentDraft,
   parseBrigadeStatusLabel,
   parseBrigadeTypeLabel,
   parseDrillStatusLabel,
@@ -20,6 +23,7 @@ import {
   type SstEmergencyEquipmentDraft,
   type SstEmergencyEquipmentView,
 } from "@/lib/sg-sst/emergencias/types";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 
 export const EMERGENCIAS_EXCEL_MAX_ROWS = 500;
 
@@ -186,13 +190,8 @@ export function brigadeRowsFromMatrix(
   if (headerMap.worker === undefined) {
     throw new Error("Falta la columna trabajador / documento (hoja Brigada).");
   }
-  if (headerMap.brigadeType === undefined) {
-    throw new Error("Falta la columna tipo de brigada.");
-  }
-  if (headerMap.dueDate === undefined) {
-    throw new Error("Falta la columna vencimiento / due_date.");
-  }
 
+  const defaults = emptyBrigadeDraft();
   const rows: BrigadeExcelImportRow[] = [];
   for (let index = 1; index < matrix.length; index += 1) {
     const raw = matrix[index];
@@ -201,12 +200,9 @@ export function brigadeRowsFromMatrix(
     const workerRef = cellValue(raw, headerMap.worker);
     if (!workerRef) continue;
 
-    const brigadeType = parseBrigadeTypeLabel(
-      cellValue(raw, headerMap.brigadeType),
-    );
-    if (!brigadeType) {
-      throw new Error(`Fila ${index + 1}: tipo de brigada inválido.`);
-    }
+    const brigadeType =
+      parseBrigadeTypeLabel(cellValue(raw, headerMap.brigadeType)) ??
+      defaults.brigadeType;
 
     const draft: SstBrigadeMemberDraft = {
       workerId: "",
@@ -239,35 +235,26 @@ export function equipmentRowsFromMatrix(
     throw new Error("El archivo debe tener encabezados y al menos una fila.");
   }
   const headerMap = mapHeaders(matrix[0], EQUIPMENT_HEADER_ALIASES);
-  if (headerMap.elementName === undefined) {
-    throw new Error("Falta la columna elemento / nombre (hoja Equipos).");
-  }
-  if (headerMap.equipmentType === undefined) {
-    throw new Error("Falta la columna tipo de equipo.");
-  }
-  if (headerMap.nextInspectionAt === undefined) {
-    throw new Error("Falta la columna próxima inspección.");
-  }
-  if (headerMap.responsibleName === undefined) {
-    throw new Error("Falta la columna responsable.");
+  if (headerMap.elementName === undefined && headerMap.code === undefined) {
+    throw new Error(
+      "Falta una columna de identidad: elemento / nombre o codigo (hoja Equipos).",
+    );
   }
 
+  const defaults = emptyEquipmentDraft();
   const rows: EquipmentExcelImportRow[] = [];
   for (let index = 1; index < matrix.length; index += 1) {
     const raw = matrix[index];
     if (!raw || raw.every((cell) => !String(cell).trim())) continue;
 
     const elementName = cellValue(raw, headerMap.elementName);
-    if (!elementName) continue;
-
-    const equipmentType = parseEquipmentTypeLabel(
-      cellValue(raw, headerMap.equipmentType),
-    );
-    if (!equipmentType) {
-      throw new Error(`Fila ${index + 1}: tipo de equipo inválido.`);
-    }
-
     const code = cellValue(raw, headerMap.code) || undefined;
+    if (!elementName && !code) continue;
+
+    const equipmentType =
+      parseEquipmentTypeLabel(cellValue(raw, headerMap.equipmentType)) ??
+      defaults.equipmentType;
+
     const draft: SstEmergencyEquipmentDraft = {
       code: code ?? "",
       elementName,
@@ -299,16 +286,17 @@ export function drillRowsFromMatrix(matrix: string[][]): DrillExcelImportRow[] {
     throw new Error("El archivo debe tener encabezados y al menos una fila.");
   }
   const headerMap = mapHeaders(matrix[0], DRILL_HEADER_ALIASES);
-  if (headerMap.drillDate === undefined) {
-    throw new Error("Falta la columna fecha (hoja Simulacros).");
-  }
-  if (headerMap.place === undefined) {
-    throw new Error("Falta la columna lugar.");
-  }
-  if (headerMap.drillType === undefined) {
-    throw new Error("Falta la columna tipo de simulacro.");
+  if (
+    headerMap.drillDate === undefined &&
+    headerMap.place === undefined &&
+    headerMap.folio === undefined
+  ) {
+    throw new Error(
+      "Falta una columna de identidad: fecha, lugar o folio (hoja Simulacros).",
+    );
   }
 
+  const defaults = emptyDrillDraft();
   const rows: DrillExcelImportRow[] = [];
   for (let index = 1; index < matrix.length; index += 1) {
     const raw = matrix[index];
@@ -316,27 +304,21 @@ export function drillRowsFromMatrix(matrix: string[][]): DrillExcelImportRow[] {
 
     const place = cellValue(raw, headerMap.place);
     const drillDate = excelDateToIso(cellValue(raw, headerMap.drillDate));
-    if (!place && !drillDate) continue;
+    const folio = cellValue(raw, headerMap.folio) || undefined;
+    if (!place && !drillDate && !folio) continue;
 
-    const drillType = parseDrillTypeLabel(cellValue(raw, headerMap.drillType));
-    if (!drillType) {
-      throw new Error(`Fila ${index + 1}: tipo de simulacro inválido.`);
-    }
-
-    const statusRaw = cellValue(raw, headerMap.status);
-    const status = statusRaw
-      ? parseDrillStatusLabel(statusRaw)
-      : ("programado" as const);
-    if (!status) {
-      throw new Error(`Fila ${index + 1}: estado de simulacro inválido.`);
-    }
+    const drillType =
+      parseDrillTypeLabel(cellValue(raw, headerMap.drillType)) ??
+      defaults.drillType;
+    const status =
+      parseDrillStatusLabel(cellValue(raw, headerMap.status)) ?? defaults.status;
 
     const scoreRaw = cellValue(raw, headerMap.resultScore);
     const resultScore = scoreRaw ? Number(scoreRaw.replace(",", ".")) : null;
 
     const draft: SstEmergencyDrillDraft = {
-      drillDate,
-      place,
+      drillDate: drillDate || todayIsoDate(),
+      place: place || "Sin dato",
       drillType,
       participantsCount: Number(cellValue(raw, headerMap.participantsCount) || 0),
       resultScore: Number.isFinite(resultScore) ? resultScore : null,
@@ -354,7 +336,7 @@ export function drillRowsFromMatrix(matrix: string[][]): DrillExcelImportRow[] {
       rowNumber: index + 1,
       draft,
       farmName: cellValue(raw, headerMap.farm) || undefined,
-      folio: cellValue(raw, headerMap.folio) || undefined,
+      folio,
     });
   }
   return rows;

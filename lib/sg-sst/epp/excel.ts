@@ -1,6 +1,7 @@
 import {
   EPP_CATEGORY_LABELS,
   EPP_REASON_LABELS,
+  emptyDeliveryDraft,
   parseEppCategoryLabel,
   parseEppReasonLabel,
   type EppCategory,
@@ -8,6 +9,7 @@ import {
   type SstEppDeliveryDraft,
   type SstEppDeliveryView,
 } from "@/lib/sg-sst/epp/types";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 
 export const EPP_EXCEL_MAX_ROWS = 500;
 
@@ -121,13 +123,13 @@ export function eppDeliveryRowsFromMatrix(matrix: string[][]): EppExcelImportRow
     throw new Error("El archivo debe tener encabezados y al menos una fila.");
   }
   const headerMap = mapHeaders(matrix[0]);
-  if (headerMap.worker === undefined || headerMap.catalog === undefined) {
-    throw new Error("Faltan columnas obligatorias: trabajador y epp.");
-  }
-  if (headerMap.deliveryDate === undefined) {
-    throw new Error("Falta la columna fecha_entrega.");
+  if (headerMap.worker === undefined && headerMap.catalog === undefined) {
+    throw new Error(
+      "Falta al menos una columna usable: trabajador o epp.",
+    );
   }
 
+  const defaults = emptyDeliveryDraft();
   const rows: EppExcelImportRow[] = [];
   for (let index = 1; index < matrix.length; index += 1) {
     const raw = matrix[index];
@@ -135,16 +137,13 @@ export function eppDeliveryRowsFromMatrix(matrix: string[][]): EppExcelImportRow
 
     const workerRef = cellValue(raw, headerMap.worker);
     const catalogRef = cellValue(raw, headerMap.catalog);
-    const deliveryDate = excelDateToIso(cellValue(raw, headerMap.deliveryDate));
-    if (!workerRef && !catalogRef && !deliveryDate) continue;
+    const deliveryDate =
+      excelDateToIso(cellValue(raw, headerMap.deliveryDate)) || todayIsoDate();
+    if (!workerRef && !catalogRef) continue;
 
     const reasonRaw = cellValue(raw, headerMap.reason);
-    const reason = reasonRaw
-      ? parseEppReasonLabel(reasonRaw)
-      : ("dotacion" as const);
-    if (!reason) {
-      throw new Error(`Fila ${index + 1}: motivo inválido.`);
-    }
+    const reason =
+      (reasonRaw ? parseEppReasonLabel(reasonRaw) : null) ?? defaults.reason;
 
     const quantity = Number(cellValue(raw, headerMap.quantity) || "1");
     const usefulLifeDays = Number(

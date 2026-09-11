@@ -1,5 +1,7 @@
 import { computeDaysRemaining } from "@/lib/sg-sst/alerts/engine";
 import type { SstWorkflowStatus } from "@/lib/sg-sst/alerts/types";
+import type { DraftValidationMode } from "@/lib/sg-sst/draft-mode";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 
 export const ACTION_SOURCE_TYPES = [
   "accidente",
@@ -150,7 +152,6 @@ export function isActionEfficacyStatus(
 }
 
 export function emptyActionDraft(): SstCorrectiveActionDraft {
-  const today = new Date().toISOString().slice(0, 10);
   return {
     sourceType: "inspeccion",
     sourceRef: "",
@@ -158,7 +159,7 @@ export function emptyActionDraft(): SstCorrectiveActionDraft {
     actionPlan: "",
     actionKind: "correctiva",
     responsibleName: "",
-    commitDate: today,
+    commitDate: todayIsoDate(),
     closedAt: "",
     status: "en_ejecucion",
     evidenceUrl: "",
@@ -169,7 +170,43 @@ export function emptyActionDraft(): SstCorrectiveActionDraft {
   };
 }
 
-export function validateActionDraft(input: SstCorrectiveActionDraft): string | null {
+/** Completa campos faltantes para importación Excel. */
+export function normalizeActionDraftForImport(
+  draft: SstCorrectiveActionDraft,
+): SstCorrectiveActionDraft {
+  const defaults = emptyActionDraft();
+  return {
+    ...draft,
+    sourceType: isActionSourceType(draft.sourceType)
+      ? draft.sourceType
+      : ACTION_SOURCE_TYPES[0],
+    finding: draft.finding.trim() || "Sin detalle",
+    actionPlan: draft.actionPlan.trim() || "Sin título",
+    actionKind: isActionKind(draft.actionKind) ? draft.actionKind : "correctiva",
+    responsibleName: draft.responsibleName.trim() || "Sin responsable",
+    commitDate: draft.commitDate.trim() || todayIsoDate(),
+    status: isActionManualStatus(draft.status) ? draft.status : defaults.status,
+    efficacyStatus: isActionEfficacyStatus(draft.efficacyStatus)
+      ? draft.efficacyStatus
+      : "pendiente",
+  };
+}
+
+export function validateActionDraft(
+  input: SstCorrectiveActionDraft,
+  mode: DraftValidationMode = "form",
+): string | null {
+  if (mode === "import") {
+    if (
+      !input.finding.trim() &&
+      !input.actionPlan.trim() &&
+      !input.responsibleName.trim()
+    ) {
+      return "Fila sin hallazgo, plan de acción ni responsable.";
+    }
+    return null;
+  }
+
   if (!isActionSourceType(input.sourceType)) {
     return "Fuente / origen inválido.";
   }

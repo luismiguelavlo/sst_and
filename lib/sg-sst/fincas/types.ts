@@ -56,13 +56,26 @@ export function draftFromFarm(farm: SstFarmRecord): SstFarmDraft {
   };
 }
 
-export function validateFarmDraft(draft: SstFarmDraft): string | null {
+export type { DraftValidationMode } from "@/lib/sg-sst/draft-mode";
+import type { DraftValidationMode } from "@/lib/sg-sst/draft-mode";
+
+export function validateFarmDraft(
+  draft: SstFarmDraft,
+  mode: DraftValidationMode = "form",
+): string | null {
+  if (mode === "import") {
+    if (!draft.name.trim() && !draft.code.trim()) {
+      return "Fila sin nombre ni código.";
+    }
+    return null;
+  }
+
   if (!draft.name.trim()) return "El nombre del centro de trabajo es obligatorio.";
   if (draft.name.trim().length > 120) return "El nombre no puede superar 120 caracteres.";
   if (!draft.code.trim()) return "El código es obligatorio.";
   if (draft.code.trim().length > 32) return "El código no puede superar 32 caracteres.";
   if (!/^[A-Za-z0-9_-]+$/.test(draft.code.trim())) {
-    return "El código solo admite letras, números, guion y guion bajo.";
+    return "El código solo admite letras, números, guion y guion bajo (sin espacios ni símbolos).";
   }
   if (draft.company.trim().length > 160) {
     return "La empresa / razón social no puede superar 160 caracteres.";
@@ -73,6 +86,31 @@ export function validateFarmDraft(draft: SstFarmDraft): string | null {
   return null;
 }
 
+/** Completa nombre/código faltantes para importación Excel. */
+export function normalizeFarmDraftForImport(draft: SstFarmDraft): SstFarmDraft {
+  const name = draft.name.trim() || draft.code.trim() || "Centro sin nombre";
+  let code = normalizeFarmCode(draft.code || name);
+  if (!code) {
+    code = `CTR_${Date.now().toString(36).toUpperCase()}`;
+  }
+  if (code.length > 32) code = code.slice(0, 32);
+  return {
+    ...draft,
+    name: name.slice(0, 120),
+    code,
+    company: draft.company.trim() || "Grupo Manzanares S.A.S.",
+    municipality: draft.municipality.trim(),
+    address: draft.address.trim(),
+    observations: draft.observations.trim(),
+  };
+}
+
 export function normalizeFarmCode(code: string): string {
-  return code.trim().toUpperCase();
+  return code
+    .trim()
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_")
+    .replace(/[^A-Z0-9_-]/g, "");
 }

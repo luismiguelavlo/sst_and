@@ -5,6 +5,10 @@ import {
   COPASST_MEMBER_STATUS_LABELS,
   COPASST_ROLE_LABELS,
   COPASST_TRAINING_STATUS_LABELS,
+  emptyCommitmentDraft,
+  emptyMeetingDraft,
+  emptyMemberDraft,
+  emptyTrainingDraft,
   parseCommitmentStatusLabel,
   parseCopasstRoleLabel,
   parseMeetingStatusLabel,
@@ -22,6 +26,7 @@ import {
   type SstCopasstTraining,
   type SstCopasstTrainingDraft,
 } from "@/lib/sg-sst/copasst/types";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 
 export const COPASST_EXCEL_MAX_ROWS = 500;
 
@@ -185,13 +190,8 @@ export function memberRowsFromMatrix(
   if (headerMap.worker === undefined) {
     throw new Error("Falta la columna trabajador / documento.");
   }
-  if (headerMap.role === undefined) {
-    throw new Error("Falta la columna rol.");
-  }
-  if (headerMap.startDate === undefined || headerMap.endDate === undefined) {
-    throw new Error("Faltan columnas fecha_inicio / fecha_fin.");
-  }
 
+  const defaults = emptyMemberDraft();
   const rows: CopasstMemberExcelImportRow[] = [];
   for (let index = 1; index < matrix.length; index += 1) {
     const raw = matrix[index];
@@ -199,14 +199,11 @@ export function memberRowsFromMatrix(
     const workerRef = cellValue(raw, headerMap.worker);
     if (!workerRef) continue;
 
-    const role = parseCopasstRoleLabel(cellValue(raw, headerMap.role));
-    if (!role) throw new Error(`Fila ${index + 1}: rol inválido.`);
-
+    const role =
+      parseCopasstRoleLabel(cellValue(raw, headerMap.role)) ?? defaults.role;
     const statusRaw = cellValue(raw, headerMap.status);
-    const parsedStatus = statusRaw
-      ? parseMemberStatusLabel(statusRaw)
-      : ("activo" as const);
-    if (!parsedStatus) throw new Error(`Fila ${index + 1}: estado inválido.`);
+    const parsedStatus =
+      parseMemberStatusLabel(statusRaw) ?? ("activo" as const);
 
     rows.push({
       rowNumber: index + 1,
@@ -236,40 +233,39 @@ export function meetingRowsFromMatrix(
     throw new Error("El archivo debe tener encabezados y al menos una fila.");
   }
   const headerMap = mapHeaders(matrix[0], MEETING_ALIASES);
-  if (headerMap.meetingDate === undefined) {
-    throw new Error("Falta la columna fecha de reunión.");
-  }
-  if (headerMap.title === undefined) {
-    throw new Error("Falta la columna título / tema.");
+  if (
+    headerMap.meetingDate === undefined &&
+    headerMap.title === undefined &&
+    headerMap.folio === undefined
+  ) {
+    throw new Error("Falta una columna de identidad: fecha, título o folio.");
   }
 
+  const defaults = emptyMeetingDraft();
   const rows: CopasstMeetingExcelImportRow[] = [];
   for (let index = 1; index < matrix.length; index += 1) {
     const raw = matrix[index];
     if (!raw || raw.every((cell) => !String(cell).trim())) continue;
     const title = cellValue(raw, headerMap.title);
-    if (!title) continue;
+    const meetingDate = excelDateToIso(cellValue(raw, headerMap.meetingDate));
+    const folio = cellValue(raw, headerMap.folio) || undefined;
+    if (!title && !meetingDate && !folio) continue;
 
-    const typeRaw = cellValue(raw, headerMap.meetingType);
-    const meetingType = typeRaw
-      ? parseMeetingTypeLabel(typeRaw)
-      : ("ordinaria" as const);
-    if (!meetingType) throw new Error(`Fila ${index + 1}: tipo inválido.`);
-
-    const statusRaw = cellValue(raw, headerMap.status);
-    const status = statusRaw
-      ? parseMeetingStatusLabel(statusRaw)
-      : ("programada" as const);
-    if (!status) throw new Error(`Fila ${index + 1}: estado inválido.`);
+    const meetingType =
+      parseMeetingTypeLabel(cellValue(raw, headerMap.meetingType)) ??
+      defaults.meetingType;
+    const status =
+      parseMeetingStatusLabel(cellValue(raw, headerMap.status)) ??
+      defaults.status;
 
     rows.push({
       rowNumber: index + 1,
-      folio: cellValue(raw, headerMap.folio) || undefined,
+      folio,
       farmName: cellValue(raw, headerMap.farm) || undefined,
       draft: {
-        meetingDate: excelDateToIso(cellValue(raw, headerMap.meetingDate)),
+        meetingDate: meetingDate || todayIsoDate(),
         meetingType,
-        title,
+        title: title || "Sin título",
         summary: cellValue(raw, headerMap.summary),
         actUrl: cellValue(raw, headerMap.actUrl),
         actName: cellValue(raw, headerMap.actName),
@@ -291,40 +287,43 @@ export function commitmentRowsFromMatrix(
     throw new Error("El archivo debe tener encabezados y al menos una fila.");
   }
   const headerMap = mapHeaders(matrix[0], COMMITMENT_ALIASES);
-  if (headerMap.description === undefined) {
-    throw new Error("Falta la columna descripción / compromiso.");
-  }
-  if (headerMap.responsibleName === undefined) {
-    throw new Error("Falta la columna responsable.");
-  }
-  if (headerMap.dueDate === undefined) {
-    throw new Error("Falta la columna vencimiento.");
+  if (
+    headerMap.description === undefined &&
+    headerMap.responsibleName === undefined &&
+    headerMap.folio === undefined
+  ) {
+    throw new Error(
+      "Falta una columna de identidad: descripción, responsable o folio.",
+    );
   }
 
+  const defaults = emptyCommitmentDraft();
   const rows: CopasstCommitmentExcelImportRow[] = [];
   for (let index = 1; index < matrix.length; index += 1) {
     const raw = matrix[index];
     if (!raw || raw.every((cell) => !String(cell).trim())) continue;
     const description = cellValue(raw, headerMap.description);
     const responsibleName = cellValue(raw, headerMap.responsibleName);
-    if (!description && !responsibleName) continue;
+    const folio = cellValue(raw, headerMap.folio) || undefined;
+    if (!description && !responsibleName && !folio) continue;
 
-    const statusRaw = cellValue(raw, headerMap.status);
-    const parsed = statusRaw
-      ? parseCommitmentStatusLabel(statusRaw)
-      : ("abierto" as const);
-    if (!parsed) throw new Error(`Fila ${index + 1}: estado inválido.`);
+    const parsed =
+      parseCommitmentStatusLabel(cellValue(raw, headerMap.status)) ??
+      ("abierto" as const);
 
     rows.push({
       rowNumber: index + 1,
-      folio: cellValue(raw, headerMap.folio) || undefined,
+      folio,
       meetingFolio: cellValue(raw, headerMap.meetingFolio) || undefined,
       farmName: cellValue(raw, headerMap.farm) || undefined,
       draft: {
         meetingId: null,
-        description,
-        responsibleName,
-        dueDate: excelDateToIso(cellValue(raw, headerMap.dueDate)),
+        description: description || "Sin detalle",
+        responsibleName: responsibleName || "Sin responsable",
+        dueDate:
+          excelDateToIso(cellValue(raw, headerMap.dueDate)) ||
+          defaults.dueDate ||
+          todayIsoDate(),
         closedAt: excelDateToIso(cellValue(raw, headerMap.closedAt)) || null,
         status: toCommitmentManualStatus(parsed),
         followUp: cellValue(raw, headerMap.followUp),
@@ -345,33 +344,35 @@ export function trainingRowsFromMatrix(
     throw new Error("El archivo debe tener encabezados y al menos una fila.");
   }
   const headerMap = mapHeaders(matrix[0], TRAINING_ALIASES);
-  if (headerMap.title === undefined) {
-    throw new Error("Falta la columna título.");
-  }
-  if (headerMap.trainingDate === undefined) {
-    throw new Error("Falta la columna fecha.");
+  if (
+    headerMap.title === undefined &&
+    headerMap.trainingDate === undefined &&
+    headerMap.folio === undefined
+  ) {
+    throw new Error("Falta una columna de identidad: título, fecha o folio.");
   }
 
+  const defaults = emptyTrainingDraft();
   const rows: CopasstTrainingExcelImportRow[] = [];
   for (let index = 1; index < matrix.length; index += 1) {
     const raw = matrix[index];
     if (!raw || raw.every((cell) => !String(cell).trim())) continue;
     const title = cellValue(raw, headerMap.title);
-    if (!title) continue;
+    const trainingDate = excelDateToIso(cellValue(raw, headerMap.trainingDate));
+    const folio = cellValue(raw, headerMap.folio) || undefined;
+    if (!title && !trainingDate && !folio) continue;
 
-    const statusRaw = cellValue(raw, headerMap.status);
-    const status = statusRaw
-      ? parseTrainingStatusLabel(statusRaw)
-      : ("programada" as const);
-    if (!status) throw new Error(`Fila ${index + 1}: estado inválido.`);
+    const status =
+      parseTrainingStatusLabel(cellValue(raw, headerMap.status)) ??
+      defaults.status;
 
     rows.push({
       rowNumber: index + 1,
-      folio: cellValue(raw, headerMap.folio) || undefined,
+      folio,
       draft: {
-        title,
-        trainingDate: excelDateToIso(cellValue(raw, headerMap.trainingDate)),
-        hours: parseNumber(cellValue(raw, headerMap.hours), 0),
+        title: title || "Sin título",
+        trainingDate: trainingDate || todayIsoDate(),
+        hours: parseNumber(cellValue(raw, headerMap.hours), defaults.hours),
         instructor: cellValue(raw, headerMap.instructor),
         attendeesCount: Math.round(
           parseNumber(cellValue(raw, headerMap.attendeesCount), 0),

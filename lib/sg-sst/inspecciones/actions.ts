@@ -20,12 +20,15 @@ import {
 } from "@/lib/sg-sst/inspecciones/repository";
 import {
   getCurrentWeekRange,
+  isInspectionStatus,
+  isInspectionType,
   validateInspectionDraft,
   type InspectionStats,
   type SstInspectionDraft,
   type SstInspectionView,
   type WeekRange,
 } from "@/lib/sg-sst/inspecciones/types";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 
 export type InspectionActionResult =
   | { ok: true; id: string }
@@ -148,21 +151,29 @@ export async function bulkImportInspectionsAction(input: {
     let failed = 0;
 
     for (const row of input.rows) {
+      // Centro desconocido: se importa igual sin vincular (campo opcional).
       const farmId = resolveFarmId(farms, row.farmName);
-      if (row.farmName?.trim() && !farmId) {
-        failed += 1;
-        results.push({
-          rowNumber: row.rowNumber,
-          folio: row.folio ?? "",
-          farmRef: row.farmName,
-          status: "error",
-          message: `Centro de trabajo no encontrado: "${row.farmName}"`,
-        });
-        continue;
-      }
 
-      const draft: SstInspectionDraft = { ...row.draft, farmId };
-      const validationError = validateInspectionDraft(draft);
+      const draft: SstInspectionDraft = {
+        ...row.draft,
+        farmId,
+        inspectionType: isInspectionType(row.draft.inspectionType)
+          ? row.draft.inspectionType
+          : "locativas",
+        responsibleName: row.draft.responsibleName.trim() || "Sin responsable",
+        scheduledDate: row.draft.scheduledDate.trim() || todayIsoDate(),
+        status: isInspectionStatus(row.draft.status)
+          ? row.draft.status
+          : "programada",
+        findingsSummary: row.draft.findingsSummary.trim() || "",
+        findings: (row.draft.findings ?? []).map((finding) => ({
+          ...finding,
+          title: finding.title.trim() || "Sin título",
+          description: finding.description.trim() || "Sin detalle",
+          assigneeName: finding.assigneeName.trim() || "Sin responsable",
+        })),
+      };
+      const validationError = validateInspectionDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({

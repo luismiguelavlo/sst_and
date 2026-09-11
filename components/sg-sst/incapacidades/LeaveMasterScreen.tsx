@@ -21,6 +21,10 @@ import {
   type LeaveExcelImportRow,
 } from "@/lib/sg-sst/incapacidades/excel";
 import {
+  formatChunkImportToast,
+  runChunkedBulkImport,
+} from "@/lib/sg-sst/import-chunks";
+import {
   LEAVE_ORIGINS,
   LEAVE_ORIGIN_LABELS,
   LEAVE_STATUSES,
@@ -207,15 +211,16 @@ export function LeaveMasterScreen({
 
   function confirmImport() {
     startTransition(async () => {
-      const result = await bulkImportLeavesAction({ rows: preview });
+      const result = await runChunkedBulkImport(preview, (chunk) =>
+        bulkImportLeavesAction({ rows: chunk }),
+      );
       if (!result.ok) {
         showToast(result.error, { variant: "error" });
         return;
       }
-      showToast(
-        `Importación: ${result.created} creadas, ${result.updated} actualizadas, ${result.failed} con error.`,
-        { variant: result.failed > 0 ? "info" : "success" },
-      );
+      showToast(formatChunkImportToast(result), {
+        variant: result.failed > 0 ? "info" : "success",
+      });
       setPreview([]);
       setFileName("");
       router.refresh();

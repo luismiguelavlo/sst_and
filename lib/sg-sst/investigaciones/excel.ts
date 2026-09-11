@@ -6,6 +6,7 @@ import {
   type SstInvestigationDraft,
   type SstInvestigationView,
 } from "@/lib/sg-sst/investigaciones/types";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 
 export const INVESTIGATION_EXCEL_MAX_ROWS = 500;
 
@@ -106,13 +107,13 @@ function cellValue(row: string[], index: number | undefined): string {
 }
 
 function excelDateToIso(raw: string): string {
-  if (!raw) return "";
+  if (!raw) return todayIsoDate();
   if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
   const parsed = Date.parse(raw);
   if (!Number.isNaN(parsed)) {
     return new Date(parsed).toISOString().slice(0, 10);
   }
-  return raw;
+  return todayIsoDate();
 }
 
 function mapHeaders(
@@ -136,15 +137,12 @@ function mapHeaders(
 export function investigationRowsFromMatrix(
   matrix: string[][],
 ): InvestigationExcelImportRow[] {
-  if (matrix.length < 2) {
-    throw new Error("El archivo debe tener encabezados y al menos una fila.");
-  }
+  if (matrix.length < 2) return [];
   const headerMap = mapHeaders(matrix[0]);
   if (headerMap.accident === undefined) {
-    throw new Error("Falta la columna obligatoria: accidente / número_evento.");
-  }
-  if (headerMap.responsibleName === undefined) {
-    throw new Error("Falta la columna obligatoria: responsable.");
+    throw new Error(
+      "El Excel debe incluir al menos la columna accidente / número_evento.",
+    );
   }
 
   const rows: InvestigationExcelImportRow[] = [];
@@ -153,8 +151,7 @@ export function investigationRowsFromMatrix(
     if (!raw || raw.every((cell) => !String(cell).trim())) continue;
 
     const accidentEventNumber = cellValue(raw, headerMap.accident);
-    const responsibleName = cellValue(raw, headerMap.responsibleName);
-    if (!accidentEventNumber && !responsibleName) continue;
+    if (!accidentEventNumber) continue;
 
     const statusRaw = cellValue(raw, headerMap.status);
     const methodologyRaw = cellValue(raw, headerMap.methodology);
@@ -162,21 +159,28 @@ export function investigationRowsFromMatrix(
     const methodology =
       parseInvestigationMethodologyLabel(methodologyRaw) ?? "ishikawa";
 
+    const accidentDateRaw = cellValue(raw, headerMap.accidentDate);
+    const legalDueRaw = cellValue(raw, headerMap.legalDueDate);
+    const investigationDateRaw = cellValue(raw, headerMap.investigationDate);
+    const closedAtRaw = cellValue(raw, headerMap.closedAt);
+
     const draft: SstInvestigationDraft = {
       accidentId: "",
-      accidentDate: excelDateToIso(cellValue(raw, headerMap.accidentDate)) || "",
-      legalDueDate: excelDateToIso(cellValue(raw, headerMap.legalDueDate)) || "",
-      responsibleName,
+      accidentDate: accidentDateRaw ? excelDateToIso(accidentDateRaw) : "",
+      legalDueDate: legalDueRaw ? excelDateToIso(legalDueRaw) : todayIsoDate(),
+      responsibleName:
+        cellValue(raw, headerMap.responsibleName) || "Sin responsable",
       status,
-      investigationDate:
-        excelDateToIso(cellValue(raw, headerMap.investigationDate)) || null,
+      investigationDate: investigationDateRaw
+        ? excelDateToIso(investigationDateRaw)
+        : null,
       investigationTeam: cellValue(raw, headerMap.investigationTeam),
       methodology,
-      causesSummary: cellValue(raw, headerMap.causesSummary),
-      actionPlan: cellValue(raw, headerMap.actionPlan),
+      causesSummary: cellValue(raw, headerMap.causesSummary) || "Sin detalle",
+      actionPlan: cellValue(raw, headerMap.actionPlan) || "Sin detalle",
       evidenceUrl: cellValue(raw, headerMap.evidenceUrl),
       evidenceName: cellValue(raw, headerMap.evidenceName),
-      closedAt: excelDateToIso(cellValue(raw, headerMap.closedAt)) || null,
+      closedAt: closedAtRaw ? excelDateToIso(closedAtRaw) : null,
       observations: cellValue(raw, headerMap.observations),
     };
 

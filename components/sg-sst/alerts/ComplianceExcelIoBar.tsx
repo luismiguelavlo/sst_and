@@ -12,6 +12,10 @@ import {
 } from "@/lib/sg-sst/alerts/excel-client";
 import { SST_EXCEL_MAX_ROWS, type SstExcelImportRow } from "@/lib/sg-sst/alerts/excel";
 import type { SstAlertView, SstRecordType } from "@/lib/sg-sst/alerts/types";
+import {
+  formatChunkImportToast,
+  runChunkedBulkImport,
+} from "@/lib/sg-sst/import-chunks";
 
 type ComplianceExcelIoBarProps = {
   records: readonly SstAlertView[];
@@ -83,18 +87,19 @@ export function ComplianceExcelIoBar({
       return;
     }
     startTransition(async () => {
-      const result = await bulkImportComplianceRecordsAction({
-        rows: preview,
-        allowedTypes: recordTypes,
-      });
+      const result = await runChunkedBulkImport(preview, (chunk) =>
+        bulkImportComplianceRecordsAction({
+          rows: chunk,
+          allowedTypes: recordTypes,
+        }),
+      );
       if (!result.ok) {
         showToast(result.error, { variant: "error" });
         return;
       }
-      showToast(
-        `Importación lista: ${result.created} creados, ${result.updated} actualizados, ${result.failed} con error.`,
-        { variant: result.failed > 0 ? "info" : "success" },
-      );
+      showToast(formatChunkImportToast(result), {
+        variant: result.failed > 0 ? "info" : "success",
+      });
       setPreview([]);
       setFileName("");
       router.refresh();

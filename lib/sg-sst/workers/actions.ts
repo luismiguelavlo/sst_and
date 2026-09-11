@@ -159,28 +159,38 @@ export async function bulkImportWorkersAction(input: {
       const farmNeedle = row.farmNameOrCode.trim().toLowerCase();
       let farmId: string | null = null;
       if (farmNeedle) {
-        const farm = farms.find(
-          (item) =>
-            item.name.toLowerCase() === farmNeedle ||
-            item.code.toLowerCase() === farmNeedle ||
-            item.name.toLowerCase().includes(farmNeedle),
-        );
-        if (!farm) {
-          failed += 1;
-          results.push({
-            rowNumber: row.rowNumber,
-            workerCode: row.draft.workerCode ?? "",
-            fullName: row.draft.fullName,
-            status: "error",
-            message: `Centro de trabajo no encontrado: "${row.farmNameOrCode}"`,
-          });
-          continue;
-        }
-        farmId = farm.id;
+        const farm =
+          farms.find(
+            (item) =>
+              item.name.toLowerCase() === farmNeedle ||
+              item.code.toLowerCase() === farmNeedle,
+          ) ??
+          farms.find(
+            (item) =>
+              item.name.toLowerCase().includes(farmNeedle) ||
+              farmNeedle.includes(item.name.toLowerCase()) ||
+              farmNeedle.includes(item.code.toLowerCase()),
+          );
+        // Centro desconocido: se importa igual sin vincular (campo opcional).
+        farmId = farm?.id ?? null;
       }
 
-      const draft: SstWorkerDraft = { ...row.draft, farmId };
-      const validationError = validateWorkerDraft(draft);
+      const draft: SstWorkerDraft = {
+        ...row.draft,
+        farmId,
+        fullName: row.draft.fullName.trim() || "Sin nombre",
+        documentNumber: row.draft.documentNumber.trim() || `SIN-DOC-${row.rowNumber}`,
+        jobTitle: row.draft.jobTitle.trim() || "Operario",
+        company: row.draft.company.trim() || "Grupo Manzanares S.A.S.",
+        email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.draft.email.trim())
+          ? row.draft.email.trim()
+          : "",
+        retirementDate:
+          row.draft.status === "retirado"
+            ? row.draft.retirementDate ?? new Date().toISOString().slice(0, 10)
+            : row.draft.retirementDate,
+      };
+      const validationError = validateWorkerDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({

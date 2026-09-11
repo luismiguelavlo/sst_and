@@ -26,6 +26,10 @@ import {
   type SstFarmDraft,
   type SstFarmRecord,
 } from "@/lib/sg-sst/fincas/types";
+import {
+  formatChunkImportToast,
+  runChunkedBulkImport,
+} from "@/lib/sg-sst/import-chunks";
 
 type FarmsMasterScreenProps = {
   farms: SstFarmRecord[];
@@ -78,7 +82,9 @@ export function FarmsMasterScreen({
     try {
       const rows = await parseFarmsExcelFile(file);
       if (rows.length === 0) {
-        showToast("El archivo no tiene filas.", { variant: "error" });
+        showToast("El archivo no tiene filas válidas (nombre + código).", {
+          variant: "error",
+        });
         return;
       }
       if (rows.length > FARM_EXCEL_MAX_ROWS) {
@@ -87,6 +93,7 @@ export function FarmsMasterScreen({
       }
       setPreview(rows);
       setFileName(file.name);
+      showToast(`Archivo leído: ${rows.length} centros listos para importar.`);
     } catch (caught) {
       showToast(
         caught instanceof Error ? caught.message : "No se pudo leer el archivo.",
@@ -100,21 +107,16 @@ export function FarmsMasterScreen({
   function confirmImport() {
     if (preview.length === 0) return;
     startTransition(async () => {
-      const result = await bulkImportFarmsAction({ rows: preview });
+      const result = await runChunkedBulkImport(preview, (chunk) =>
+        bulkImportFarmsAction({ rows: chunk }),
+      );
       if (!result.ok) {
         showToast(result.error, { variant: "error" });
         return;
       }
-      const created = result.results.filter((r) => r.ok && r.action === "created").length;
-      const updated = result.results.filter((r) => r.ok && r.action === "updated").length;
-      const fail = result.results.filter((r) => !r.ok).length;
-      const firstError = result.results.find((r) => !r.ok)?.error;
-      showToast(
-        fail > 0
-          ? `Importación: ${created} nuevos, ${updated} actualizados, ${fail} con error.${firstError ? ` Ej: ${firstError}` : ""}`
-          : `Importados ${created + updated} centros (${created} nuevos, ${updated} actualizados).`,
-        fail > 0 ? { variant: "error" } : undefined,
-      );
+      showToast(formatChunkImportToast(result), {
+        variant: result.failed > 0 ? "info" : "success",
+      });
       setPreview([]);
       setFileName("");
       router.refresh();

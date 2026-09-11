@@ -5,6 +5,10 @@ import {
   CCL_MEETING_TYPE_LABELS,
   CCL_MEMBER_ROLE_LABELS,
   CCL_MEMBER_STATUS_LABELS,
+  emptyCaseDraft,
+  emptyCommitmentDraft,
+  emptyMeetingDraft,
+  emptyMemberDraft,
   parseCaseStatusLabel,
   parseCommitmentStatusLabel,
   parseMeetingStatusLabel,
@@ -20,6 +24,7 @@ import {
   type SstCclMember,
   type SstCclMemberDraft,
 } from "@/lib/sg-sst/ccl/types";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 
 export const CCL_EXCEL_MAX_ROWS = 500;
 
@@ -172,32 +177,24 @@ export function memberRowsFromMatrix(
   if (headerMap.worker === undefined) {
     throw new Error("Falta la columna trabajador / documento.");
   }
-  if (headerMap.role === undefined) {
-    throw new Error("Falta la columna rol.");
-  }
-  if (headerMap.startDate === undefined || headerMap.endDate === undefined) {
-    throw new Error("Faltan columnas de fechas inicio/fin.");
-  }
 
+  const defaults = emptyMemberDraft();
   const rows: CclMemberExcelImportRow[] = [];
   for (let index = 1; index < matrix.length; index += 1) {
     const raw = matrix[index];
     if (!raw || raw.every((cell) => !String(cell).trim())) continue;
 
     const workerDocumentOrCode = cellValue(raw, headerMap.worker);
-    const role = parseMemberRoleLabel(cellValue(raw, headerMap.role));
     if (!workerDocumentOrCode) continue;
-    if (!role) {
-      throw new Error(`Fila ${index + 1}: rol inválido.`);
-    }
 
+    const role =
+      parseMemberRoleLabel(cellValue(raw, headerMap.role)) ?? defaults.role;
     const statusRaw = cellValue(raw, headerMap.status);
-    const status = statusRaw
-      ? parseMemberStatusLabel(statusRaw)
-      : ("activo" as const);
-    if (!status || status === "periodo_vencido") {
-      throw new Error(`Fila ${index + 1}: estado inválido.`);
-    }
+    const parsedStatus = parseMemberStatusLabel(statusRaw);
+    const status =
+      parsedStatus && parsedStatus !== "periodo_vencido"
+        ? parsedStatus
+        : defaults.status;
 
     const draft: SstCclMemberDraft = {
       workerId: "",
@@ -227,13 +224,15 @@ export function meetingRowsFromMatrix(
     throw new Error("El archivo debe tener encabezados y al menos una fila.");
   }
   const headerMap = mapHeaders(matrix[0], MEETING_ALIASES);
-  if (headerMap.meetingDate === undefined) {
-    throw new Error("Falta la columna fecha.");
-  }
-  if (headerMap.title === undefined) {
-    throw new Error("Falta la columna título.");
+  if (
+    headerMap.meetingDate === undefined &&
+    headerMap.title === undefined &&
+    headerMap.folio === undefined
+  ) {
+    throw new Error("Falta una columna de identidad: fecha, título o folio.");
   }
 
+  const defaults = emptyMeetingDraft();
   const rows: CclMeetingExcelImportRow[] = [];
   for (let index = 1; index < matrix.length; index += 1) {
     const raw = matrix[index];
@@ -241,28 +240,20 @@ export function meetingRowsFromMatrix(
 
     const title = cellValue(raw, headerMap.title);
     const meetingDate = excelDateToIso(cellValue(raw, headerMap.meetingDate));
-    if (!title && !meetingDate) continue;
+    const folio = cellValue(raw, headerMap.folio) || undefined;
+    if (!title && !meetingDate && !folio) continue;
 
-    const typeRaw = cellValue(raw, headerMap.meetingType);
-    const meetingType = typeRaw
-      ? parseMeetingTypeLabel(typeRaw)
-      : ("ordinaria" as const);
-    if (!meetingType) {
-      throw new Error(`Fila ${index + 1}: tipo de reunión inválido.`);
-    }
-
-    const statusRaw = cellValue(raw, headerMap.status);
-    const status = statusRaw
-      ? parseMeetingStatusLabel(statusRaw)
-      : ("realizada" as const);
-    if (!status) {
-      throw new Error(`Fila ${index + 1}: estado inválido.`);
-    }
+    const meetingType =
+      parseMeetingTypeLabel(cellValue(raw, headerMap.meetingType)) ??
+      defaults.meetingType;
+    const status =
+      parseMeetingStatusLabel(cellValue(raw, headerMap.status)) ??
+      defaults.status;
 
     const draft: SstCclMeetingDraft = {
-      meetingDate,
+      meetingDate: meetingDate || todayIsoDate(),
       meetingType,
-      title,
+      title: title || "Sin título",
       summary: cellValue(raw, headerMap.summary),
       actUrl: cellValue(raw, headerMap.actUrl),
       actName: cellValue(raw, headerMap.actName),
@@ -275,7 +266,7 @@ export function meetingRowsFromMatrix(
       rowNumber: index + 1,
       draft,
       farmName: cellValue(raw, headerMap.farm) || undefined,
-      folio: cellValue(raw, headerMap.folio) || undefined,
+      folio,
     });
   }
   return rows;
@@ -286,13 +277,17 @@ export function caseRowsFromMatrix(matrix: string[][]): CclCaseExcelImportRow[] 
     throw new Error("El archivo debe tener encabezados y al menos una fila.");
   }
   const headerMap = mapHeaders(matrix[0], CASE_ALIASES);
-  if (headerMap.openedAt === undefined) {
-    throw new Error("Falta la columna fecha de apertura.");
-  }
-  if (headerMap.activitySummary === undefined) {
-    throw new Error("Falta la columna resumen de actividad (paramétrico).");
+  if (
+    headerMap.openedAt === undefined &&
+    headerMap.activitySummary === undefined &&
+    headerMap.code === undefined
+  ) {
+    throw new Error(
+      "Falta una columna de identidad: apertura, resumen o codigo.",
+    );
   }
 
+  const defaults = emptyCaseDraft();
   const rows: CclCaseExcelImportRow[] = [];
   for (let index = 1; index < matrix.length; index += 1) {
     const raw = matrix[index];
@@ -300,22 +295,18 @@ export function caseRowsFromMatrix(matrix: string[][]): CclCaseExcelImportRow[] 
 
     const activitySummary = cellValue(raw, headerMap.activitySummary);
     const openedAt = excelDateToIso(cellValue(raw, headerMap.openedAt));
-    if (!activitySummary && !openedAt) continue;
+    const code = cellValue(raw, headerMap.code) || undefined;
+    if (!activitySummary && !openedAt && !code) continue;
 
-    const statusRaw = cellValue(raw, headerMap.status);
-    const status = statusRaw
-      ? parseCaseStatusLabel(statusRaw)
-      : ("abierto" as const);
-    if (!status) {
-      throw new Error(`Fila ${index + 1}: estado inválido.`);
-    }
+    const status =
+      parseCaseStatusLabel(cellValue(raw, headerMap.status)) ?? defaults.status;
 
     const draft: SstCclCaseDraft = {
-      openedAt,
+      openedAt: openedAt || todayIsoDate(),
       dueDate: excelDateToIso(cellValue(raw, headerMap.dueDate)) || null,
       closedAt: excelDateToIso(cellValue(raw, headerMap.closedAt)) || null,
       status,
-      activitySummary,
+      activitySummary: activitySummary || defaults.activitySummary,
       followUp: cellValue(raw, headerMap.followUp),
       meetingId: null,
       observations: cellValue(raw, headerMap.observations),
@@ -324,7 +315,7 @@ export function caseRowsFromMatrix(matrix: string[][]): CclCaseExcelImportRow[] 
     rows.push({
       rowNumber: index + 1,
       draft,
-      code: cellValue(raw, headerMap.code) || undefined,
+      code,
       meetingFolio: cellValue(raw, headerMap.meetingFolio) || undefined,
     });
   }
@@ -338,16 +329,17 @@ export function commitmentRowsFromMatrix(
     throw new Error("El archivo debe tener encabezados y al menos una fila.");
   }
   const headerMap = mapHeaders(matrix[0], COMMITMENT_ALIASES);
-  if (headerMap.description === undefined) {
-    throw new Error("Falta la columna descripción.");
-  }
-  if (headerMap.responsibleName === undefined) {
-    throw new Error("Falta la columna responsable.");
-  }
-  if (headerMap.dueDate === undefined) {
-    throw new Error("Falta la columna vencimiento.");
+  if (
+    headerMap.description === undefined &&
+    headerMap.responsibleName === undefined &&
+    headerMap.folio === undefined
+  ) {
+    throw new Error(
+      "Falta una columna de identidad: descripción, responsable o folio.",
+    );
   }
 
+  const defaults = emptyCommitmentDraft();
   const rows: CclCommitmentExcelImportRow[] = [];
   for (let index = 1; index < matrix.length; index += 1) {
     const raw = matrix[index];
@@ -355,20 +347,23 @@ export function commitmentRowsFromMatrix(
 
     const description = cellValue(raw, headerMap.description);
     const responsibleName = cellValue(raw, headerMap.responsibleName);
-    const dueDate = excelDateToIso(cellValue(raw, headerMap.dueDate));
-    if (!description && !responsibleName) continue;
+    const folio = cellValue(raw, headerMap.folio) || undefined;
+    if (!description && !responsibleName && !folio) continue;
 
     const statusRaw = cellValue(raw, headerMap.status);
     const parsed = statusRaw ? parseCommitmentStatusLabel(statusRaw) : null;
     const status =
-      parsed === "cerrado" ? ("cerrado" as const) : ("abierto" as const);
+      parsed === "cerrado" ? ("cerrado" as const) : defaults.status;
 
     const draft: SstCclCommitmentDraft = {
       meetingId: null,
       caseId: null,
-      description,
-      responsibleName,
-      dueDate,
+      description: description || "Sin detalle",
+      responsibleName: responsibleName || "Sin responsable",
+      dueDate:
+        excelDateToIso(cellValue(raw, headerMap.dueDate)) ||
+        defaults.dueDate ||
+        todayIsoDate(),
       closedAt: excelDateToIso(cellValue(raw, headerMap.closedAt)) || null,
       status,
       followUp: cellValue(raw, headerMap.followUp),
@@ -378,7 +373,7 @@ export function commitmentRowsFromMatrix(
     rows.push({
       rowNumber: index + 1,
       draft,
-      folio: cellValue(raw, headerMap.folio) || undefined,
+      folio,
       meetingFolio: cellValue(raw, headerMap.meetingFolio) || undefined,
       caseCode: cellValue(raw, headerMap.caseCode) || undefined,
     });

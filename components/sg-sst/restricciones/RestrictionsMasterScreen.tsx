@@ -22,6 +22,10 @@ import {
   parseRestrictionsExcelFile,
 } from "@/lib/sg-sst/restricciones/excel-client";
 import {
+  formatChunkImportToast,
+  runChunkedBulkImport,
+} from "@/lib/sg-sst/import-chunks";
+import {
   RESTRICTION_KIND_LABELS,
   RESTRICTION_KINDS,
   RESTRICTION_MANUAL_STATUSES,
@@ -124,15 +128,16 @@ export function RestrictionsMasterScreen({
 
   function confirmImport() {
     startTransition(async () => {
-      const result = await bulkImportRestrictionsAction({ rows: preview });
+      const result = await runChunkedBulkImport(preview, (chunk) =>
+        bulkImportRestrictionsAction({ rows: chunk }),
+      );
       if (!result.ok) {
         showToast(result.error, { variant: "error" });
         return;
       }
-      showToast(
-        `Importación: ${result.created} creados, ${result.updated} actualizados, ${result.failed} con error.`,
-        { variant: result.failed > 0 ? "info" : "success" },
-      );
+      showToast(formatChunkImportToast(result), {
+        variant: result.failed > 0 ? "info" : "success",
+      });
       setPreview([]);
       setFileName("");
       router.refresh();

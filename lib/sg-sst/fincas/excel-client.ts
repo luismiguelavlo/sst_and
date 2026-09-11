@@ -14,7 +14,8 @@ export async function parseFarmsExcelFile(
   file: File,
 ): Promise<FarmExcelImportRow[]> {
   const lower = file.name.toLowerCase();
-  let matrix: string[][];
+  let matrix: unknown[][];
+
   if (lower.endsWith(".csv")) {
     const text = await file.text();
     matrix = text
@@ -24,23 +25,33 @@ export async function parseFarmsExcelFile(
       .map(parseCsvLine);
   } else if (lower.endsWith(".xlsx") || lower.endsWith(".xls")) {
     const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
-    const sheetName = workbook.SheetNames[0];
-    if (!sheetName) throw new Error("El Excel no tiene hojas.");
+    const workbook = XLSX.read(buffer, {
+      type: "array",
+      cellDates: true,
+      dense: true,
+    });
+    // Preferir hoja "Centros" si existe; si no, la primera.
+    const preferred =
+      workbook.SheetNames.find((n) => /centro|finca|predio/i.test(n)) ??
+      workbook.SheetNames[0];
+    if (!preferred) throw new Error("El Excel no tiene hojas.");
+    const sheet = workbook.Sheets[preferred];
+    if (!sheet) throw new Error("No se pudo leer la hoja del Excel.");
+
     const raw = XLSX.utils.sheet_to_json<(string | number | boolean | Date | null)[]>(
-      workbook.Sheets[sheetName],
-      { header: 1, defval: "", raw: false },
+      sheet,
+      {
+        header: 1,
+        defval: "",
+        raw: true,
+        blankrows: false,
+      },
     );
-    matrix = raw.map((row) =>
-      row.map((cell) => {
-        if (cell instanceof Date) return cell.toISOString().slice(0, 10);
-        if (cell === null || cell === undefined) return "";
-        return String(cell).trim();
-      }),
-    );
+    matrix = raw.map((row) => (Array.isArray(row) ? [...row] : []));
   } else {
     throw new Error("Usa Excel (.xlsx, .xls) o CSV.");
   }
+
   return farmRowsFromMatrix(matrix);
 }
 

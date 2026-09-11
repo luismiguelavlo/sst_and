@@ -1,3 +1,5 @@
+import type { DraftValidationMode } from "@/lib/sg-sst/draft-mode";
+
 export const SST_RECORD_TYPES = [
   "curso",
   "certificacion",
@@ -378,7 +380,17 @@ export type SstRecordDraft = {
   notes?: string;
 };
 
-export function validateSstRecordDraft(input: SstRecordDraft): string | null {
+export function validateSstRecordDraft(
+  input: SstRecordDraft,
+  mode: DraftValidationMode = "form",
+): string | null {
+  if (mode === "import") {
+    if (!input.title.trim() && !input.code.trim() && !input.subjectName.trim()) {
+      return "Fila sin título, código ni sujeto.";
+    }
+    return null;
+  }
+
   if (!isSstRecordType(input.recordType)) {
     return "Tipo de registro inválido.";
   }
@@ -395,6 +407,21 @@ export function validateSstRecordDraft(input: SstRecordDraft): string | null {
     return "Estado de flujo inválido.";
   }
   return null;
+}
+
+export function normalizeSstRecordDraftForImport(
+  draft: SstRecordDraft,
+  rowNumber: number,
+): SstRecordDraft {
+  return {
+    ...draft,
+    title: draft.title.trim() || "Sin título",
+    code: draft.code.trim() || `SST-IMP-${rowNumber}`,
+    subjectName: draft.subjectName.trim() || "Sin sujeto",
+    workflowStatus: isSstWorkflowStatus(draft.workflowStatus)
+      ? draft.workflowStatus
+      : "open",
+  };
 }
 
 export type SstThresholdDraft = {

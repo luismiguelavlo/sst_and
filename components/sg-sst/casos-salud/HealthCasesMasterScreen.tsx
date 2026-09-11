@@ -21,6 +21,10 @@ import {
   type HealthCaseExcelImportRow,
 } from "@/lib/sg-sst/casos-salud/excel";
 import {
+  formatChunkImportToast,
+  runChunkedBulkImport,
+} from "@/lib/sg-sst/import-chunks";
+import {
   emptyHealthCaseDraft,
   HEALTH_CASE_STATUS_LABELS,
   HEALTH_CASE_STATUSES,
@@ -146,15 +150,16 @@ export function HealthCasesMasterScreen({
 
   function confirmImport() {
     startTransition(async () => {
-      const result = await bulkImportHealthCasesAction({ rows: preview });
+      const result = await runChunkedBulkImport(preview, (chunk) =>
+        bulkImportHealthCasesAction({ rows: chunk }),
+      );
       if (!result.ok) {
         showToast(result.error, { variant: "error" });
         return;
       }
-      showToast(
-        `Importación: ${result.created} creados, ${result.updated} actualizados, ${result.failed} con error.`,
-        { variant: result.failed > 0 ? "info" : "success" },
-      );
+      showToast(formatChunkImportToast(result), {
+        variant: result.failed > 0 ? "info" : "success",
+      });
       setPreview([]);
       setFileName("");
       router.refresh();

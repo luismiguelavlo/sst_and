@@ -11,12 +11,15 @@ import {
   createFarm,
   deleteFarm,
   findFarmByCode,
+  findFarmByName,
   getFarmStats,
   listFarmRecords,
   setFarmActive,
   updateFarm,
 } from "@/lib/sg-sst/fincas/repository";
 import {
+  normalizeFarmCode,
+  normalizeFarmDraftForImport,
   validateFarmDraft,
   type FarmStats,
   type SstFarmDraft,
@@ -54,12 +57,17 @@ export async function saveFarmAction(
   draft: SstFarmDraft,
 ): Promise<FarmActionResult> {
   await requireAdmin();
-  const error = validateFarmDraft(draft);
+  const normalized: SstFarmDraft = {
+    ...draft,
+    code: normalizeFarmCode(draft.code),
+    name: draft.name.trim(),
+  };
+  const error = validateFarmDraft(normalized);
   if (error) return { ok: false, error };
   try {
-    const saved = draft.id
-      ? await updateFarm(draft.id, draft)
-      : await createFarm(draft);
+    const saved = normalized.id
+      ? await updateFarm(normalized.id, normalized)
+      : await createFarm(normalized);
     revalidateFarmPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -119,7 +127,13 @@ export async function deleteFarmAction(id: string): Promise<FarmSimpleResult> {
 export async function bulkImportFarmsAction(input: {
   rows: FarmExcelImportRow[];
 }): Promise<
-  | { ok: true; results: FarmExcelImportResultRow[] }
+  | {
+      ok: true;
+      created: number;
+      updated: number;
+      failed: number;
+      results: FarmExcelImportResultRow[];
+    }
   | { ok: false; error: string }
 > {
   await requireAdmin();
@@ -135,49 +149,62 @@ export async function bulkImportFarmsAction(input: {
   }
 
   const results: FarmExcelImportResultRow[] = [];
-  for (const [index, row] of rows.entries()) {
-    const draft: SstFarmDraft = {
-      name: row.name,
-      code: row.code,
-      company: row.company,
-      municipality: row.municipality,
-      address: row.address,
-      observations: row.observations,
+  let created = 0;
+  let updated = 0;
+  let failed = 0;
+
+  for (const row of rows) {
+    const draft = normalizeFarmDraftForImport({
+      name: row.name.trim(),
+      code: normalizeFarmCode(row.code),
+      company: row.company.trim(),
+      municipality: row.municipality.trim(),
+      address: row.address.trim(),
+      observations: row.observations.trim(),
       active: row.active,
-    };
-    const validation = validateFarmDraft(draft);
+    });
+    const validation = validateFarmDraft(draft, "import");
     if (validation) {
+      failed += 1;
       results.push({
-        row: index + 2,
-        code: row.code,
+        row: row.rowNumber,
+        code: draft.code || row.code,
+        name: draft.name,
         ok: false,
         error: validation,
       });
       continue;
     }
     try {
-      const existing = await findFarmByCode(row.code);
+      const existing =
+        (await findFarmByCode(draft.code)) ?? (await findFarmByName(draft.name));
       if (existing) {
         await updateFarm(existing.id, { ...draft, id: existing.id });
+        updated += 1;
         results.push({
-          row: index + 2,
-          code: row.code,
+          row: row.rowNumber,
+          code: draft.code,
+          name: draft.name,
           ok: true,
           action: "updated",
         });
       } else {
         await createFarm(draft);
+        created += 1;
         results.push({
-          row: index + 2,
-          code: row.code,
+          row: row.rowNumber,
+          code: draft.code,
+          name: draft.name,
           ok: true,
           action: "created",
         });
       }
     } catch (caught) {
+      failed += 1;
       results.push({
-        row: index + 2,
-        code: row.code,
+        row: row.rowNumber,
+        code: draft.code,
+        name: draft.name,
         ok: false,
         error:
           caught instanceof Error ? caught.message : "Error al importar la fila.",
@@ -186,5 +213,5 @@ export async function bulkImportFarmsAction(input: {
   }
 
   revalidateFarmPaths();
-  return { ok: true, results };
+  return { ok: true, created, updated, failed, results };
 }

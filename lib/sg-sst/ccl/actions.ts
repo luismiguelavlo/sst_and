@@ -35,6 +35,10 @@ import {
   updateMember,
 } from "@/lib/sg-sst/ccl/repository";
 import {
+  normalizeCaseDraftForImport,
+  normalizeCommitmentDraftForImport,
+  normalizeMeetingDraftForImport,
+  normalizeMemberDraftForImport,
   validateCaseDraft,
   validateCommitmentDraft,
   validateMeetingDraft,
@@ -322,8 +326,12 @@ export async function bulkImportCclMembersAction(input: {
         continue;
       }
 
-      const draft: SstCclMemberDraft = { ...row.draft, workerId, farmId };
-      const validationError = validateMemberDraft(draft);
+      const draft = normalizeMemberDraftForImport({
+        ...row.draft,
+        workerId,
+        farmId,
+      });
+      const validationError = validateMemberDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({
@@ -423,8 +431,8 @@ export async function bulkImportCclMeetingsAction(input: {
         continue;
       }
 
-      const draft: SstCclMeetingDraft = { ...row.draft, farmId };
-      const validationError = validateMeetingDraft(draft);
+      const draft = normalizeMeetingDraftForImport({ ...row.draft, farmId });
+      const validationError = validateMeetingDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({
@@ -522,8 +530,8 @@ export async function bulkImportCclCasesAction(input: {
         meetingId = meeting.id;
       }
 
-      const draft: SstCclCaseDraft = { ...row.draft, meetingId };
-      const validationError = validateCaseDraft(draft);
+      const draft = normalizeCaseDraftForImport({ ...row.draft, meetingId });
+      const validationError = validateCaseDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({
@@ -638,12 +646,12 @@ export async function bulkImportCclCommitmentsAction(input: {
         caseId = cclCase.id;
       }
 
-      const draft: SstCclCommitmentDraft = {
+      const draft = normalizeCommitmentDraftForImport({
         ...row.draft,
         meetingId,
         caseId,
-      };
-      const validationError = validateCommitmentDraft(draft);
+      });
+      const validationError = validateCommitmentDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({

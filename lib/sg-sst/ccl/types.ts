@@ -1,5 +1,7 @@
 import { computeDaysRemaining } from "@/lib/sg-sst/alerts/engine";
 import type { SstWorkflowStatus } from "@/lib/sg-sst/alerts/types";
+import type { DraftValidationMode } from "@/lib/sg-sst/draft-mode";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 
 /* ─── Roles & statuses ─────────────────────────────────────────────────── */
 
@@ -461,7 +463,15 @@ export function draftFromCommitment(
   };
 }
 
-export function validateMemberDraft(input: SstCclMemberDraft): string | null {
+export function validateMemberDraft(
+  input: SstCclMemberDraft,
+  mode: DraftValidationMode = "form",
+): string | null {
+  if (mode === "import") {
+    if (!input.workerId.trim()) return "Seleccione el trabajador integrante.";
+    return null;
+  }
+
   if (!input.workerId.trim()) return "Seleccione el trabajador integrante.";
   if (!isCclMemberRole(input.role)) return "Rol inválido.";
   if (!input.startDate.trim()) return "La fecha de inicio es obligatoria.";
@@ -475,7 +485,17 @@ export function validateMemberDraft(input: SstCclMemberDraft): string | null {
   return null;
 }
 
-export function validateMeetingDraft(input: SstCclMeetingDraft): string | null {
+export function validateMeetingDraft(
+  input: SstCclMeetingDraft,
+  mode: DraftValidationMode = "form",
+): string | null {
+  if (mode === "import") {
+    if (!input.meetingDate.trim() && !input.title.trim()) {
+      return "Fila sin fecha ni título.";
+    }
+    return null;
+  }
+
   if (!input.meetingDate.trim()) return "La fecha de la acta es obligatoria.";
   if (!isCclMeetingType(input.meetingType)) return "Tipo de reunión inválido.";
   if (!input.title.trim()) return "El título es obligatorio.";
@@ -483,7 +503,17 @@ export function validateMeetingDraft(input: SstCclMeetingDraft): string | null {
   return null;
 }
 
-export function validateCaseDraft(input: SstCclCaseDraft): string | null {
+export function validateCaseDraft(
+  input: SstCclCaseDraft,
+  mode: DraftValidationMode = "form",
+): string | null {
+  if (mode === "import") {
+    if (!input.openedAt.trim() && !input.activitySummary.trim()) {
+      return "Fila sin fecha de apertura ni resumen.";
+    }
+    return null;
+  }
+
   if (!input.openedAt.trim()) return "La fecha de apertura es obligatoria.";
   if (!isCclCaseStatus(input.status)) return "Estado inválido.";
   if (!input.activitySummary.trim()) {
@@ -500,12 +530,82 @@ export function validateCaseDraft(input: SstCclCaseDraft): string | null {
 
 export function validateCommitmentDraft(
   input: SstCclCommitmentDraft,
+  mode: DraftValidationMode = "form",
 ): string | null {
+  if (mode === "import") {
+    return null;
+  }
+
   if (!input.description.trim()) return "La descripción es obligatoria.";
   if (!input.responsibleName.trim()) return "El responsable es obligatorio.";
   if (!input.dueDate.trim()) return "La fecha de vencimiento es obligatoria.";
   if (!isCclCommitmentManualStatus(input.status)) return "Estado inválido.";
   return null;
+}
+
+export function normalizeMemberDraftForImport(
+  draft: SstCclMemberDraft,
+): SstCclMemberDraft {
+  const defaults = emptyMemberDraft();
+  const today = todayIsoDate();
+  return {
+    ...draft,
+    role: isCclMemberRole(draft.role) ? draft.role : defaults.role,
+    startDate: draft.startDate.trim() || today,
+    endDate: draft.endDate.trim() || defaults.endDate,
+    status:
+      isCclMemberStatus(draft.status) && draft.status !== "periodo_vencido"
+        ? draft.status
+        : defaults.status,
+    periodLabel: draft.periodLabel.trim() || defaults.periodLabel,
+  };
+}
+
+export function normalizeMeetingDraftForImport(
+  draft: SstCclMeetingDraft,
+): SstCclMeetingDraft {
+  const defaults = emptyMeetingDraft();
+  return {
+    ...draft,
+    meetingDate: draft.meetingDate.trim() || todayIsoDate(),
+    title: draft.title.trim() || "Sin título",
+    meetingType: isCclMeetingType(draft.meetingType)
+      ? draft.meetingType
+      : defaults.meetingType,
+    status: isCclMeetingStatus(draft.status) ? draft.status : defaults.status,
+  };
+}
+
+export function normalizeCaseDraftForImport(
+  draft: SstCclCaseDraft,
+): SstCclCaseDraft {
+  const defaults = emptyCaseDraft();
+  const status = isCclCaseStatus(draft.status) ? draft.status : defaults.status;
+  return {
+    ...draft,
+    openedAt: draft.openedAt.trim() || todayIsoDate(),
+    activitySummary: draft.activitySummary.trim() || defaults.activitySummary,
+    status,
+    closedAt:
+      isCaseClosedLike(status) && !draft.closedAt?.trim()
+        ? todayIsoDate()
+        : draft.closedAt,
+  };
+}
+
+export function normalizeCommitmentDraftForImport(
+  draft: SstCclCommitmentDraft,
+): SstCclCommitmentDraft {
+  const defaults = emptyCommitmentDraft();
+  return {
+    ...draft,
+    description: draft.description.trim() || "Sin detalle",
+    responsibleName: draft.responsibleName.trim() || "Sin responsable",
+    dueDate: draft.dueDate.trim() || todayIsoDate(),
+    status: isCclCommitmentManualStatus(draft.status)
+      ? draft.status
+      : defaults.status,
+  };
 }
 
 /* ─── Label parsers (Excel) ────────────────────────────────────────────── */

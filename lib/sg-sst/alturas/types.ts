@@ -3,6 +3,7 @@ import {
   DEFAULT_ALERT_THRESHOLDS,
   type SstSemaphoreLevel,
 } from "@/lib/sg-sst/alerts/types";
+import type { DraftValidationMode } from "@/lib/sg-sst/draft-mode";
 
 export const HEIGHTS_TRAINING_LEVELS = [
   "autorizado_32h",
@@ -159,7 +160,33 @@ export function draftFromHeights(item: SstHeightsAuthorization): SstHeightsDraft
   };
 }
 
-export function validateHeightsDraft(input: SstHeightsDraft): string | null {
+/** Completa enums faltantes para importación Excel. */
+export function normalizeHeightsDraftForImport(
+  draft: SstHeightsDraft,
+): SstHeightsDraft {
+  const defaults = emptyHeightsDraft(draft.workerId);
+  return {
+    ...draft,
+    trainingLevel: isHeightsTrainingLevel(draft.trainingLevel)
+      ? draft.trainingLevel
+      : defaults.trainingLevel,
+    fitnessConcept: isHeightsFitnessConcept(draft.fitnessConcept)
+      ? draft.fitnessConcept
+      : defaults.fitnessConcept,
+  };
+}
+
+export function validateHeightsDraft(
+  input: SstHeightsDraft,
+  mode: DraftValidationMode = "form",
+): string | null {
+  if (mode === "import") {
+    if (!input.workerId.trim()) {
+      return "Selecciona un trabajador de la base maestra.";
+    }
+    return null;
+  }
+
   if (!input.workerId.trim()) {
     return "Selecciona un trabajador de la base maestra.";
   }

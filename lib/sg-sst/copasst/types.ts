@@ -1,5 +1,7 @@
 import { computeDaysRemaining } from "@/lib/sg-sst/alerts/engine";
 import type { SstWorkflowStatus } from "@/lib/sg-sst/alerts/types";
+import type { DraftValidationMode } from "@/lib/sg-sst/draft-mode";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 
 export const COPASST_ROLES = [
   "presidente",
@@ -366,7 +368,13 @@ export function emptyTrainingDraft(): SstCopasstTrainingDraft {
 
 export function validateMemberDraft(
   input: SstCopasstMemberDraft,
+  mode: DraftValidationMode = "form",
 ): string | null {
+  if (mode === "import") {
+    if (!input.workerId.trim()) return "El trabajador es obligatorio.";
+    return null;
+  }
+
   if (!input.workerId.trim()) return "El trabajador es obligatorio.";
   if (!isCopasstRole(input.role)) return "Rol COPASST inválido.";
   if (!input.startDate.trim()) return "La fecha de inicio es obligatoria.";
@@ -380,7 +388,15 @@ export function validateMemberDraft(
 
 export function validateMeetingDraft(
   input: SstCopasstMeetingDraft,
+  mode: DraftValidationMode = "form",
 ): string | null {
+  if (mode === "import") {
+    if (!input.meetingDate.trim() && !input.title.trim()) {
+      return "Fila sin fecha ni título.";
+    }
+    return null;
+  }
+
   if (!input.meetingDate.trim()) return "La fecha de reunión es obligatoria.";
   if (!isCopasstMeetingType(input.meetingType)) {
     return "Tipo de reunión inválido.";
@@ -392,7 +408,12 @@ export function validateMeetingDraft(
 
 export function validateCommitmentDraft(
   input: SstCopasstCommitmentDraft,
+  mode: DraftValidationMode = "form",
 ): string | null {
+  if (mode === "import") {
+    return null;
+  }
+
   if (!input.description.trim()) return "La descripción es obligatoria.";
   if (!input.responsibleName.trim()) return "El responsable es obligatorio.";
   if (!input.dueDate.trim()) return "La fecha de vencimiento es obligatoria.";
@@ -404,7 +425,15 @@ export function validateCommitmentDraft(
 
 export function validateTrainingDraft(
   input: SstCopasstTrainingDraft,
+  mode: DraftValidationMode = "form",
 ): string | null {
+  if (mode === "import") {
+    if (!input.title.trim() && !input.trainingDate.trim()) {
+      return "Fila sin título ni fecha.";
+    }
+    return null;
+  }
+
   if (!input.title.trim()) return "El título es obligatorio.";
   if (!input.trainingDate.trim()) return "La fecha es obligatoria.";
   if (!Number.isFinite(input.hours) || input.hours < 0) {
@@ -419,6 +448,74 @@ export function validateTrainingDraft(
   }
   if (!isCopasstTrainingStatus(input.status)) return "Estado inválido.";
   return null;
+}
+
+export function normalizeMemberDraftForImport(
+  draft: SstCopasstMemberDraft,
+): SstCopasstMemberDraft {
+  const defaults = emptyMemberDraft();
+  const today = todayIsoDate();
+  return {
+    ...draft,
+    role: isCopasstRole(draft.role) ? draft.role : defaults.role,
+    startDate: draft.startDate.trim() || today,
+    endDate: draft.endDate.trim() || defaults.endDate,
+    status: isCopasstMemberManualStatus(draft.status)
+      ? draft.status
+      : defaults.status,
+    periodLabel: draft.periodLabel.trim() || defaults.periodLabel,
+  };
+}
+
+export function normalizeMeetingDraftForImport(
+  draft: SstCopasstMeetingDraft,
+): SstCopasstMeetingDraft {
+  const defaults = emptyMeetingDraft();
+  return {
+    ...draft,
+    meetingDate: draft.meetingDate.trim() || todayIsoDate(),
+    title: draft.title.trim() || "Sin título",
+    meetingType: isCopasstMeetingType(draft.meetingType)
+      ? draft.meetingType
+      : defaults.meetingType,
+    status: isCopasstMeetingStatus(draft.status)
+      ? draft.status
+      : defaults.status,
+  };
+}
+
+export function normalizeCommitmentDraftForImport(
+  draft: SstCopasstCommitmentDraft,
+): SstCopasstCommitmentDraft {
+  const defaults = emptyCommitmentDraft();
+  return {
+    ...draft,
+    description: draft.description.trim() || "Sin detalle",
+    responsibleName: draft.responsibleName.trim() || "Sin responsable",
+    dueDate: draft.dueDate.trim() || todayIsoDate(),
+    status: isCopasstCommitmentManualStatus(draft.status)
+      ? draft.status
+      : defaults.status,
+  };
+}
+
+export function normalizeTrainingDraftForImport(
+  draft: SstCopasstTrainingDraft,
+): SstCopasstTrainingDraft {
+  const defaults = emptyTrainingDraft();
+  return {
+    ...draft,
+    title: draft.title.trim() || "Sin título",
+    trainingDate: draft.trainingDate.trim() || todayIsoDate(),
+    hours: Number.isFinite(draft.hours) && draft.hours >= 0 ? draft.hours : defaults.hours,
+    attendeesCount:
+      Number.isFinite(draft.attendeesCount) && draft.attendeesCount >= 0
+        ? Math.round(draft.attendeesCount)
+        : 0,
+    status: isCopasstTrainingStatus(draft.status)
+      ? draft.status
+      : defaults.status,
+  };
 }
 
 export function deriveMemberStatus(

@@ -7,6 +7,8 @@ import {
   type SstSemaphoreLevel,
   type SstWorkflowStatus,
 } from "@/lib/sg-sst/alerts/types";
+import type { DraftValidationMode } from "@/lib/sg-sst/draft-mode";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 
 export const EPP_CATEGORIES = [
   "botas",
@@ -171,7 +173,7 @@ export function emptyDeliveryDraft(workerId = ""): SstEppDeliveryDraft {
     catalogItemId: "",
     quantity: 1,
     sizeLabel: "",
-    deliveryDate: new Date().toISOString().slice(0, 10),
+    deliveryDate: todayIsoDate(),
     usefulLifeDays: 180,
     nextReplenishmentDate: "",
     reason: "dotacion",
@@ -180,6 +182,27 @@ export function emptyDeliveryDraft(workerId = ""): SstEppDeliveryDraft {
     evidenceName: "",
     observations: "",
     unitCostCop: 0,
+  };
+}
+
+/** Completa fechas/enums faltantes para importación Excel. */
+export function normalizeDeliveryDraftForImport(
+  draft: SstEppDeliveryDraft,
+): SstEppDeliveryDraft {
+  const defaults = emptyDeliveryDraft(draft.workerId);
+  return {
+    ...draft,
+    deliveryDate: draft.deliveryDate.trim() || todayIsoDate(),
+    reason: isEppReason(draft.reason) ? draft.reason : defaults.reason,
+    responsibleName: draft.responsibleName.trim() || "Sin responsable",
+    quantity:
+      Number.isFinite(draft.quantity) && draft.quantity > 0
+        ? draft.quantity
+        : defaults.quantity,
+    usefulLifeDays:
+      Number.isFinite(draft.usefulLifeDays) && draft.usefulLifeDays > 0
+        ? draft.usefulLifeDays
+        : defaults.usefulLifeDays,
   };
 }
 
@@ -251,7 +274,20 @@ export function validateCatalogDraft(input: SstEppCatalogDraft): string | null {
   return null;
 }
 
-export function validateDeliveryDraft(input: SstEppDeliveryDraft): string | null {
+export function validateDeliveryDraft(
+  input: SstEppDeliveryDraft,
+  mode: DraftValidationMode = "form",
+): string | null {
+  if (mode === "import") {
+    if (!input.workerId.trim()) {
+      return "Selecciona un trabajador de la base maestra.";
+    }
+    if (!input.catalogItemId.trim()) {
+      return "Selecciona un EPP del catálogo.";
+    }
+    return null;
+  }
+
   if (!input.workerId.trim()) {
     return "Selecciona un trabajador de la base maestra.";
   }

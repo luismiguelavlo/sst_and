@@ -1,12 +1,14 @@
 import {
   ACCIDENT_EVENT_TYPE_LABELS,
   ACCIDENT_STATUS_LABELS,
+  emptyAccidentDraft,
   emptyCausesDraft,
   parseAccidentEventTypeLabel,
   parseAccidentStatusLabel,
   type SstAccidentEvent,
   type SstAccidentEventDraft,
 } from "@/lib/sg-sst/accidentes/types";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 
 export const ACCIDENT_EXCEL_MAX_ROWS = 500;
 
@@ -145,36 +147,37 @@ export function accidentRowsFromMatrix(matrix: string[][]): AccidentExcelImportR
     throw new Error("El archivo debe tener encabezados y al menos una fila.");
   }
   const headerMap = mapHeaders(matrix[0]);
-  if (headerMap.worker === undefined) {
-    throw new Error("Falta la columna obligatoria: trabajador / documento.");
-  }
-  if (headerMap.eventDate === undefined) {
-    throw new Error("Falta la columna obligatoria: fecha.");
-  }
-  if (headerMap.eventType === undefined) {
-    throw new Error("Falta la columna obligatoria: tipo_evento.");
+  if (
+    headerMap.worker === undefined &&
+    headerMap.eventDate === undefined &&
+    headerMap.eventNumber === undefined &&
+    headerMap.description === undefined
+  ) {
+    throw new Error(
+      "Falta al menos una columna usable (trabajador, fecha, folio o descripción).",
+    );
   }
 
+  const defaults = emptyAccidentDraft();
   const rows: AccidentExcelImportRow[] = [];
   for (let index = 1; index < matrix.length; index += 1) {
     const raw = matrix[index];
     if (!raw || raw.every((cell) => !String(cell).trim())) continue;
 
     const workerRef = cellValue(raw, headerMap.worker);
-    const eventDate = excelDateToIso(cellValue(raw, headerMap.eventDate));
-    const eventType = parseAccidentEventTypeLabel(cellValue(raw, headerMap.eventType));
-    if (!workerRef && !eventDate) continue;
-    if (!eventType) {
-      throw new Error(`Fila ${index + 1}: tipo de evento inválido.`);
+    const eventDate =
+      excelDateToIso(cellValue(raw, headerMap.eventDate)) || todayIsoDate();
+    const eventTypeRaw = cellValue(raw, headerMap.eventType);
+    const eventType =
+      (eventTypeRaw ? parseAccidentEventTypeLabel(eventTypeRaw) : null) ??
+      defaults.eventType;
+    if (!workerRef && !cellValue(raw, headerMap.eventDate) && !eventTypeRaw) {
+      continue;
     }
 
     const statusRaw = cellValue(raw, headerMap.status);
-    const status = statusRaw
-      ? parseAccidentStatusLabel(statusRaw)
-      : ("en_investigacion" as const);
-    if (!status) {
-      throw new Error(`Fila ${index + 1}: estado inválido.`);
-    }
+    const status =
+      (statusRaw ? parseAccidentStatusLabel(statusRaw) : null) ?? defaults.status;
 
     const causes = emptyCausesDraft();
     causes.immediateAct = cellValue(raw, headerMap.immediateAct);

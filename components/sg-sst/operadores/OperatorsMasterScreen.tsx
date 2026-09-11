@@ -21,6 +21,10 @@ import {
   parseOperatorsExcelFile,
 } from "@/lib/sg-sst/operadores/excel-client";
 import {
+  formatChunkImportToast,
+  runChunkedBulkImport,
+} from "@/lib/sg-sst/import-chunks";
+import {
   BLOCK_CATEGORY_LABELS,
   EQUIPMENT_TYPE_LABELS,
   EQUIPMENT_TYPES,
@@ -147,15 +151,16 @@ export function OperatorsMasterScreen({
 
   function confirmImport() {
     startTransition(async () => {
-      const result = await bulkImportOperatorsAction({ rows: preview });
+      const result = await runChunkedBulkImport(preview, (chunk) =>
+        bulkImportOperatorsAction({ rows: chunk }),
+      );
       if (!result.ok) {
         showToast(result.error, { variant: "error" });
         return;
       }
-      showToast(
-        `Importación: ${result.created} creados, ${result.updated} actualizados, ${result.failed} con error.`,
-        { variant: result.failed > 0 ? "info" : "success" },
-      );
+      showToast(formatChunkImportToast(result), {
+        variant: result.failed > 0 ? "info" : "success",
+      });
       setPreview([]);
       setFileName("");
       router.refresh();

@@ -1,5 +1,6 @@
 import {
   DEFAULT_SG_DOC_COMPANY,
+  emptyDocumentDraft,
   parseDocStatusLabel,
   parseDocTypeLabel,
   parseYesNo,
@@ -115,13 +116,11 @@ export function documentRowsFromMatrix(matrix: string[][]): DocumentExcelImportR
     throw new Error("El archivo debe tener encabezados y al menos una fila.");
   }
   const headerMap = mapHeaders(matrix[0]);
-  if (headerMap.code === undefined || headerMap.title === undefined) {
-    throw new Error("Faltan columnas obligatorias: codigo y titulo.");
-  }
-  if (headerMap.docType === undefined) {
-    throw new Error("Falta la columna tipo / tipo_documento.");
+  if (headerMap.code === undefined && headerMap.title === undefined) {
+    throw new Error("Falta una columna de identidad: codigo o titulo.");
   }
 
+  const defaults = emptyDocumentDraft();
   const rows: DocumentExcelImportRow[] = [];
   for (let index = 1; index < matrix.length; index += 1) {
     const raw = matrix[index];
@@ -129,23 +128,16 @@ export function documentRowsFromMatrix(matrix: string[][]): DocumentExcelImportR
 
     const code = cellValue(raw, headerMap.code);
     const title = cellValue(raw, headerMap.title);
-    const docType = parseDocTypeLabel(cellValue(raw, headerMap.docType));
     if (!code && !title) continue;
-    if (!docType) {
-      throw new Error(`Fila ${index + 1}: tipo de documento inválido.`);
-    }
 
-    const statusRaw = cellValue(raw, headerMap.status);
-    const status = statusRaw
-      ? parseDocStatusLabel(statusRaw)
-      : ("vigente" as const);
-    if (!status) {
-      throw new Error(`Fila ${index + 1}: estado inválido.`);
-    }
+    const docType =
+      parseDocTypeLabel(cellValue(raw, headerMap.docType)) ?? defaults.docType;
+    const status =
+      parseDocStatusLabel(cellValue(raw, headerMap.status)) ?? defaults.status;
 
     const hasReviewCycle = parseYesNo(
       cellValue(raw, headerMap.hasReviewCycle),
-      true,
+      defaults.hasReviewCycle,
     );
     const nextReviewAt = excelDateToIso(cellValue(raw, headerMap.nextReviewAt));
 
@@ -159,7 +151,7 @@ export function documentRowsFromMatrix(matrix: string[][]): DocumentExcelImportR
       lastReviewedAt: excelDateToIso(cellValue(raw, headerMap.lastReviewedAt)),
       nextReviewAt: hasReviewCycle ? nextReviewAt : "",
       hasReviewCycle,
-      versionLabel: cellValue(raw, headerMap.versionLabel) || "1.0",
+      versionLabel: cellValue(raw, headerMap.versionLabel) || defaults.versionLabel,
       status,
       fileUrl: cellValue(raw, headerMap.fileUrl),
       fileName: cellValue(raw, headerMap.fileName),

@@ -2,6 +2,7 @@ import {
   HEIGHTS_FITNESS_LABELS,
   HEIGHTS_STATUS_LABELS,
   HEIGHTS_TRAINING_LEVEL_LABELS,
+  emptyHeightsDraft,
   parseFitnessLabel,
   parseTrainingLevelLabel,
   parseYesNo,
@@ -124,34 +125,29 @@ export function heightsRowsFromMatrix(matrix: string[][]): HeightsExcelImportRow
     throw new Error("El archivo debe tener encabezados y al menos una fila.");
   }
   const headerMap = mapHeaders(matrix[0]);
-  if (headerMap.worker === undefined) {
-    throw new Error("Falta la columna obligatoria: trabajador / documento.");
-  }
-  if (headerMap.trainingLevel === undefined) {
-    throw new Error("Falta la columna obligatoria: nivel / formación.");
+  if (headerMap.worker === undefined && headerMap.folio === undefined) {
+    throw new Error(
+      "Falta al menos una columna usable: trabajador / documento o folio.",
+    );
   }
 
+  const defaults = emptyHeightsDraft();
   const rows: HeightsExcelImportRow[] = [];
   for (let index = 1; index < matrix.length; index += 1) {
     const raw = matrix[index];
     if (!raw || raw.every((cell) => !String(cell).trim())) continue;
 
     const workerRef = cellValue(raw, headerMap.worker);
-    const trainingLevel = parseTrainingLevelLabel(
-      cellValue(raw, headerMap.trainingLevel),
-    );
-    if (!workerRef && !trainingLevel) continue;
-    if (!trainingLevel) {
-      throw new Error(`Fila ${index + 1}: nivel / formación inválido.`);
-    }
+    const levelRaw = cellValue(raw, headerMap.trainingLevel);
+    const trainingLevel =
+      (levelRaw ? parseTrainingLevelLabel(levelRaw) : null) ??
+      defaults.trainingLevel;
+    if (!workerRef && !levelRaw) continue;
 
     const fitnessRaw = cellValue(raw, headerMap.fitnessConcept);
-    const fitnessConcept = fitnessRaw
-      ? parseFitnessLabel(fitnessRaw)
-      : "pendiente";
-    if (!fitnessConcept) {
-      throw new Error(`Fila ${index + 1}: concepto de aptitud inválido.`);
-    }
+    const fitnessConcept =
+      (fitnessRaw ? parseFitnessLabel(fitnessRaw) : null) ??
+      defaults.fitnessConcept;
 
     const draft: SstHeightsDraft = {
       workerId: "",

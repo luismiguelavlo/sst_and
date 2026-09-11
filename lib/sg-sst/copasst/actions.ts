@@ -36,6 +36,10 @@ import {
   updateTraining,
 } from "@/lib/sg-sst/copasst/repository";
 import {
+  normalizeCommitmentDraftForImport,
+  normalizeMeetingDraftForImport,
+  normalizeMemberDraftForImport,
+  normalizeTrainingDraftForImport,
   validateCommitmentDraft,
   validateMeetingDraft,
   validateMemberDraft,
@@ -326,12 +330,12 @@ export async function bulkImportCopasstMembersAction(input: {
         continue;
       }
 
-      const draft: SstCopasstMemberDraft = {
+      const draft = normalizeMemberDraftForImport({
         ...row.draft,
         workerId,
         farmId,
-      };
-      const validationError = validateMemberDraft(draft);
+      });
+      const validationError = validateMemberDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({
@@ -429,8 +433,8 @@ export async function bulkImportCopasstMeetingsAction(input: {
         continue;
       }
 
-      const draft: SstCopasstMeetingDraft = { ...row.draft, farmId };
-      const validationError = validateMeetingDraft(draft);
+      const draft = normalizeMeetingDraftForImport({ ...row.draft, farmId });
+      const validationError = validateMeetingDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({
@@ -541,12 +545,12 @@ export async function bulkImportCopasstCommitmentsAction(input: {
         meetingId = meeting.id;
       }
 
-      const draft: SstCopasstCommitmentDraft = {
+      const draft = normalizeCommitmentDraftForImport({
         ...row.draft,
         farmId,
         meetingId,
-      };
-      const validationError = validateCommitmentDraft(draft);
+      });
+      const validationError = validateCommitmentDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({
@@ -630,8 +634,8 @@ export async function bulkImportCopasstTrainingsAction(input: {
     let failed = 0;
 
     for (const row of input.rows) {
-      const draft = row.draft;
-      const validationError = validateTrainingDraft(draft);
+      const draft = normalizeTrainingDraftForImport(row.draft);
+      const validationError = validateTrainingDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({

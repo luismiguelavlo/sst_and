@@ -10,6 +10,7 @@ import {
   type SstLeaveDraft,
   type SstLeaveView,
 } from "@/lib/sg-sst/incapacidades/types";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 
 export const LEAVE_EXCEL_MAX_ROWS = 500;
 
@@ -83,13 +84,13 @@ function cellValue(row: string[], index: number | undefined): string {
 }
 
 function excelDateToIso(raw: string): string {
-  if (!raw) return "";
+  if (!raw) return todayIsoDate();
   if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
   const parsed = Date.parse(raw);
   if (!Number.isNaN(parsed)) {
     return new Date(parsed).toISOString().slice(0, 10);
   }
-  return raw;
+  return todayIsoDate();
 }
 
 function mapHeaders(
@@ -111,18 +112,12 @@ function mapHeaders(
 }
 
 export function leaveRowsFromMatrix(matrix: string[][]): LeaveExcelImportRow[] {
-  if (matrix.length < 2) {
-    throw new Error("El archivo debe tener encabezados y al menos una fila.");
-  }
+  if (matrix.length < 2) return [];
   const headerMap = mapHeaders(matrix[0]);
   if (headerMap.worker === undefined) {
-    throw new Error("Falta la columna obligatoria: trabajador / documento.");
-  }
-  if (headerMap.startDate === undefined || headerMap.endDate === undefined) {
-    throw new Error("Faltan columnas obligatorias: fecha_inicio y fecha_final.");
-  }
-  if (headerMap.origin === undefined) {
-    throw new Error("Falta la columna origen.");
+    throw new Error(
+      "El Excel debe incluir al menos la columna trabajador / documento.",
+    );
   }
 
   const rows: LeaveExcelImportRow[] = [];
@@ -131,14 +126,13 @@ export function leaveRowsFromMatrix(matrix: string[][]): LeaveExcelImportRow[] {
     if (!raw || raw.every((cell) => !String(cell).trim())) continue;
 
     const workerRef = cellValue(raw, headerMap.worker);
-    const startDate = excelDateToIso(cellValue(raw, headerMap.startDate));
-    const endDate = excelDateToIso(cellValue(raw, headerMap.endDate));
-    const origin = parseLeaveOriginLabel(cellValue(raw, headerMap.origin));
+    if (!workerRef) continue;
 
-    if (!workerRef && !startDate && !endDate) continue;
-    if (!origin) {
-      throw new Error(`Fila ${index + 1}: origen inválido.`);
-    }
+    let startDate = excelDateToIso(cellValue(raw, headerMap.startDate));
+    let endDate = excelDateToIso(cellValue(raw, headerMap.endDate));
+    if (endDate < startDate) endDate = startDate;
+    const origin =
+      parseLeaveOriginLabel(cellValue(raw, headerMap.origin)) ?? "comun";
 
     const daysRaw = Number(cellValue(raw, headerMap.daysOrdered));
     const daysOrdered =
@@ -150,6 +144,7 @@ export function leaveRowsFromMatrix(matrix: string[][]): LeaveExcelImportRow[] {
     const statusRaw = cellValue(raw, headerMap.status);
     const reiStatusRaw = cellValue(raw, headerMap.reintegrationStatus);
     const reiRequiredRaw = cellValue(raw, headerMap.reintegrationRequired);
+    const reintegrationDateRaw = cellValue(raw, headerMap.reintegrationDate);
 
     const draft: SstLeaveDraft = {
       workerId: "",
@@ -165,8 +160,9 @@ export function leaveRowsFromMatrix(matrix: string[][]): LeaveExcelImportRow[] {
       reintegrationRequired: reiRequiredRaw
         ? parseYesNo(reiRequiredRaw)
         : null,
-      reintegrationDate:
-        excelDateToIso(cellValue(raw, headerMap.reintegrationDate)) || null,
+      reintegrationDate: reintegrationDateRaw
+        ? excelDateToIso(reintegrationDateRaw)
+        : null,
       reintegrationStatus: reiStatusRaw
         ? (parseReintegrationStatusLabel(reiStatusRaw) ?? "no_aplica")
         : "no_aplica",

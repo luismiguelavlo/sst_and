@@ -17,11 +17,16 @@ import {
   updateTraining,
 } from "@/lib/sg-sst/capacitaciones/repository";
 import {
+  TRAINING_TOPICS,
+  isTrainingModality,
+  isTrainingStatus,
+  isTrainingTopic,
   validateTrainingDraft,
   type SstTrainingDraft,
   type SstTrainingView,
   type TrainingStats,
 } from "@/lib/sg-sst/capacitaciones/types";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 import {
   findWorkerByCode,
   findWorkerByDocumentNumber,
@@ -148,8 +153,26 @@ export async function bulkImportTrainingsAction(input: {
         continue;
       }
 
-      const draft: SstTrainingDraft = { ...row.draft, workerId };
-      const validationError = validateTrainingDraft(draft);
+      const hours = Number.isFinite(row.draft.hours) && row.draft.hours >= 0
+        ? row.draft.hours
+        : 0;
+      const draft: SstTrainingDraft = {
+        ...row.draft,
+        workerId,
+        topic: isTrainingTopic(row.draft.topic)
+          ? row.draft.topic
+          : TRAINING_TOPICS[0],
+        trainingDate: row.draft.trainingDate.trim() || todayIsoDate(),
+        hours,
+        modality: isTrainingModality(row.draft.modality)
+          ? row.draft.modality
+          : "presencial",
+        status:
+          row.draft.status != null && isTrainingStatus(row.draft.status)
+            ? row.draft.status
+            : row.draft.status,
+      };
+      const validationError = validateTrainingDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({

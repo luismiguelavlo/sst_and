@@ -8,6 +8,7 @@ import {
   type SstEmoDraft,
   type SstEmoView,
 } from "@/lib/sg-sst/emos/types";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 
 export const EMO_EXCEL_MAX_ROWS = 500;
 
@@ -70,13 +71,13 @@ function cellValue(row: string[], index: number | undefined): string {
 }
 
 function excelDateToIso(raw: string): string {
-  if (!raw) return "";
+  if (!raw) return todayIsoDate();
   if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
   const parsed = Date.parse(raw);
   if (!Number.isNaN(parsed)) {
     return new Date(parsed).toISOString().slice(0, 10);
   }
-  return raw;
+  return todayIsoDate();
 }
 
 function mapHeaders(headerRow: string[]): Partial<Record<keyof typeof HEADER_ALIASES, number>> {
@@ -104,18 +105,12 @@ function parseYesNoNull(raw: string): boolean | null {
 }
 
 export function emoRowsFromMatrix(matrix: string[][]): EmoExcelImportRow[] {
-  if (matrix.length < 2) {
-    throw new Error("El archivo debe tener encabezados y al menos una fila.");
-  }
+  if (matrix.length < 2) return [];
   const headerMap = mapHeaders(matrix[0]);
-  if (headerMap.worker === undefined || headerMap.examType === undefined) {
-    throw new Error("Faltan columnas obligatorias: trabajador y tipo_examen.");
-  }
-  if (headerMap.examDate === undefined || headerMap.concept === undefined) {
-    throw new Error("Faltan columnas obligatorias: fecha_examen y concepto.");
-  }
-  if (headerMap.ips === undefined) {
-    throw new Error("Falta la columna IPS.");
+  if (headerMap.worker === undefined) {
+    throw new Error(
+      "El Excel debe incluir al menos la columna trabajador / documento.",
+    );
   }
 
   const rows: EmoExcelImportRow[] = [];
@@ -124,18 +119,16 @@ export function emoRowsFromMatrix(matrix: string[][]): EmoExcelImportRow[] {
     if (!raw || raw.every((cell) => !String(cell).trim())) continue;
 
     const workerRef = cellValue(raw, headerMap.worker);
-    const examType = parseExamTypeLabel(cellValue(raw, headerMap.examType));
-    const concept = parseConceptLabel(cellValue(raw, headerMap.concept));
-    const examDate = excelDateToIso(cellValue(raw, headerMap.examDate));
-    const ips = cellValue(raw, headerMap.ips);
+    if (!workerRef) continue;
 
-    if (!workerRef && !examDate && !ips) continue;
-    if (!examType) {
-      throw new Error(`Fila ${index + 1}: tipo de examen inválido.`);
-    }
-    if (!concept) {
-      throw new Error(`Fila ${index + 1}: concepto inválido.`);
-    }
+    const examType =
+      parseExamTypeLabel(cellValue(raw, headerMap.examType)) ?? "ingreso";
+    const concept =
+      parseConceptLabel(cellValue(raw, headerMap.concept)) ?? "apto";
+    const examDateRaw = cellValue(raw, headerMap.examDate);
+    const examDate = excelDateToIso(examDateRaw);
+    const ips = cellValue(raw, headerMap.ips) || "Sin dato";
+    const nextDueRaw = cellValue(raw, headerMap.nextDueDate);
 
     const periodicityRaw = Number(cellValue(raw, headerMap.periodicity));
     const periodicityMonths: EmoPeriodicity | null = isEmoPeriodicity(periodicityRaw)
@@ -146,7 +139,7 @@ export function emoRowsFromMatrix(matrix: string[][]): EmoExcelImportRow[] {
       workerId: "",
       examType,
       examDate,
-      nextDueDate: excelDateToIso(cellValue(raw, headerMap.nextDueDate)) || null,
+      nextDueDate: nextDueRaw ? excelDateToIso(nextDueRaw) : null,
       periodicityMonths,
       ips,
       concept,

@@ -3,6 +3,7 @@ import {
   DEFAULT_ALERT_THRESHOLDS,
   type SstSemaphoreLevel,
 } from "@/lib/sg-sst/alerts/types";
+import type { DraftValidationMode } from "@/lib/sg-sst/draft-mode";
 
 export const TRAINING_TOPICS = [
   "induccion",
@@ -229,7 +230,17 @@ export function deriveTrainingStatus(
   return "realizada";
 }
 
-export function validateTrainingDraft(input: SstTrainingDraft): string | null {
+export function validateTrainingDraft(
+  input: SstTrainingDraft,
+  mode: DraftValidationMode = "form",
+): string | null {
+  // Importación Excel: solo workerId; defaults cubren el resto.
+  if (mode === "import") {
+    if (!input.workerId.trim()) {
+      return "Selecciona un trabajador de la base maestra.";
+    }
+    return null;
+  }
   if (!input.workerId.trim()) {
     return "Selecciona un trabajador de la base maestra.";
   }

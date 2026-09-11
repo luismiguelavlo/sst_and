@@ -21,6 +21,10 @@ import {
   parseAccidentsExcelFile,
 } from "@/lib/sg-sst/accidentes/excel-client";
 import {
+  formatChunkImportToast,
+  runChunkedBulkImport,
+} from "@/lib/sg-sst/import-chunks";
+import {
   ACCIDENT_EVENT_TYPE_LABELS,
   ACCIDENT_EVENT_TYPES,
   ACCIDENT_STATUS_LABELS,
@@ -209,15 +213,16 @@ export function AccidentsMasterScreen({
 
   function confirmImport() {
     startTransition(async () => {
-      const result = await bulkImportAccidentsAction({ rows: preview });
+      const result = await runChunkedBulkImport(preview, (chunk) =>
+        bulkImportAccidentsAction({ rows: chunk }),
+      );
       if (!result.ok) {
         showToast(result.error, { variant: "error" });
         return;
       }
-      showToast(
-        `Importación: ${result.created} creados, ${result.updated} actualizados, ${result.failed} con error.`,
-        { variant: result.failed > 0 ? "info" : "success" },
-      );
+      showToast(formatChunkImportToast(result), {
+        variant: result.failed > 0 ? "info" : "success",
+      });
       setPreview([]);
       setFileName("");
       router.refresh();

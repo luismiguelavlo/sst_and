@@ -17,6 +17,7 @@ import {
   updateHeightsAuthorization,
 } from "@/lib/sg-sst/alturas/repository";
 import {
+  normalizeHeightsDraftForImport,
   validateHeightsDraft,
   type HeightsStats,
   type SstHeightsDraft,
@@ -148,8 +149,11 @@ export async function bulkImportHeightsAction(input: {
         continue;
       }
 
-      const draft: SstHeightsDraft = { ...row.draft, workerId };
-      const validationError = validateHeightsDraft(draft);
+      const draft = normalizeHeightsDraftForImport({
+        ...row.draft,
+        workerId,
+      });
+      const validationError = validateHeightsDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({

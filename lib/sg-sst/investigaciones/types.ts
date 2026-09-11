@@ -7,6 +7,7 @@ import {
   type SstSemaphoreLevel,
   type SstWorkflowStatus,
 } from "@/lib/sg-sst/alerts/types";
+import type { DraftValidationMode } from "@/lib/sg-sst/draft-mode";
 
 /** Plazo legal Res. 1401 de 2007 (días calendario). */
 export const INVESTIGATION_LEGAL_DAYS = 15;
@@ -210,7 +211,15 @@ export function draftFromInvestigation(
 
 export function validateInvestigationDraft(
   input: SstInvestigationDraft,
+  mode: DraftValidationMode = "form",
 ): string | null {
+  // Importación Excel: solo FK accidente; defaults cubren el resto.
+  if (mode === "import") {
+    if (!input.accidentId.trim()) {
+      return "Selecciona el accidente relacionado.";
+    }
+    return null;
+  }
   if (!input.accidentId.trim()) {
     return "Selecciona el accidente relacionado.";
   }

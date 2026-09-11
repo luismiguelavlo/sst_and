@@ -17,11 +17,14 @@ import {
   updateRestriction,
 } from "@/lib/sg-sst/restricciones/repository";
 import {
+  isRestrictionKind,
+  isRestrictionManualStatus,
   validateRestrictionDraft,
   type RestrictionStats,
   type SstRestrictionDraft,
   type SstRestrictionView,
 } from "@/lib/sg-sst/restricciones/types";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 import {
   findWorkerByCode,
   findWorkerByDocumentNumber,
@@ -148,8 +151,22 @@ export async function bulkImportRestrictionsAction(input: {
         continue;
       }
 
-      const draft: SstRestrictionDraft = { ...row.draft, workerId };
-      const validationError = validateRestrictionDraft(draft);
+      const today = todayIsoDate();
+      const draft: SstRestrictionDraft = {
+        ...row.draft,
+        workerId,
+        restrictionKind: isRestrictionKind(row.draft.restrictionKind)
+          ? row.draft.restrictionKind
+          : "restriccion",
+        issuedAt: row.draft.issuedAt.trim() || today,
+        startDate: row.draft.startDate.trim() || today,
+        detail: row.draft.detail.trim() || "Sin detalle",
+        responsibleName: row.draft.responsibleName.trim() || "Sin responsable",
+        status: isRestrictionManualStatus(row.draft.status)
+          ? row.draft.status
+          : "vigente",
+      };
+      const validationError = validateRestrictionDraft(draft, "import");
       if (validationError) {
         failed += 1;
         results.push({

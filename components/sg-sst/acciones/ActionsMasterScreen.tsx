@@ -20,6 +20,10 @@ import {
   parseActionsExcelFile,
 } from "@/lib/sg-sst/acciones/excel-client";
 import {
+  formatChunkImportToast,
+  runChunkedBulkImport,
+} from "@/lib/sg-sst/import-chunks";
+import {
   ACTION_EFFICACY_LABELS,
   ACTION_EFFICACY_STATUSES,
   ACTION_KIND_LABELS,
@@ -130,15 +134,16 @@ export function ActionsMasterScreen({
 
   function confirmImport() {
     startTransition(async () => {
-      const result = await bulkImportActionsAction({ rows: preview });
+      const result = await runChunkedBulkImport(preview, (chunk) =>
+        bulkImportActionsAction({ rows: chunk }),
+      );
       if (!result.ok) {
         showToast(result.error, { variant: "error" });
         return;
       }
-      showToast(
-        `Importación: ${result.created} creados, ${result.updated} actualizados, ${result.failed} con error.`,
-        { variant: result.failed > 0 ? "info" : "success" },
-      );
+      showToast(formatChunkImportToast(result), {
+        variant: result.failed > 0 ? "info" : "success",
+      });
       setPreview([]);
       setFileName("");
       router.refresh();

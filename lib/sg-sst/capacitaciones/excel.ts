@@ -2,12 +2,14 @@ import {
   TRAINING_MODALITY_LABELS,
   TRAINING_STATUS_LABELS,
   TRAINING_TOPIC_LABELS,
+  TRAINING_TOPICS,
   parseModalityLabel,
   parseStatusLabel,
   parseTopicLabel,
   type SstTrainingDraft,
   type SstTrainingView,
 } from "@/lib/sg-sst/capacitaciones/types";
+import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 
 export const TRAINING_EXCEL_MAX_ROWS = 500;
 
@@ -79,13 +81,13 @@ function cellValue(row: string[], index: number | undefined): string {
 }
 
 function excelDateToIso(raw: string): string {
-  if (!raw) return "";
+  if (!raw) return todayIsoDate();
   if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
   const parsed = Date.parse(raw);
   if (!Number.isNaN(parsed)) {
     return new Date(parsed).toISOString().slice(0, 10);
   }
-  return raw;
+  return todayIsoDate();
 }
 
 function mapHeaders(
@@ -107,18 +109,12 @@ function mapHeaders(
 }
 
 export function trainingRowsFromMatrix(matrix: string[][]): TrainingExcelImportRow[] {
-  if (matrix.length < 2) {
-    throw new Error("El archivo debe tener encabezados y al menos una fila.");
-  }
+  if (matrix.length < 2) return [];
   const headerMap = mapHeaders(matrix[0]);
   if (headerMap.worker === undefined) {
-    throw new Error("Falta la columna obligatoria: trabajador / documento.");
-  }
-  if (headerMap.topic === undefined) {
-    throw new Error("Falta la columna obligatoria: tema.");
-  }
-  if (headerMap.trainingDate === undefined) {
-    throw new Error("Falta la columna obligatoria: fecha.");
+    throw new Error(
+      "El Excel debe incluir al menos la columna trabajador / documento.",
+    );
   }
 
   const rows: TrainingExcelImportRow[] = [];
@@ -127,34 +123,25 @@ export function trainingRowsFromMatrix(matrix: string[][]): TrainingExcelImportR
     if (!raw || raw.every((cell) => !String(cell).trim())) continue;
 
     const workerRef = cellValue(raw, headerMap.worker);
-    const topic = parseTopicLabel(cellValue(raw, headerMap.topic));
+    if (!workerRef) continue;
+
+    const topic =
+      parseTopicLabel(cellValue(raw, headerMap.topic)) ?? TRAINING_TOPICS[0];
     const trainingDate = excelDateToIso(cellValue(raw, headerMap.trainingDate));
 
-    if (!workerRef && !topic && !trainingDate) continue;
-    if (!topic) {
-      throw new Error(`Fila ${index + 1}: tema inválido.`);
-    }
-    if (!trainingDate) {
-      throw new Error(`Fila ${index + 1}: fecha de capacitación inválida.`);
-    }
-
     const modalityRaw = cellValue(raw, headerMap.modality);
-    const modality = modalityRaw ? parseModalityLabel(modalityRaw) : "presencial";
-    if (!modality) {
-      throw new Error(`Fila ${index + 1}: modalidad inválida.`);
-    }
+    const modality = modalityRaw
+      ? (parseModalityLabel(modalityRaw) ?? "presencial")
+      : "presencial";
 
     const statusRaw = cellValue(raw, headerMap.status);
-    const status = statusRaw ? parseStatusLabel(statusRaw) : null;
-    if (statusRaw && !status) {
-      throw new Error(`Fila ${index + 1}: estado inválido.`);
-    }
+    const status = statusRaw ? (parseStatusLabel(statusRaw) ?? null) : null;
 
     const hoursRaw = cellValue(raw, headerMap.hours);
-    const hours = hoursRaw ? Number(hoursRaw.replace(",", ".")) : 0;
-    if (!Number.isFinite(hours) || hours < 0) {
-      throw new Error(`Fila ${index + 1}: horas inválidas.`);
-    }
+    const hoursParsed = hoursRaw ? Number(hoursRaw.replace(",", ".")) : 0;
+    const hours = Number.isFinite(hoursParsed) && hoursParsed >= 0 ? hoursParsed : 0;
+
+    const nextTrainingRaw = cellValue(raw, headerMap.nextTrainingDate);
 
     const draft: SstTrainingDraft = {
       workerId: "",
@@ -167,8 +154,7 @@ export function trainingRowsFromMatrix(matrix: string[][]): TrainingExcelImportR
       evidenceName: cellValue(raw, headerMap.evidenceName),
       certificateUrl: cellValue(raw, headerMap.certificateUrl),
       certificateName: cellValue(raw, headerMap.certificateName),
-      nextTrainingDate:
-        excelDateToIso(cellValue(raw, headerMap.nextTrainingDate)) || null,
+      nextTrainingDate: nextTrainingRaw ? excelDateToIso(nextTrainingRaw) : null,
       status,
       observations: cellValue(raw, headerMap.observations),
     };

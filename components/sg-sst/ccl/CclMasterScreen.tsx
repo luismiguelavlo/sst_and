@@ -28,6 +28,10 @@ import {
   type CclWorkbookImport,
 } from "@/lib/sg-sst/ccl/excel-client";
 import {
+  formatChunkImportToast,
+  runChunkedBulkImport,
+} from "@/lib/sg-sst/import-chunks";
+import {
   CCL_CASE_STATUS_LABELS,
   CCL_CASE_STATUSES,
   CCL_COMMITMENT_MANUAL_STATUSES,
@@ -207,56 +211,64 @@ export function CclMasterScreen({
       let created = 0;
       let updated = 0;
       let failed = 0;
+      let total = 0;
 
       if (importPreview.members.length > 0) {
-        const r = await bulkImportCclMembersAction({
-          rows: importPreview.members,
-        });
-        if (!r.ok) {
-          showToast(r.error, { variant: "error" });
+        const result = await runChunkedBulkImport(importPreview.members, (chunk) =>
+          bulkImportCclMembersAction({ rows: chunk }),
+        );
+        if (!result.ok) {
+          showToast(result.error, { variant: "error" });
           return;
         }
-        created += r.created;
-        updated += r.updated;
-        failed += r.failed;
+        created += result.created;
+        updated += result.updated;
+        failed += result.failed;
+        total += result.total;
       }
       if (importPreview.meetings.length > 0) {
-        const r = await bulkImportCclMeetingsAction({
-          rows: importPreview.meetings,
-        });
-        if (!r.ok) {
-          showToast(r.error, { variant: "error" });
+        const result = await runChunkedBulkImport(importPreview.meetings, (chunk) =>
+          bulkImportCclMeetingsAction({ rows: chunk }),
+        );
+        if (!result.ok) {
+          showToast(result.error, { variant: "error" });
           return;
         }
-        created += r.created;
-        updated += r.updated;
-        failed += r.failed;
+        created += result.created;
+        updated += result.updated;
+        failed += result.failed;
+        total += result.total;
       }
       if (importPreview.cases.length > 0) {
-        const r = await bulkImportCclCasesAction({ rows: importPreview.cases });
-        if (!r.ok) {
-          showToast(r.error, { variant: "error" });
+        const result = await runChunkedBulkImport(importPreview.cases, (chunk) =>
+          bulkImportCclCasesAction({ rows: chunk }),
+        );
+        if (!result.ok) {
+          showToast(result.error, { variant: "error" });
           return;
         }
-        created += r.created;
-        updated += r.updated;
-        failed += r.failed;
+        created += result.created;
+        updated += result.updated;
+        failed += result.failed;
+        total += result.total;
       }
       if (importPreview.commitments.length > 0) {
-        const r = await bulkImportCclCommitmentsAction({
-          rows: importPreview.commitments,
-        });
-        if (!r.ok) {
-          showToast(r.error, { variant: "error" });
+        const result = await runChunkedBulkImport(
+          importPreview.commitments,
+          (chunk) => bulkImportCclCommitmentsAction({ rows: chunk }),
+        );
+        if (!result.ok) {
+          showToast(result.error, { variant: "error" });
           return;
         }
-        created += r.created;
-        updated += r.updated;
-        failed += r.failed;
+        created += result.created;
+        updated += result.updated;
+        failed += result.failed;
+        total += result.total;
       }
 
       showToast(
-        `Importación: ${created} creados, ${updated} actualizados, ${failed} con error.`,
+        formatChunkImportToast({ ok: true, created, updated, failed, total }),
         { variant: failed > 0 ? "info" : "success" },
       );
       setImportPreview(null);

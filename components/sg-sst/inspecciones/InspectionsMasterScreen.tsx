@@ -20,6 +20,10 @@ import {
   parseInspectionsExcelFile,
 } from "@/lib/sg-sst/inspecciones/excel-client";
 import {
+  formatChunkImportToast,
+  runChunkedBulkImport,
+} from "@/lib/sg-sst/import-chunks";
+import {
   FINDING_SEVERITIES,
   FINDING_SEVERITY_LABELS,
   FINDING_STATUSES,
@@ -143,15 +147,16 @@ export function InspectionsMasterScreen({
 
   function confirmImport() {
     startTransition(async () => {
-      const result = await bulkImportInspectionsAction({ rows: preview });
+      const result = await runChunkedBulkImport(preview, (chunk) =>
+        bulkImportInspectionsAction({ rows: chunk }),
+      );
       if (!result.ok) {
         showToast(result.error, { variant: "error" });
         return;
       }
-      showToast(
-        `Importación: ${result.created} creados, ${result.updated} actualizados, ${result.failed} con error.`,
-        { variant: result.failed > 0 ? "info" : "success" },
-      );
+      showToast(formatChunkImportToast(result), {
+        variant: result.failed > 0 ? "info" : "success",
+      });
       setPreview([]);
       setFileName("");
       router.refresh();
