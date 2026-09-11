@@ -24,8 +24,15 @@ export type FarmExcelImportResultRow = {
 };
 
 const HEADER_MAP: Record<keyof FarmExcelImportRow, string[]> = {
-  name: ["nombre", "name", "finca", "predio"],
-  code: ["codigo", "código", "code"],
+  name: [
+    "nombre",
+    "name",
+    "centro_de_trabajo",
+    "centro_trabajo",
+    "finca",
+    "predio",
+  ],
+  code: ["codigo", "código", "code", "cod"],
   company: ["empresa", "razon_social", "razón_social", "company"],
   municipality: ["municipio", "municipality", "ciudad", "lugar"],
   address: ["direccion", "dirección", "address", "ubicacion", "ubicación"],
@@ -106,7 +113,7 @@ export function buildFarmTemplateRows() {
   return [
     {
       codigo: "ESP",
-      nombre: "Finca La Esperanza",
+      nombre: "Planta Principal",
       empresa: "Grupo Manzanares S.A.S.",
       municipio: "Santa Rosa de Cabal",
       direccion: "Vereda El Rosario",

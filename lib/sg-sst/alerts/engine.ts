@@ -253,7 +253,7 @@ export function summarizeByAlertKind(alerts: SstAlertView[]): AlertKindSummary[]
     const matching = alerts.filter((alert) => alert.alertKinds.includes(meta.kind));
     const farmMap = new Map<string, number>();
     for (const alert of matching) {
-      const key = alert.farmName ?? "Sin finca";
+      const key = alert.farmName ?? "Sin centro";
       farmMap.set(key, (farmMap.get(key) ?? 0) + 1);
     }
     const byFarm = [...farmMap.entries()]

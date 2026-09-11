@@ -120,7 +120,7 @@ export async function createFarm(draft: SstFarmDraft): Promise<SstFarmRecord> {
     LIMIT 1
   `;
   if (dup[0]) {
-    throw new Error("Ya existe una finca con ese código o nombre.");
+    throw new Error("Ya existe un centro con ese código o nombre.");
   }
 
   const inserted = await sql<{ id: string }[]>`
@@ -139,7 +139,7 @@ export async function createFarm(draft: SstFarmDraft): Promise<SstFarmRecord> {
     RETURNING id
   `;
   const created = await selectFarmById(inserted[0]!.id);
-  if (!created) throw new Error("No se pudo crear la finca.");
+  if (!created) throw new Error("No se pudo crear el centro de trabajo.");
   return created;
 }
 
@@ -158,7 +158,7 @@ export async function updateFarm(
     LIMIT 1
   `;
   if (dup[0]) {
-    throw new Error("Ya existe otra finca con ese código o nombre.");
+    throw new Error("Ya existe otro centro con ese código o nombre.");
   }
 
   await sql`
@@ -176,7 +176,7 @@ export async function updateFarm(
   `;
 
   const updated = await selectFarmById(id);
-  if (!updated) throw new Error("Finca no encontrada.");
+  if (!updated) throw new Error("Centro de trabajo no encontrado.");
   return updated;
 }
 
@@ -191,7 +191,7 @@ export async function setFarmActive(
     WHERE id = ${id}
   `;
   const updated = await selectFarmById(id);
-  if (!updated) throw new Error("Finca no encontrada.");
+  if (!updated) throw new Error("Centro de trabajo no encontrado.");
   return updated;
 }
 
@@ -201,7 +201,7 @@ export async function setFarmActive(
  */
 export async function deleteFarm(id: string): Promise<"deleted" | "deactivated"> {
   const farm = await selectFarmById(id);
-  if (!farm) throw new Error("Finca no encontrada.");
+  if (!farm) throw new Error("Centro de trabajo no encontrado.");
 
   if (farm.workersCount > 0 || farm.recordsCount > 0) {
     await setFarmActive(id, false);

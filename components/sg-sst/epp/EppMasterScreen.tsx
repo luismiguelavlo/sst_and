@@ -512,7 +512,7 @@ export function EppMasterScreen({
               value={farmId}
               onChange={(event) => setFarmId(event.target.value)}
             >
-              <option value="all">Todas las fincas</option>
+              <option value="all">Todos los centros</option>
               {farms.map((farm) => (
                 <option key={farm.id} value={farm.id}>
                   {farm.name}
@@ -606,7 +606,7 @@ function DeliveriesTable({
                     CC {item.workerDocument}
                   </div>
                   <div className="text-[11px] font-semibold text-secondary">
-                    {item.jobTitleSnapshot} · {item.farmName ?? "Sin finca"}
+                    {item.jobTitleSnapshot} · {item.farmName ?? "Sin centro"}
                   </div>
                   <div className="font-mono text-[11px] text-on-surface-variant">
                     {item.folio}

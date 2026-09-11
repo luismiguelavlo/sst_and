@@ -375,7 +375,7 @@ export function AccidentsMasterScreen({
           <div className="grid gap-md lg:grid-cols-2 xl:grid-cols-3">
             <BarList title="Tendencia mensual" items={stats.monthlyTrend} />
             <BarList title="Por empresa" items={stats.byCompany} />
-            <BarList title="Por finca" items={stats.byFarm} />
+            <BarList title="Por centro" items={stats.byFarm} />
             <BarList title="Por área" items={stats.byArea} />
             <BarList title="Por cargo" items={stats.byJob} />
             <BarList title="Por mecanismo" items={stats.byMechanism} />
@@ -488,7 +488,7 @@ export function AccidentsMasterScreen({
               </label>
               <label className="flex flex-col gap-1">
                 <span className="font-label-sm text-label-sm text-on-surface-variant">
-                  Finca
+                  Centro de trabajo
                 </span>
                 <select
                   className="rounded-lg bg-surface-container-low px-sm py-2"
@@ -832,14 +832,14 @@ export function AccidentsMasterScreen({
               </label>
               <label className="flex flex-col gap-1 sm:col-span-2">
                 <span className="font-label-sm text-label-sm text-on-surface-variant">
-                  Finca
+                  Centro de trabajo
                 </span>
                 <select
                   className="rounded-lg bg-surface-container-low px-sm py-2"
                   value={editing.farmId ?? ""}
                   onChange={(e) => patchDraft({ farmId: e.target.value || null })}
                 >
-                  <option value="">Sin finca</option>
+                  <option value="">Sin centro</option>
                   {farms.map((farm) => (
                     <option key={farm.id} value={farm.id}>
                       {farm.name}

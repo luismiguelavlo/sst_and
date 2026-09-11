@@ -658,7 +658,7 @@ export function EmergenciasMasterScreen({
             value={farmId}
             onChange={(event) => setFarmId(event.target.value)}
           >
-            <option value="all">Todas las fincas</option>
+            <option value="all">Todos los centros</option>
             {farms.map((farm) => (
               <option key={farm.id} value={farm.id}>
                 {farm.name}
@@ -1289,7 +1289,7 @@ function BrigadeFormModal({
             />
           </label>
           <label className="flex flex-col gap-xs">
-            <span className="font-label-sm text-label-sm">Finca</span>
+            <span className="font-label-sm text-label-sm">Centro de trabajo</span>
             <select
               className="rounded-lg bg-surface-container-low px-sm py-sm"
               value={draft.farmId ?? ""}
@@ -1300,7 +1300,7 @@ function BrigadeFormModal({
                 })
               }
             >
-              <option value="">Sin finca</option>
+              <option value="">Sin centro</option>
               {farms.map((farm) => (
                 <option key={farm.id} value={farm.id}>
                   {farm.name}
@@ -1491,7 +1491,7 @@ function EquipmentFormModal({
             </select>
           </label>
           <label className="flex flex-col gap-xs">
-            <span className="font-label-sm text-label-sm">Finca</span>
+            <span className="font-label-sm text-label-sm">Centro de trabajo</span>
             <select
               className="rounded-lg bg-surface-container-low px-sm py-sm"
               value={draft.farmId ?? ""}
@@ -1502,7 +1502,7 @@ function EquipmentFormModal({
                 })
               }
             >
-              <option value="">Sin finca</option>
+              <option value="">Sin centro</option>
               {farms.map((farm) => (
                 <option key={farm.id} value={farm.id}>
                   {farm.name}
@@ -1684,7 +1684,7 @@ function DrillFormModal({
             />
           </label>
           <label className="flex flex-col gap-xs">
-            <span className="font-label-sm text-label-sm">Finca</span>
+            <span className="font-label-sm text-label-sm">Centro de trabajo</span>
             <select
               className="rounded-lg bg-surface-container-low px-sm py-sm"
               value={draft.farmId ?? ""}
@@ -1695,7 +1695,7 @@ function DrillFormModal({
                 })
               }
             >
-              <option value="">Sin finca</option>
+              <option value="">Sin centro</option>
               {farms.map((farm) => (
                 <option key={farm.id} value={farm.id}>
                   {farm.name}

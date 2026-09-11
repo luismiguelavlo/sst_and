@@ -1228,7 +1228,7 @@ function MemberFormModal({
           }
         />
       </Field>
-      <Field label="Finca">
+      <Field label="Centro de trabajo">
         <select
           className={inputClass}
           value={draft.farmId ?? ""}
@@ -1239,7 +1239,7 @@ function MemberFormModal({
             })
           }
         >
-          <option value="">Sin finca</option>
+          <option value="">Sin centro</option>
           {farms.map((farm) => (
             <option key={farm.id} value={farm.id}>
               {farm.name}
@@ -1415,7 +1415,7 @@ function MeetingFormModal({
           }
         />
       </Field>
-      <Field label="Finca">
+      <Field label="Centro de trabajo">
         <select
           className={inputClass}
           value={draft.farmId ?? ""}
@@ -1423,7 +1423,7 @@ function MeetingFormModal({
             onChange({ ...draft, farmId: event.target.value || null })
           }
         >
-          <option value="">Sin finca</option>
+          <option value="">Sin centro</option>
           {farms.map((farm) => (
             <option key={farm.id} value={farm.id}>
               {farm.name}
@@ -1570,7 +1570,7 @@ function CommitmentFormModal({
           }
         />
       </Field>
-      <Field label="Finca">
+      <Field label="Centro de trabajo">
         <select
           className={inputClass}
           value={draft.farmId ?? ""}
@@ -1578,7 +1578,7 @@ function CommitmentFormModal({
             onChange({ ...draft, farmId: event.target.value || null })
           }
         >
-          <option value="">Sin finca</option>
+          <option value="">Sin centro</option>
           {farms.map((farm) => (
             <option key={farm.id} value={farm.id}>
               {farm.name}

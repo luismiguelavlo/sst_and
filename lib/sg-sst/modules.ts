@@ -10,7 +10,7 @@ export const SGSST_MODULES = {
   trabajadores: {
     title: "Trabajadores",
     description:
-      "Censo laboral, hojas de vida SST y estado de aptitud por finca y centro de trabajo.",
+      "Censo laboral, hojas de vida SST y estado de aptitud por centro de trabajo.",
     icon: "badge",
   },
   "examenes-medicos-ocupacionales": {
@@ -112,14 +112,14 @@ export const SGSST_MODULES = {
   },
   configuracion: {
     title: "Configuración",
-    description: "Parámetros del sistema operativo, sedes, fincas y catálogos.",
+    description: "Parámetros del sistema operativo, sedes, centros y catálogos.",
     icon: "settings",
   },
-  fincas: {
-    title: "Fincas / Predios",
+  "centros-de-trabajo": {
+    title: "Centros de trabajo",
     description:
-      "Catálogo de fincas, predios, empresas y lugares de trabajo del SG-SST.",
-    icon: "agriculture",
+      "Catálogo de centros de trabajo, sedes, empresas y lugares del SG-SST.",
+    icon: "apartment",
   },
 } as const satisfies Record<string, ModuleMeta>;
 

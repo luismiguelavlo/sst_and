@@ -1207,7 +1207,7 @@ function VehicleFormModal({
         onChange={(value) => onChange({ ...draft, workCenter: value })}
       />
       <label className="flex flex-col gap-xs">
-        <span className="font-label-sm text-label-sm">Finca</span>
+        <span className="font-label-sm text-label-sm">Centro de trabajo</span>
         <select
           className="rounded-lg bg-surface-container-low px-sm py-sm"
           value={draft.farmId ?? ""}
@@ -1215,7 +1215,7 @@ function VehicleFormModal({
             onChange({ ...draft, farmId: event.target.value || null })
           }
         >
-          <option value="">Sin finca</option>
+          <option value="">Sin centro</option>
           {farms.map((farm) => (
             <option key={farm.id} value={farm.id}>
               {farm.name}

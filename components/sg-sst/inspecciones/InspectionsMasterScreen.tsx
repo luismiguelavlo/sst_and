@@ -208,7 +208,7 @@ export function InspectionsMasterScreen({
           </h1>
           <p className="font-body-sm text-body-sm text-on-surface-variant">
             Programa sistemático de verificación locativa, equipos, maquinaria y condiciones
-            de trabajo seguro en fincas y centros de trabajo.
+            de trabajo seguro en centros de trabajo.
           </p>
         </div>
         <div className="flex flex-wrap gap-sm">
@@ -267,7 +267,7 @@ export function InspectionsMasterScreen({
           </span>
         </div>
         <p className="font-body-sm text-on-primary-container">
-          Responsable → Centro de trabajo / Finca → Tipo → Fecha programada
+          Responsable → Centro de trabajo → Tipo → Fecha programada
         </p>
         {weekItems.length > 0 ? (
           <div className="mt-xs grid grid-cols-1 gap-sm md:grid-cols-2 lg:grid-cols-5">
@@ -289,10 +289,10 @@ export function InspectionsMasterScreen({
                 </div>
                 <div className="rounded bg-surface-container-low p-xs">
                   <div className="text-[10px] font-label-sm uppercase text-outline">
-                    Lugar / finca
+                    Lugar / centro
                   </div>
                   <div className="truncate font-label-md text-primary">
-                    {item.farmName ?? "Sin finca"}
+                    {item.farmName ?? "Sin centro"}
                   </div>
                   <div className="truncate text-[11px] text-on-surface-variant">
                     {item.workCenter || "—"}
@@ -369,7 +369,7 @@ export function InspectionsMasterScreen({
                 Vista previa: {fileName}
               </div>
               <div className="font-body-sm text-body-sm text-on-surface-variant">
-                {preview.length} filas. Folio existente → actualización. Finca debe existir.
+                {preview.length} filas. Folio existente → actualización. El centro de trabajo debe existir.
               </div>
             </div>
             <div className="flex gap-xs">
@@ -432,14 +432,14 @@ export function InspectionsMasterScreen({
             </label>
             <label className="flex flex-col gap-0.5">
               <span className="font-label-sm text-[11px] uppercase tracking-wider text-outline">
-                Centro / finca
+                Centro de trabajo
               </span>
               <select
                 className="rounded-lg bg-surface-container-low px-xs py-2 font-body-sm"
                 value={farmId}
                 onChange={(event) => setFarmId(event.target.value)}
               >
-                <option value="all">Todas las fincas</option>
+                <option value="all">Todos los centros</option>
                 {farms.map((farm) => (
                   <option key={farm.id} value={farm.id}>
                     {farm.name}
@@ -489,7 +489,7 @@ export function InspectionsMasterScreen({
                 <tr className="bg-surface-container-high font-label-sm text-[11px] tracking-wider text-on-surface-variant uppercase">
                   <th className="p-xs">Tipo</th>
                   <th className="p-xs">Responsable</th>
-                  <th className="p-xs">Finca / área</th>
+                  <th className="p-xs">Centro / área</th>
                   <th className="p-xs">Programada / realizada</th>
                   <th className="p-xs">Estado</th>
                   <th className="p-xs">Hallazgos</th>
@@ -529,7 +529,7 @@ export function InspectionsMasterScreen({
                       </td>
                       <td className="p-xs align-top">
                         <div className="font-label-md leading-tight">
-                          {item.farmName ?? "Sin finca"}
+                          {item.farmName ?? "Sin centro"}
                         </div>
                         <div className="text-[11px] text-outline">{item.workCenter || "—"}</div>
                       </td>
@@ -759,7 +759,7 @@ function FindingsDetailPanel({
             {INSPECTION_TYPE_LABELS[inspection.inspectionType]}
           </h3>
           <p className="font-body-sm text-[12px] text-outline">
-            {inspection.farmName ?? "Sin finca"}
+            {inspection.farmName ?? "Sin centro"}
             {inspection.workCenter ? ` · ${inspection.workCenter}` : ""}
           </p>
         </div>
@@ -948,7 +948,7 @@ function InspectionFormModal({
           </label>
 
           <label className="flex flex-col gap-xs">
-            <span className="font-label-sm text-label-sm">Finca</span>
+            <span className="font-label-sm text-label-sm">Centro de trabajo</span>
             <select
               className="rounded-lg bg-surface-container-low px-sm py-sm"
               value={draft.farmId ?? ""}
@@ -959,7 +959,7 @@ function InspectionFormModal({
                 })
               }
             >
-              <option value="">Sin finca</option>
+              <option value="">Sin centro</option>
               {farms.map((farm) => (
                 <option key={farm.id} value={farm.id}>
                   {farm.name}

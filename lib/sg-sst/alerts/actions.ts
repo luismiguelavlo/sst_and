@@ -211,7 +211,7 @@ export async function bulkImportComplianceRecordsAction(input: {
           code: row.draft.code,
           title: row.draft.title,
           status: "error",
-          message: `Finca no encontrada: "${row.farmNameOrCode}".`,
+          message: `Centro de trabajo no encontrado: "${row.farmNameOrCode}".`,
         });
         continue;
       }

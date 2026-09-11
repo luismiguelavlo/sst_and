@@ -178,7 +178,7 @@ export function AlertsRadarScreen({
       <div className="mb-lg flex flex-col items-center justify-between gap-sm rounded-xl bg-surface-container-lowest p-sm shadow-sm md:flex-row">
         <div className="flex w-full flex-wrap items-center gap-xs md:w-auto">
           <span className="pl-1 font-label-sm text-label-sm font-semibold text-on-surface-variant uppercase">
-            Finca:
+            Centro:
           </span>
           <FilterChip active={farmId === "all"} onClick={() => setFarmId("all")}>
             Todas ({farms.length})
@@ -344,7 +344,7 @@ function KindCard({ summary }: Readonly<{ summary: AlertKindSummary }>) {
         </p>
         <div className="mt-base space-y-1 rounded bg-surface-container-low p-xs font-label-sm text-label-sm text-on-surface-variant">
           {summary.byFarm.length === 0 ? (
-            <div>Sin desglose por finca</div>
+            <div>Sin desglose por centro</div>
           ) : (
             summary.byFarm.map((farm) => (
               <div key={farm.farmName} className="flex justify-between">

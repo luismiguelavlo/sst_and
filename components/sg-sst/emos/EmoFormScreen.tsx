@@ -180,7 +180,7 @@ export function EmoFormScreen({ workers, emo, history }: Readonly<EmoFormScreenP
               <dl className="mt-sm grid grid-cols-1 gap-2 rounded-lg bg-surface-container-low p-sm font-body-sm text-body-sm sm:grid-cols-2">
                 <Row label="Empresa" value={worker.company} />
                 <Row label="Cargo" value={worker.jobTitle} />
-                <Row label="Finca" value={worker.farmName ?? "—"} />
+                <Row label="Centro de trabajo" value={worker.farmName ?? "—"} />
                 <Row label="Riesgo ARL" value={`Nivel ${worker.riskLevel}`} />
                 <Row
                   label="Habilitaciones"

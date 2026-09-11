@@ -321,7 +321,7 @@ export async function bulkImportCopasstMembersAction(input: {
           rowNumber: row.rowNumber,
           key: row.workerDocumentOrCode,
           status: "error",
-          message: `Finca no encontrada: "${row.farmName}"`,
+          message: `Centro de trabajo no encontrado: "${row.farmName}"`,
         });
         continue;
       }
@@ -424,7 +424,7 @@ export async function bulkImportCopasstMeetingsAction(input: {
           rowNumber: row.rowNumber,
           key: row.folio ?? row.draft.title,
           status: "error",
-          message: `Finca no encontrada: "${row.farmName}"`,
+          message: `Centro de trabajo no encontrado: "${row.farmName}"`,
         });
         continue;
       }
@@ -520,7 +520,7 @@ export async function bulkImportCopasstCommitmentsAction(input: {
           rowNumber: row.rowNumber,
           key: row.folio ?? row.draft.description.slice(0, 40),
           status: "error",
-          message: `Finca no encontrada: "${row.farmName}"`,
+          message: `Centro de trabajo no encontrado: "${row.farmName}"`,
         });
         continue;
       }

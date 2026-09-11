@@ -20,7 +20,8 @@
     "db:migrate-sst-accidentes": "node --env-file=.env.local scripts/migrate-sst-accidentes.mjs",
     "db:migrate-sst-capa-docs": "node --env-file=.env.local scripts/migrate-sst-capa-docs.mjs",
     "db:migrate-sst-comites-emergencias": "node --env-file=.env.local scripts/migrate-sst-comites-emergencias.mjs",
-    "db:migrate-sst-fincas": "node --env-file=.env.local scripts/migrate-sst-fincas.mjs"
+    "db:migrate-sst-fincas": "node --env-file=.env.local scripts/migrate-sst-fincas.mjs",
+    "db:clear-sst-seed": "node --env-file=.env.local scripts/clear-sst-seed.mjs"
   },
   "dependencies": {
     "cloudinary": "^2.10.0",

@@ -67,9 +67,9 @@ export function FarmsMasterScreen({
   function handleExport() {
     downloadFarmsExcel(
       filtered,
-      `fincas-${new Date().toISOString().slice(0, 10)}.xlsx`,
+      `centros-de-trabajo-${new Date().toISOString().slice(0, 10)}.xlsx`,
     );
-    showToast(`Exportadas ${filtered.length} fincas.`);
+    showToast(`Exportados ${filtered.length} centros.`);
   }
 
   async function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
@@ -100,17 +100,20 @@ export function FarmsMasterScreen({
   function confirmImport() {
     if (preview.length === 0) return;
     startTransition(async () => {
-      const result = await bulkImportFarmsAction(preview);
+      const result = await bulkImportFarmsAction({ rows: preview });
       if (!result.ok) {
         showToast(result.error, { variant: "error" });
         return;
       }
-      const ok = result.results.filter((r) => r.ok).length;
-      const fail = result.results.length - ok;
+      const created = result.results.filter((r) => r.ok && r.action === "created").length;
+      const updated = result.results.filter((r) => r.ok && r.action === "updated").length;
+      const fail = result.results.filter((r) => !r.ok).length;
+      const firstError = result.results.find((r) => !r.ok)?.error;
       showToast(
         fail > 0
-          ? `Importación: ${ok} OK, ${fail} con error.`
-          : `Importadas ${ok} fincas.`,
+          ? `Importación: ${created} nuevos, ${updated} actualizados, ${fail} con error.${firstError ? ` Ej: ${firstError}` : ""}`
+          : `Importados ${created + updated} centros (${created} nuevos, ${updated} actualizados).`,
+        fail > 0 ? { variant: "error" } : undefined,
       );
       setPreview([]);
       setFileName("");
@@ -125,7 +128,7 @@ export function FarmsMasterScreen({
         showToast(result.error, { variant: "error" });
         return;
       }
-      showToast(draft.id ? "Finca actualizada." : "Finca creada.");
+      showToast(draft.id ? "Centro actualizado." : "Centro creado.");
       setEditing(null);
       router.refresh();
     });
@@ -148,7 +151,7 @@ export function FarmsMasterScreen({
     const ok = window.confirm(
       linked > 0
         ? `"${farm.name}" tiene vínculos. Se desactivará en lugar de borrarse. ¿Continuar?`
-        : `¿Eliminar la finca "${farm.name}" (${farm.code})?`,
+        : `¿Eliminar el centro "${farm.name}" (${farm.code})?`,
     );
     if (!ok) return;
     startTransition(async () => {
@@ -167,14 +170,14 @@ export function FarmsMasterScreen({
       <header className="flex flex-col gap-md md:flex-row md:items-end md:justify-between">
         <div>
           <div className="mb-xs flex items-center gap-xs font-label-sm text-label-sm tracking-wider text-primary uppercase">
-            <MaterialIcon name="agriculture" className="text-[16px]" />
+            <MaterialIcon name="apartment" className="text-[16px]" />
             Catálogo operativo
           </div>
           <h1 className="font-headline-lg text-headline-lg text-primary">
-            Fincas / Predios
+            Centros de trabajo
           </h1>
           <p className="mt-xs max-w-3xl font-body-md text-body-md text-on-surface-variant">
-            Administra los lugares de trabajo usados en filtros, trabajadores y
+            Administra los centros de trabajo usados en filtros, trabajadores y
             registros SST. Desactivar conserva el historial; eliminar solo aplica
             si no hay vínculos.
           </p>
@@ -186,14 +189,14 @@ export function FarmsMasterScreen({
           className="inline-flex items-center gap-xs rounded-lg bg-primary px-base py-sm font-label-md text-label-md font-semibold text-on-primary"
         >
           <MaterialIcon name="add" />
-          Nueva finca
+          Nuevo centro
         </button>
       </header>
 
       <section className="grid grid-cols-2 gap-sm md:grid-cols-4">
         <StatCard label="Total" value={stats.total} />
-        <StatCard label="Activas" value={stats.active} accent />
-        <StatCard label="Inactivas" value={stats.inactive} />
+        <StatCard label="Activos" value={stats.active} accent />
+        <StatCard label="Inactivos" value={stats.inactive} />
         <StatCard label="Con trabajadores" value={stats.withWorkers} />
       </section>
 
@@ -216,9 +219,9 @@ export function FarmsMasterScreen({
             onChange={(e) => setStatus(e.target.value as StatusFilter)}
             className="rounded-lg border border-outline-variant bg-surface-container-lowest px-sm py-sm font-body-sm text-body-sm"
           >
-            <option value="all">Todas</option>
-            <option value="active">Activas</option>
-            <option value="inactive">Inactivas</option>
+            <option value="all">Todos</option>
+            <option value="active">Activos</option>
+            <option value="inactive">Inactivos</option>
           </select>
           <button
             type="button"
@@ -287,7 +290,7 @@ export function FarmsMasterScreen({
             <thead>
               <tr className="bg-surface-container-low font-label-sm text-label-sm tracking-wider text-on-surface-variant uppercase">
                 <th className="rounded-l-lg px-base py-sm">Código</th>
-                <th className="px-base py-sm">Finca / Predio</th>
+                <th className="px-base py-sm">Centro de trabajo</th>
                 <th className="px-base py-sm">Empresa</th>
                 <th className="px-base py-sm">Municipio</th>
                 <th className="px-base py-sm">Uso</th>
@@ -329,7 +332,7 @@ export function FarmsMasterScreen({
                           : "bg-surface-container-high text-on-surface-variant"
                       }`}
                     >
-                      {farm.active ? "Activa" : "Inactiva"}
+                      {farm.active ? "Activo" : "Inactivo"}
                     </span>
                   </td>
                   <td className="px-base py-sm">
@@ -368,7 +371,7 @@ export function FarmsMasterScreen({
                     colSpan={7}
                     className="px-base py-lg text-center text-on-surface-variant"
                   >
-                    No hay fincas con esos filtros.
+                    No hay centros con esos filtros.
                   </td>
                 </tr>
               ) : null}
@@ -433,7 +436,7 @@ function FarmFormDialog({
       <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-xl bg-surface-container-lowest p-md shadow-lg">
         <div className="mb-md flex items-center justify-between gap-sm">
           <h2 className="font-headline-md text-headline-md text-on-surface">
-            {draft.id ? "Editar finca" : "Nueva finca"}
+            {draft.id ? "Editar centro" : "Nuevo centro"}
           </h2>
           <button
             type="button"
@@ -459,7 +462,7 @@ function FarmFormDialog({
               value={draft.name}
               onChange={(e) => patch("name", e.target.value)}
               className="w-full rounded-lg border border-outline-variant px-sm py-sm text-body-sm"
-              placeholder="Finca La Esperanza"
+              placeholder="Planta Principal"
             />
           </Field>
           <Field label="Empresa / razón social">
@@ -501,7 +504,7 @@ function FarmFormDialog({
               checked={draft.active}
               onChange={(e) => patch("active", e.target.checked)}
             />
-            Finca activa (aparece en selectores de los módulos)
+            Centro activo (aparece en selectores de los módulos)
           </label>
         </div>
 

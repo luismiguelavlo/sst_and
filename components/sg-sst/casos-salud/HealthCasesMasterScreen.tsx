@@ -397,7 +397,7 @@ export function HealthCasesMasterScreen({
             value={farmId}
             onChange={(event) => setFarmId(event.target.value)}
           >
-            <option value="all">Todas las fincas</option>
+            <option value="all">Todos los centros</option>
             {farms.map((farm) => (
               <option key={farm.id} value={farm.id}>
                 {farm.name}
@@ -442,7 +442,7 @@ export function HealthCasesMasterScreen({
                       <td className="px-sm py-sm">
                         <div className="font-semibold text-on-surface">{item.workerName}</div>
                         <div className="text-[11px] text-on-surface-variant">
-                          {item.jobTitleSnapshot} · {item.farmName ?? "Sin finca"}
+                          {item.jobTitleSnapshot} · {item.farmName ?? "Sin centro"}
                         </div>
                         <div className="text-[11px] text-on-surface-variant">
                           {item.workerCode} · CC {item.workerDocument}
@@ -574,7 +574,7 @@ export function HealthCasesMasterScreen({
                 <DetailRow label="Responsable" value={selected.responsibleName || "—"} />
                 <DetailRow label="Emisor" value={selected.issuer || "—"} />
                 <DetailRow label="Cargo" value={selected.jobTitleSnapshot || "—"} />
-                <DetailRow label="Finca" value={selected.farmName ?? "Sin finca"} />
+                <DetailRow label="Centro de trabajo" value={selected.farmName ?? "Sin centro"} />
                 <DetailRow
                   label="Observaciones administrativas"
                   value={selected.adminObservations || "Sin observaciones"}

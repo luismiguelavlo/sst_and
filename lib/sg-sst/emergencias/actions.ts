@@ -274,7 +274,7 @@ export async function bulkImportBrigadeAction(input: {
           key: row.folio ?? row.workerDocumentOrCode,
           sheet: "brigada",
           status: "error",
-          message: `Finca no encontrada: "${row.farmName}"`,
+          message: `Centro de trabajo no encontrado: "${row.farmName}"`,
         });
         continue;
       }
@@ -379,7 +379,7 @@ export async function bulkImportEquipmentAction(input: {
           key: row.code ?? row.draft.elementName,
           sheet: "equipos",
           status: "error",
-          message: `Finca no encontrada: "${row.farmName}"`,
+          message: `Centro de trabajo no encontrado: "${row.farmName}"`,
         });
         continue;
       }
@@ -486,7 +486,7 @@ export async function bulkImportDrillsAction(input: {
           key: row.folio ?? row.draft.place,
           sheet: "simulacros",
           status: "error",
-          message: `Finca no encontrada: "${row.farmName}"`,
+          message: `Centro de trabajo no encontrado: "${row.farmName}"`,
         });
         continue;
       }

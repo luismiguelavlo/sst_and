@@ -317,7 +317,7 @@ export async function bulkImportCclMembersAction(input: {
           rowNumber: row.rowNumber,
           key: row.workerDocumentOrCode,
           status: "error",
-          message: `Finca no encontrada: "${row.farmName}"`,
+          message: `Centro de trabajo no encontrado: "${row.farmName}"`,
         });
         continue;
       }
@@ -418,7 +418,7 @@ export async function bulkImportCclMeetingsAction(input: {
           rowNumber: row.rowNumber,
           key: row.folio ?? row.draft.title,
           status: "error",
-          message: `Finca no encontrada: "${row.farmName}"`,
+          message: `Centro de trabajo no encontrado: "${row.farmName}"`,
         });
         continue;
       }

@@ -469,7 +469,7 @@ export function InvestigationsMasterScreen({
                       </div>
                     ) : null}
                     <div className="text-[11px] text-secondary">
-                      {item.farmName ?? "Sin finca"}
+                      {item.farmName ?? "Sin centro"}
                     </div>
                   </td>
                   <td className="px-sm py-sm align-top whitespace-nowrap text-[12px]">

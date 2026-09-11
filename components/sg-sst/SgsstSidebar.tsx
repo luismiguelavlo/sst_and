@@ -120,7 +120,7 @@ export function SgsstSidebar({
             <div className="flex flex-col">
               <span className="text-[11px] text-on-surface-variant">Sede Principal</span>
               <span className="font-label-md text-label-md font-semibold text-on-surface">
-                Fincas Operativas
+                Centros operativos
               </span>
             </div>
             <span className="h-2 w-2 rounded-full bg-secondary" />

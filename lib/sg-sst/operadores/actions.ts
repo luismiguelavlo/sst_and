@@ -174,7 +174,7 @@ export async function bulkImportOperatorsAction(input: {
             folio: row.folio ?? "",
             workerRef: row.workerDocumentOrCode,
             status: "error",
-            message: `Finca no encontrada: "${row.farmNameOrCode}"`,
+            message: `Centro de trabajo no encontrado: "${row.farmNameOrCode}"`,
           });
           continue;
         }

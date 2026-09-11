@@ -398,7 +398,7 @@ export function OperatorsMasterScreen({
                     </p>
                   ) : null}
                   <div className="text-[11px] font-label-sm text-outline">
-                    {item.farmName ?? "Sin finca"} · {item.folio}
+                    {item.farmName ?? "Sin centro"} · {item.folio}
                   </div>
                 </div>
                 <div className="mt-md flex items-center gap-sm">
@@ -437,7 +437,7 @@ export function OperatorsMasterScreen({
               value={farmId}
               onChange={(event) => setFarmId(event.target.value)}
             >
-              <option value="all">Todas las fincas</option>
+              <option value="all">Todos los centros</option>
               {farms.map((farm) => (
                 <option key={farm.id} value={farm.id}>
                   {farm.name}
@@ -511,7 +511,7 @@ export function OperatorsMasterScreen({
             <thead className="bg-surface-container-low font-label-sm text-label-sm tracking-wider text-on-surface-variant uppercase">
               <tr>
                 <th className="px-base py-sm">Trabajador</th>
-                <th className="px-base py-sm">Finca</th>
+                <th className="px-base py-sm">Centro de trabajo</th>
                 <th className="px-base py-sm">Equipo / tipo</th>
                 <th className="px-base py-sm">Capacitación</th>
                 <th className="px-base py-sm">Vencimiento</th>
@@ -693,7 +693,7 @@ function OperatorFormModal({
           </label>
 
           <label className="flex flex-col gap-xs">
-            <span className="font-label-sm text-label-sm">Finca</span>
+            <span className="font-label-sm text-label-sm">Centro de trabajo</span>
             <select
               className="rounded-lg bg-surface-container-low px-sm py-sm"
               value={draft.farmId ?? ""}
@@ -704,7 +704,7 @@ function OperatorFormModal({
                 })
               }
             >
-              <option value="">Sin finca / usar del trabajador</option>
+              <option value="">Sin centro / usar del trabajador</option>
               {farms.map((farm) => (
                 <option key={farm.id} value={farm.id}>
                   {farm.name}

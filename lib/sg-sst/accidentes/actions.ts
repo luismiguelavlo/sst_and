@@ -177,7 +177,7 @@ export async function bulkImportAccidentsAction(input: {
           eventNumber: row.eventNumber ?? "",
           workerRef: row.workerDocumentOrCode,
           status: "error",
-          message: `Finca no encontrada: "${row.farmName}"`,
+          message: `Centro de trabajo no encontrado: "${row.farmName}"`,
         });
         continue;
       }

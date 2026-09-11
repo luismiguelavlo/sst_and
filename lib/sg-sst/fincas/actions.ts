@@ -32,7 +32,7 @@ export type FarmSimpleResult =
   | { ok: false; error: string };
 
 function revalidateFarmPaths() {
-  revalidatePath("/sg-sst/fincas");
+  revalidatePath("/sg-sst/centros-de-trabajo");
   revalidatePath("/sg-sst");
   revalidatePath("/sg-sst/trabajadores");
   revalidatePath("/sg-sst/alertas-sst");
@@ -66,7 +66,7 @@ export async function saveFarmAction(
     return {
       ok: false,
       error:
-        caught instanceof Error ? caught.message : "No se pudo guardar la finca.",
+        caught instanceof Error ? caught.message : "No se pudo guardar el centro de trabajo.",
     };
   }
 }
@@ -81,7 +81,7 @@ export async function setFarmActiveAction(
     revalidateFarmPaths();
     return {
       ok: true,
-      message: active ? "Finca reactivada." : "Finca desactivada.",
+      message: active ? "Centro reactivado." : "Centro desactivado.",
     };
   } catch (caught) {
     return {
@@ -89,7 +89,7 @@ export async function setFarmActiveAction(
       error:
         caught instanceof Error
           ? caught.message
-          : "No se pudo cambiar el estado de la finca.",
+          : "No se pudo cambiar el estado del centro.",
     };
   }
 }
@@ -103,27 +103,30 @@ export async function deleteFarmAction(id: string): Promise<FarmSimpleResult> {
       return {
         ok: true,
         message:
-          "La finca tiene registros vinculados; se desactivó en lugar de eliminarla.",
+          "El centro tiene registros vinculados; se desactivó en lugar de eliminarlo.",
       };
     }
-    return { ok: true, message: "Finca eliminada." };
+    return { ok: true, message: "Centro eliminado." };
   } catch (caught) {
     return {
       ok: false,
       error:
-        caught instanceof Error ? caught.message : "No se pudo eliminar la finca.",
+        caught instanceof Error ? caught.message : "No se pudo eliminar el centro.",
     };
   }
 }
 
-export async function bulkImportFarmsAction(
-  rows: FarmExcelImportRow[],
-): Promise<
+export async function bulkImportFarmsAction(input: {
+  rows: FarmExcelImportRow[];
+}): Promise<
   | { ok: true; results: FarmExcelImportResultRow[] }
   | { ok: false; error: string }
 > {
   await requireAdmin();
-  if (rows.length === 0) return { ok: false, error: "No hay filas para importar." };
+  const rows = input.rows;
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return { ok: false, error: "No hay filas para importar." };
+  }
   if (rows.length > FARM_EXCEL_MAX_ROWS) {
     return {
       ok: false,

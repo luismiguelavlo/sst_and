@@ -157,7 +157,7 @@ export function AlertsMatrixScreen({
         <div className="flex flex-wrap items-center justify-between gap-sm">
           <div className="flex flex-wrap items-center gap-xs">
             <span className="mr-1 font-label-sm text-label-sm font-bold tracking-wider text-on-surface-variant uppercase">
-              Finca:
+              Centro:
             </span>
             <Chip active={farmId === "all"} onClick={() => setFarmId("all")}>
               Todas
@@ -241,7 +241,7 @@ export function AlertsMatrixScreen({
                 <tr className="bg-surface-container-high/60 font-label-sm text-label-sm tracking-wider text-on-surface-variant uppercase">
                   <th className="px-md py-sm">Semáforo</th>
                   <th className="px-xs py-sm">Módulo & Alerta</th>
-                  <th className="px-xs py-sm">Sujeto / Finca</th>
+                  <th className="px-xs py-sm">Sujeto / Centro</th>
                   <th className="px-xs py-sm">Vencimiento</th>
                   <th className="px-xs py-sm">Responsable</th>
                   <th className="px-md py-sm text-right">Gestión</th>
@@ -278,7 +278,7 @@ export function AlertsMatrixScreen({
                         </div>
                         <div className="text-[11px] text-on-surface-variant">
                           {alert.subjectDocument ? `C.C. ${alert.subjectDocument} • ` : ""}
-                          {alert.farmName ?? "Sin finca"}
+                          {alert.farmName ?? "Sin centro"}
                         </div>
                       </td>
                       <td className="px-xs py-sm whitespace-nowrap">

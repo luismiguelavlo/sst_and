@@ -77,7 +77,7 @@ export function downloadFarmsExcel(
   const rows = buildFarmExportRows(farms);
   const sheet = XLSX.utils.json_to_sheet(rows);
   const book = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(book, sheet, "Fincas");
+  XLSX.utils.book_append_sheet(book, sheet, "Centros");
   const buffer = XLSX.write(book, {
     type: "array",
     bookType: "xlsx",
@@ -90,12 +90,12 @@ export function downloadFarmsExcel(
 }
 
 export function downloadFarmsTemplate(
-  fileName = "plantilla-fincas.xlsx",
+  fileName = "plantilla-centros-de-trabajo.xlsx",
 ): void {
   const rows = buildFarmTemplateRows();
   const sheet = XLSX.utils.json_to_sheet(rows);
   const book = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(book, sheet, "Fincas");
+  XLSX.utils.book_append_sheet(book, sheet, "Centros");
   const buffer = XLSX.write(book, {
     type: "array",
     bookType: "xlsx",

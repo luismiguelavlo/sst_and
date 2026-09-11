@@ -375,7 +375,7 @@ export function RestrictionsMasterScreen({
           value={farmId}
           onChange={(event) => setFarmId(event.target.value)}
         >
-          <option value="all">Todas las fincas</option>
+          <option value="all">Todos los centros</option>
           {farms.map((farm) => (
             <option key={farm.id} value={farm.id}>
               {farm.name}
@@ -390,7 +390,7 @@ export function RestrictionsMasterScreen({
             <thead>
               <tr className="bg-surface-container-low font-label-sm text-label-sm tracking-wider text-on-surface-variant uppercase">
                 <th className="px-md py-sm">Estado</th>
-                <th className="px-sm py-sm">Trabajador &amp; finca</th>
+                <th className="px-sm py-sm">Trabajador &amp; centro</th>
                 <th className="px-sm py-sm">Tipo &amp; folio</th>
                 <th className="px-sm py-sm">Cronograma</th>
                 <th className="px-sm py-sm min-w-[200px]">Detalle</th>
@@ -415,7 +415,7 @@ export function RestrictionsMasterScreen({
                       CC {item.workerDocument}
                     </div>
                     <div className="text-[11px] font-semibold text-secondary">
-                      {item.jobTitleSnapshot} · {item.farmName ?? "Sin finca"}
+                      {item.jobTitleSnapshot} · {item.farmName ?? "Sin centro"}
                     </div>
                   </td>
                   <td className="px-sm py-sm align-top whitespace-nowrap">

@@ -380,7 +380,7 @@ export function ActionsMasterScreen({
             value={farmId}
             onChange={(event) => setFarmId(event.target.value)}
           >
-            <option value="all">Todas las fincas</option>
+            <option value="all">Todos los centros</option>
             {farms.map((farm) => (
               <option key={farm.id} value={farm.id}>
                 {farm.name}
@@ -455,7 +455,7 @@ export function ActionsMasterScreen({
                       {item.responsibleName}
                     </div>
                     <div className="text-[11px] text-on-surface-variant">
-                      {item.farmName ?? "Sin finca"}
+                      {item.farmName ?? "Sin centro"}
                     </div>
                   </td>
                   <td className="px-sm py-sm align-top whitespace-nowrap text-[12px]">
@@ -657,7 +657,7 @@ function ActionFormModal({
           />
 
           <label className="flex flex-col gap-xs">
-            <span className="font-label-sm text-label-sm">Finca (opcional)</span>
+            <span className="font-label-sm text-label-sm">Centro de trabajo (opcional)</span>
             <select
               className="rounded-lg bg-surface-container-low px-sm py-sm"
               value={draft.farmId ?? ""}
@@ -668,7 +668,7 @@ function ActionFormModal({
                 })
               }
             >
-              <option value="">Sin finca</option>
+              <option value="">Sin centro</option>
               {farms.map((farm) => (
                 <option key={farm.id} value={farm.id}>
                   {farm.name}

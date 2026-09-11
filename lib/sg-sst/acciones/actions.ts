@@ -144,7 +144,7 @@ export async function bulkImportActionsAction(input: {
           folio: row.folio ?? "",
           farmRef: row.farmName,
           status: "error",
-          message: `Finca no encontrada: "${row.farmName}"`,
+          message: `Centro de trabajo no encontrado: "${row.farmName}"`,
         });
         continue;
       }

@@ -432,7 +432,7 @@ export function HeightsMasterScreen({
           value={farmId}
           onChange={(event) => setFarmId(event.target.value)}
         >
-          <option value="all">Todas las fincas</option>
+          <option value="all">Todos los centros</option>
           {farms.map((farm) => (
             <option key={farm.id} value={farm.id}>
               {farm.name}
@@ -486,7 +486,7 @@ export function HeightsMasterScreen({
                       CC {item.workerDocument}
                     </div>
                     <div className="text-[11px] font-semibold text-secondary">
-                      {item.jobTitleSnapshot} · {item.farmName ?? "Sin finca"}
+                      {item.jobTitleSnapshot} · {item.farmName ?? "Sin centro"}
                     </div>
                   </td>
                   <td className="px-sm py-sm align-top text-[12px]">

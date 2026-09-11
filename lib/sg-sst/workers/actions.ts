@@ -172,7 +172,7 @@ export async function bulkImportWorkersAction(input: {
             workerCode: row.draft.workerCode ?? "",
             fullName: row.draft.fullName,
             status: "error",
-            message: `Finca no encontrada: "${row.farmNameOrCode}"`,
+            message: `Centro de trabajo no encontrado: "${row.farmNameOrCode}"`,
           });
           continue;
         }

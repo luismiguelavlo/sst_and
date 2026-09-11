@@ -270,13 +270,13 @@ export function WorkerFormScreen({ farms, worker }: Readonly<WorkerFormScreenPro
                 onChange={(value) => patch("workCenter", value)}
               />
               <label className="flex flex-col gap-1">
-                <span className="font-label-md text-label-md">Finca</span>
+                <span className="font-label-md text-label-md">Centro de trabajo</span>
                 <select
                   className="w-full rounded-lg bg-surface-container-low px-3 py-2 font-body-sm text-body-sm"
                   value={draft.farmId ?? ""}
                   onChange={(event) => patch("farmId", event.target.value || null)}
                 >
-                  <option value="">Sin finca</option>
+                  <option value="">Sin centro</option>
                   {farms.map((farm) => (
                     <option key={farm.id} value={farm.id}>
                       {farm.name}
@@ -447,7 +447,7 @@ export function WorkerFormScreen({ farms, worker }: Readonly<WorkerFormScreenPro
               <Row label="Documento" value={`${draft.documentType} ${draft.documentNumber}`} />
               <Row label="Cargo" value={draft.jobTitle || "—"} />
               <Row
-                label="Finca"
+                label="Centro de trabajo"
                 value={farms.find((f) => f.id === draft.farmId)?.name ?? "—"}
               />
               <Row label="Riesgo" value={`Nivel ${draft.riskLevel}`} />

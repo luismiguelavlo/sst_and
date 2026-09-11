@@ -29,7 +29,8 @@ const IMPLEMENTED_REDIRECTS: Record<string, string> = {
   copasst: "/sg-sst/copasst",
   ccl: "/sg-sst/ccl",
   emergencias: "/sg-sst/emergencias",
-  fincas: "/sg-sst/fincas",
+  "centros-de-trabajo": "/sg-sst/centros-de-trabajo",
+  fincas: "/sg-sst/centros-de-trabajo",
 };
 
 export async function generateStaticParams() {

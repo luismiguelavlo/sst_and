@@ -1190,7 +1190,7 @@ function MemberForm({
             placeholder="2026 - 2028"
           />
         </Field>
-        <Field label="Finca">
+        <Field label="Centro de trabajo">
           <select
             className={inputClass}
             value={draft.farmId ?? ""}
@@ -1307,7 +1307,7 @@ function MeetingForm({
             ))}
           </select>
         </Field>
-        <Field label="Finca">
+        <Field label="Centro de trabajo">
           <select
             className={inputClass}
             value={draft.farmId ?? ""}

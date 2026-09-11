@@ -57,7 +57,7 @@ export function draftFromFarm(farm: SstFarmRecord): SstFarmDraft {
 }
 
 export function validateFarmDraft(draft: SstFarmDraft): string | null {
-  if (!draft.name.trim()) return "El nombre de la finca / predio es obligatorio.";
+  if (!draft.name.trim()) return "El nombre del centro de trabajo es obligatorio.";
   if (draft.name.trim().length > 120) return "El nombre no puede superar 120 caracteres.";
   if (!draft.code.trim()) return "El código es obligatorio.";
   if (draft.code.trim().length > 32) return "El código no puede superar 32 caracteres.";

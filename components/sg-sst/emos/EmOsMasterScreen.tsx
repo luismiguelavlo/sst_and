@@ -328,7 +328,7 @@ export function EmOsMasterScreen({
           value={farmId}
           onChange={(event) => setFarmId(event.target.value)}
         >
-          <option value="all">Todas las fincas</option>
+          <option value="all">Todos los centros</option>
           {farms.map((farm) => (
             <option key={farm.id} value={farm.id}>
               {farm.name}
@@ -360,7 +360,7 @@ export function EmOsMasterScreen({
                   <td className="px-sm py-sm">
                     <div className="font-semibold text-on-surface">{emo.workerName}</div>
                     <div className="text-[11px] text-on-surface-variant">
-                      {emo.jobTitleSnapshot} · {emo.farmName ?? "Sin finca"}
+                      {emo.jobTitleSnapshot} · {emo.farmName ?? "Sin centro"}
                     </div>
                     <div className="text-[11px] text-on-surface-variant">
                       {emo.workerCode} · CC {emo.workerDocument}

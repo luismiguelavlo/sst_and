@@ -264,7 +264,7 @@ export function WorkersMasterScreen({
           />
           <input
             className="w-full rounded-lg bg-surface-container-low py-2.5 pr-4 pl-10 font-body-sm text-body-sm focus:outline-none"
-            placeholder="Buscar por Cédula, Nombre, ID Trabajador, Cargo o Finca..."
+            placeholder="Buscar por Cédula, Nombre, ID Trabajador, Cargo o Centro..."
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
@@ -285,7 +285,7 @@ export function WorkersMasterScreen({
           value={farmId}
           onChange={(event) => setFarmId(event.target.value)}
         >
-          <option value="all">Todas las fincas</option>
+          <option value="all">Todos los centros</option>
           {farms.map((farm) => (
             <option key={farm.id} value={farm.id}>
               {farm.name}
@@ -302,7 +302,7 @@ export function WorkersMasterScreen({
                 <th className="px-md py-sm">ID / Documento</th>
                 <th className="px-sm py-sm">Trabajador</th>
                 <th className="px-sm py-sm">Cargo / Área</th>
-                <th className="px-sm py-sm">Finca</th>
+                <th className="px-sm py-sm">Centro de trabajo</th>
                 <th className="px-sm py-sm">Habilitaciones</th>
                 <th className="px-sm py-sm">Estado</th>
                 <th className="px-md py-sm text-right">Acción</th>

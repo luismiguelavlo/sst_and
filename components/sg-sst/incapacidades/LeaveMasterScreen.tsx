@@ -517,7 +517,7 @@ export function LeaveMasterScreen({
           value={farmId}
           onChange={(event) => setFarmId(event.target.value)}
         >
-          <option value="all">Todas las fincas</option>
+          <option value="all">Todos los centros</option>
           {farms.map((farm) => (
             <option key={farm.id} value={farm.id}>
               {farm.name}
@@ -552,7 +552,7 @@ export function LeaveMasterScreen({
                   <td className="px-sm py-sm">
                     <div className="font-semibold text-on-surface">{leave.workerName}</div>
                     <div className="text-[11px] text-on-surface-variant">
-                      {leave.jobTitleSnapshot} · {leave.farmName ?? "Sin finca"}
+                      {leave.jobTitleSnapshot} · {leave.farmName ?? "Sin centro"}
                     </div>
                     <div className="text-[11px] text-on-surface-variant">
                       {leave.folio} · CC {leave.workerDocument}
