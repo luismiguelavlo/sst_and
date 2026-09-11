@@ -215,9 +215,17 @@ CREATE TABLE IF NOT EXISTS campus_sst.sst_farms (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name varchar(120) NOT NULL UNIQUE,
   code varchar(32) NOT NULL UNIQUE,
+  company varchar(160) NOT NULL DEFAULT '',
+  municipality varchar(120) NOT NULL DEFAULT '',
+  address text NOT NULL DEFAULT '',
+  observations text NOT NULL DEFAULT '',
   active boolean NOT NULL DEFAULT true,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+CREATE INDEX IF NOT EXISTS sst_farms_active_idx
+  ON campus_sst.sst_farms (active, name);
 
 CREATE TABLE IF NOT EXISTS campus_sst.sst_alert_settings (
   id smallint PRIMARY KEY DEFAULT 1 CHECK (id = 1),

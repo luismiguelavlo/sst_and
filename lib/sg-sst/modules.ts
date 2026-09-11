@@ -115,6 +115,12 @@ export const SGSST_MODULES = {
     description: "Parámetros del sistema operativo, sedes, fincas y catálogos.",
     icon: "settings",
   },
+  fincas: {
+    title: "Fincas / Predios",
+    description:
+      "Catálogo de fincas, predios, empresas y lugares de trabajo del SG-SST.",
+    icon: "agriculture",
+  },
 } as const satisfies Record<string, ModuleMeta>;
 
 export type SgsstModuleSlug = keyof typeof SGSST_MODULES;

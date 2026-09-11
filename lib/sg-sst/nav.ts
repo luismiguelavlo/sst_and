@@ -157,6 +157,12 @@ export const SGSST_NAV: readonly SgsstNavSection[] = [
         icon: "handshake",
         path: "ccl",
       },
+      {
+        href: `${SGSST_BASE}/fincas`,
+        label: "Fincas / Predios",
+        icon: "agriculture",
+        path: "fincas",
+      },
     ],
   },
 ] as const;
