@@ -43,6 +43,8 @@ export function isPublicPath(pathname: string): boolean {
 
 export function isAdminOnlyPath(pathname: string): boolean {
   return (
+    pathname === "/sg-sst" ||
+    pathname.startsWith("/sg-sst/") ||
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/invitations") ||
     pathname.startsWith("/assign-courses") ||

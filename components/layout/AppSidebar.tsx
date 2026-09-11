@@ -13,6 +13,7 @@ const NAV_ITEMS: readonly {
   icon: string;
   roles: readonly AppRole[];
 }[] = [
+  { href: "/sg-sst", label: "SG-SST Operativo", icon: "agriculture", roles: ["admin"] },
   { href: "/dashboard", label: "Tablero", icon: "dashboard", roles: ["admin"] },
   { href: "/invitations", label: "Accesos", icon: "badge", roles: ["admin"] },
   { href: "/my-courses", label: "Mis cursos", icon: "school", roles: ["user"] },
@@ -29,6 +30,25 @@ const inactiveClass =
   "flex items-center gap-sm px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all";
 const activeClass =
   "flex items-center gap-sm px-md py-sm rounded-lg transition-all bg-secondary-container text-on-secondary-container font-semibold";
+
+function isNavItemActive(pathname: string, href: string): boolean {
+  if (href === "/course-catalog") {
+    return (
+      pathname.startsWith("/course-catalog") ||
+      (pathname.startsWith("/courses/") && !pathname.startsWith("/my-courses"))
+    );
+  }
+  if (href === "/my-courses") {
+    return pathname === "/my-courses";
+  }
+  if (href === "/sg-sst") {
+    return pathname === "/sg-sst" || pathname.startsWith("/sg-sst/");
+  }
+  if (href === "/dashboard") {
+    return pathname.startsWith("/dashboard") || pathname.startsWith("/employees");
+  }
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 type AppSidebarProps = {
   open: boolean;
@@ -73,15 +93,7 @@ export function AppSidebar({ open, onClose, role }: Readonly<AppSidebarProps>) {
         </div>
         <nav className="flex-1 space-y-1 px-sm">
           {items.map((item) => {
-            const isActive =
-              item.href === "/course-catalog"
-                ? pathname.startsWith("/course-catalog") ||
-                  (pathname.startsWith("/courses/") && !pathname.startsWith("/my-courses"))
-                : item.href === "/my-courses"
-                  ? pathname === "/my-courses"
-                  : item.href === "/dashboard"
-                    ? pathname.startsWith("/dashboard") || pathname.startsWith("/employees")
-                    : pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const isActive = isNavItemActive(pathname, item.href);
             return (
               <Link
                 key={item.href}

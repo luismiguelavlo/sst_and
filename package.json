@@ -10,7 +10,16 @@
     "db:up": "podman-compose up -d",
     "db:down": "podman-compose down",
     "db:setup": "node --env-file=.env.local scripts/setup-db.mjs",
-    "db:migrate-attendance": "node --env-file=.env.local scripts/migrate-attendance.mjs"
+    "db:migrate-attendance": "node --env-file=.env.local scripts/migrate-attendance.mjs",
+    "db:migrate-sst-alerts": "node --env-file=.env.local scripts/migrate-sst-alerts.mjs",
+    "db:migrate-sst-workers": "node --env-file=.env.local scripts/migrate-sst-workers.mjs",
+    "db:migrate-sst-emos": "node --env-file=.env.local scripts/migrate-sst-emos.mjs",
+    "db:migrate-sst-health": "node --env-file=.env.local scripts/migrate-sst-health.mjs",
+    "db:migrate-sst-operativos": "node --env-file=.env.local scripts/migrate-sst-operativos.mjs",
+    "db:migrate-sst-epp-inspecciones": "node --env-file=.env.local scripts/migrate-sst-epp-inspecciones.mjs",
+    "db:migrate-sst-accidentes": "node --env-file=.env.local scripts/migrate-sst-accidentes.mjs",
+    "db:migrate-sst-capa-docs": "node --env-file=.env.local scripts/migrate-sst-capa-docs.mjs",
+    "db:migrate-sst-comites-emergencias": "node --env-file=.env.local scripts/migrate-sst-comites-emergencias.mjs"
   },
   "dependencies": {
     "cloudinary": "^2.10.0",
