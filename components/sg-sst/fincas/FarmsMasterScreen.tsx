@@ -12,6 +12,7 @@ import {
 } from "@/lib/sg-sst/fincas/actions";
 import {
   FARM_EXCEL_MAX_ROWS,
+  FARM_IMPORT_CHUNK_SIZE,
   type FarmExcelImportRow,
 } from "@/lib/sg-sst/fincas/excel";
 import {
@@ -82,7 +83,7 @@ export function FarmsMasterScreen({
     try {
       const rows = await parseFarmsExcelFile(file);
       if (rows.length === 0) {
-        showToast("El archivo no tiene filas válidas (nombre + código).", {
+        showToast("El archivo no tiene filas válidas (columna finca / nombre / código).", {
           variant: "error",
         });
         return;
@@ -107,8 +108,13 @@ export function FarmsMasterScreen({
   function confirmImport() {
     if (preview.length === 0) return;
     startTransition(async () => {
-      const result = await runChunkedBulkImport(preview, (chunk) =>
-        bulkImportFarmsAction({ rows: chunk }),
+      const result = await runChunkedBulkImport(
+        preview,
+        (chunk) => bulkImportFarmsAction({ rows: chunk }),
+        {
+          chunkSize: FARM_IMPORT_CHUNK_SIZE,
+          continueOnChunkError: true,
+        },
       );
       if (!result.ok) {
         showToast(result.error, { variant: "error" });

@@ -152,9 +152,10 @@ export async function bulkImportFarmsAction(input: {
   let created = 0;
   let updated = 0;
   let failed = 0;
+  const usedCodes = new Set<string>();
 
   for (const row of rows) {
-    const draft = normalizeFarmDraftForImport({
+    let draft = normalizeFarmDraftForImport({
       name: row.name.trim(),
       code: normalizeFarmCode(row.code),
       company: row.company.trim(),
@@ -175,20 +176,44 @@ export async function bulkImportFarmsAction(input: {
       });
       continue;
     }
+
     try {
-      const existing =
-        (await findFarmByCode(draft.code)) ?? (await findFarmByName(draft.name));
+      // Anti-duplicado: priorizar nombre (la base maestra no trae códigos estables).
+      const existingByName = await findFarmByName(draft.name);
+      const existingByCode = await findFarmByCode(draft.code);
+      const existing = existingByName ?? existingByCode;
+
       if (existing) {
-        await updateFarm(existing.id, { ...draft, id: existing.id });
+        // Conservar el código ya asignado en BD para no romper FKs / referencias.
+        await updateFarm(existing.id, {
+          ...draft,
+          id: existing.id,
+          code: existing.code,
+        });
+        usedCodes.add(existing.code.toUpperCase());
         updated += 1;
         results.push({
           row: row.rowNumber,
-          code: draft.code,
+          code: existing.code,
           name: draft.name,
           ok: true,
           action: "updated",
         });
       } else {
+        // Si el código generado ya existe para OTRO centro, variar el sufijo.
+        if (existingByCode || usedCodes.has(draft.code.toUpperCase())) {
+          let next = draft.code;
+          for (let i = 2; i < 1000; i += 1) {
+            const suffix = `_${i}`;
+            next = `${draft.code.slice(0, Math.max(1, 32 - suffix.length))}${suffix}`;
+            const taken =
+              usedCodes.has(next.toUpperCase()) ||
+              Boolean(await findFarmByCode(next));
+            if (!taken) break;
+          }
+          draft = { ...draft, code: next };
+        }
+        usedCodes.add(draft.code.toUpperCase());
         await createFarm(draft);
         created += 1;
         results.push({
@@ -213,5 +238,11 @@ export async function bulkImportFarmsAction(input: {
   }
 
   revalidateFarmPaths();
-  return { ok: true, created, updated, failed, results };
+  return {
+    ok: true,
+    created,
+    updated,
+    failed,
+    results: results.filter((row) => !row.ok).slice(0, 40),
+  };
 }

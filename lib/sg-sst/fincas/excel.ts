@@ -30,16 +30,17 @@ const HEADER_ALIASES: Record<
   keyof Omit<FarmExcelImportRow, "rowNumber">,
   readonly string[]
 > = {
+  // Importante: NO incluir "centro_trabajo" (en la base maestra de trabajadores
+  // esa columna es texto libre; el catálogo real va en "finca").
   name: [
-    "nombre",
-    "name",
-    "centro_de_trabajo",
-    "centro_trabajo",
     "finca",
     "predio",
     "sede",
+    "centro_de_trabajo",
+    "nombre",
+    "name",
   ],
-  code: ["codigo", "code", "cod", "id_centro", "id"],
+  code: ["codigo", "code", "cod", "id_centro", "id_finca"],
   company: ["empresa", "razon_social", "company"],
   municipality: ["municipio", "municipality", "ciudad", "lugar"],
   address: ["direccion", "address", "ubicacion"],
@@ -110,14 +111,30 @@ export function farmRowsFromMatrix(
   const headerRow = (matrix[0] ?? []).map((h) => cellToString(h));
   const headerMap = mapHeaders(headerRow);
 
+  // Si el archivo es la base maestra de trabajadores, forzar columna finca.
+  const normalizedHeaders = headerRow.map(normalizeHeader);
+  const looksLikeWorkersFile =
+    normalizedHeaders.includes("nombre_completo") ||
+    normalizedHeaders.includes("numero_identificacion") ||
+    normalizedHeaders.includes("id_trabajador");
+  if (looksLikeWorkersFile) {
+    const fincaIdx = normalizedHeaders.indexOf("finca");
+    if (fincaIdx >= 0) {
+      headerMap.name = fincaIdx;
+    }
+    // Nunca tomar id_trabajador / documento como código de centro.
+    delete headerMap.code;
+  }
+
   if (headerMap.name === undefined && headerMap.code === undefined) {
     throw new Error(
-      "El Excel debe incluir al menos una columna de nombre (centro_de_trabajo) o codigo.",
+      "El Excel debe incluir al menos una columna de nombre (finca / centro_de_trabajo) o codigo.",
     );
   }
 
   const rows: FarmExcelImportRow[] = [];
   const seenCodes = new Set<string>();
+  const seenNames = new Set<string>();
 
   for (let i = 1; i < matrix.length; i += 1) {
     const line = matrix[i] ?? [];
@@ -129,12 +146,11 @@ export function farmRowsFromMatrix(
         : "";
     if (!name && !code) continue;
 
-    // Si el código se repite en el mismo archivo, nos quedamos con la última fila
-    // pero no descartamos silenciosamente el resto del archivo.
-    if (code && seenCodes.has(code)) {
-      const existingIdx = rows.findIndex((r) => r.code === code);
-      if (existingIdx >= 0) rows.splice(existingIdx, 1);
-    }
+    const nameKey = name.trim().toLowerCase();
+    // Deduplicar: misma finca repetida (p. ej. 210 trabajadores → N centros).
+    if (nameKey && seenNames.has(nameKey)) continue;
+    if (code && seenCodes.has(code)) continue;
+    if (nameKey) seenNames.add(nameKey);
     if (code) seenCodes.add(code);
 
     rows.push({

@@ -93,11 +93,27 @@ function mapWorker(row: WorkerRow): SstWorker {
 }
 
 async function nextWorkerCode(sql: ReturnType<typeof getSql>): Promise<string> {
-  const rows = await sql<{ count: number }[]>`
-    SELECT COUNT(*)::int AS count FROM campus_sst.sst_workers
+  const rows = await sql<{ n: number | null }[]>`
+    SELECT COALESCE(
+      MAX(
+        CASE
+          WHEN worker_code ~ '^MNZ-[0-9]+$'
+          THEN NULLIF(regexp_replace(worker_code, '\\D', '', 'g'), '')::int
+          ELSE NULL
+        END
+      ),
+      0
+    )::int AS n
+    FROM campus_sst.sst_workers
   `;
-  const next = (rows[0]?.count ?? 0) + 1;
+  const next = (rows[0]?.n ?? 0) + 1;
   return `MNZ-${String(next).padStart(4, "0")}`;
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const code = "code" in error ? String((error as { code?: unknown }).code) : "";
+  return code === "23505";
 }
 
 export async function listWorkers(filters?: {
@@ -298,52 +314,74 @@ export async function createWorker(
   userId: string,
 ): Promise<SstWorker> {
   const sql = getSql();
-  const code = draft.workerCode?.trim() || (await nextWorkerCode(sql));
   const retired = draft.status === "retirado";
-  const rows = await sql<{ id: string }[]>`
-    INSERT INTO campus_sst.sst_workers (
-      worker_code, full_name, document_type, document_number, company, job_title,
-      area, work_center, farm_id, supervisor_name, hire_date, contract_type, status,
-      risk_level, works_heights, drives, operates_tractor, handles_chemicals,
-      in_brigade, in_copasst, in_ccl, phone, email, observations,
-      retirement_date, retirement_reason, created_by, updated_by
-    ) VALUES (
-      ${code},
-      ${draft.fullName.trim()},
-      ${draft.documentType},
-      ${draft.documentNumber.trim()},
-      ${draft.company.trim()},
-      ${draft.jobTitle.trim()},
-      ${draft.area.trim()},
-      ${draft.workCenter.trim()},
-      ${draft.farmId || null},
-      ${draft.supervisorName.trim()},
-      ${draft.hireDate || null},
-      ${draft.contractType.trim()},
-      ${draft.status},
-      ${draft.riskLevel},
-      ${draft.worksHeights},
-      ${draft.drives},
-      ${draft.operatesTractor},
-      ${draft.handlesChemicals},
-      ${draft.inBrigade},
-      ${draft.inCopasst},
-      ${draft.inCcl},
-      ${draft.phone.trim()},
-      ${draft.email.trim()},
-      ${draft.observations.trim()},
-      ${retired ? draft.retirementDate || null : null},
-      ${retired ? draft.retirementReason?.trim() || null : null},
-      ${userId},
-      ${userId}
-    )
-    RETURNING id
-  `;
-  const created = await getWorker(rows[0].id);
-  if (!created) {
-    throw new Error("No se pudo crear el trabajador.");
+  let code = draft.workerCode?.trim() || (await nextWorkerCode(sql));
+
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    try {
+      const rows = await sql<{ id: string }[]>`
+        INSERT INTO campus_sst.sst_workers (
+          worker_code, full_name, document_type, document_number, company, job_title,
+          area, work_center, farm_id, supervisor_name, hire_date, contract_type, status,
+          risk_level, works_heights, drives, operates_tractor, handles_chemicals,
+          in_brigade, in_copasst, in_ccl, phone, email, observations,
+          retirement_date, retirement_reason, created_by, updated_by
+        ) VALUES (
+          ${code},
+          ${draft.fullName.trim()},
+          ${draft.documentType},
+          ${draft.documentNumber.trim()},
+          ${draft.company.trim()},
+          ${draft.jobTitle.trim()},
+          ${draft.area.trim()},
+          ${draft.workCenter.trim()},
+          ${draft.farmId || null},
+          ${draft.supervisorName.trim()},
+          ${draft.hireDate || null},
+          ${draft.contractType.trim()},
+          ${draft.status},
+          ${draft.riskLevel},
+          ${draft.worksHeights},
+          ${draft.drives},
+          ${draft.operatesTractor},
+          ${draft.handlesChemicals},
+          ${draft.inBrigade},
+          ${draft.inCopasst},
+          ${draft.inCcl},
+          ${draft.phone.trim()},
+          ${draft.email.trim()},
+          ${draft.observations.trim()},
+          ${retired ? draft.retirementDate || null : null},
+          ${retired ? draft.retirementReason?.trim() || null : null},
+          ${userId},
+          ${userId}
+        )
+        RETURNING id
+      `;
+      const created = await getWorker(rows[0].id);
+      if (!created) {
+        throw new Error("No se pudo crear el trabajador.");
+      }
+      return created;
+    } catch (caught) {
+      if (isUniqueViolation(caught) && attempt < 5) {
+        const message = caught instanceof Error ? caught.message.toLowerCase() : "";
+        if (
+          message.includes("document_number") ||
+          message.includes("document_type") ||
+          message.includes("documento")
+        ) {
+          throw new Error("Ya existe un trabajador con ese documento.");
+        }
+        // Código ocupado u otra carrera: reintentar con MNZ- secuencial.
+        code = await nextWorkerCode(sql);
+        continue;
+      }
+      throw caught;
+    }
   }
-  return created;
+
+  throw new Error("No se pudo asignar un código de trabajador único.");
 }
 
 export async function updateWorker(

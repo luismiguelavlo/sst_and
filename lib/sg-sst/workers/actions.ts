@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/guards";
 import { listSstFarms } from "@/lib/sg-sst/alerts/repository";
+import type { SstFarm } from "@/lib/sg-sst/alerts/types";
+import { createFarm } from "@/lib/sg-sst/fincas/repository";
+import { normalizeFarmDraftForImport } from "@/lib/sg-sst/fincas/types";
 import {
   WORKER_EXCEL_MAX_ROWS,
   type WorkerExcelImportResultRow,
@@ -41,6 +44,51 @@ function revalidateWorkerPaths(id?: string) {
   }
   revalidatePath("/sg-sst");
   revalidatePath("/sg-sst/alertas-sst");
+  revalidatePath("/sg-sst/centros-de-trabajo");
+}
+
+async function resolveFarmIdForImport(
+  farmNameOrCode: string,
+  farms: SstFarm[],
+): Promise<string | null> {
+  const needle = farmNameOrCode.trim();
+  if (!needle) return null;
+  const lower = needle.toLowerCase();
+  const existing =
+    farms.find(
+      (item) => item.name.toLowerCase() === lower || item.code.toLowerCase() === lower,
+    ) ??
+    farms.find(
+      (item) =>
+        item.name.toLowerCase().includes(lower) ||
+        lower.includes(item.name.toLowerCase()) ||
+        lower.includes(item.code.toLowerCase()),
+    );
+  if (existing) return existing.id;
+
+  try {
+    const created = await createFarm(
+      normalizeFarmDraftForImport({
+        name: needle,
+        code: "",
+        company: "Grupo Manzanares S.A.S.",
+        municipality: "",
+        address: "",
+        observations: "Creado automáticamente al importar trabajadores",
+        active: true,
+      }),
+    );
+    farms.push({
+      id: created.id,
+      name: created.name,
+      code: created.code,
+      active: created.active,
+    });
+    return created.id;
+  } catch {
+    // Centro no crítico: el trabajador se importa igual.
+    return null;
+  }
 }
 
 export async function loadWorkersMasterData(filters?: {
@@ -156,24 +204,7 @@ export async function bulkImportWorkersAction(input: {
     let failed = 0;
 
     for (const row of input.rows) {
-      const farmNeedle = row.farmNameOrCode.trim().toLowerCase();
-      let farmId: string | null = null;
-      if (farmNeedle) {
-        const farm =
-          farms.find(
-            (item) =>
-              item.name.toLowerCase() === farmNeedle ||
-              item.code.toLowerCase() === farmNeedle,
-          ) ??
-          farms.find(
-            (item) =>
-              item.name.toLowerCase().includes(farmNeedle) ||
-              farmNeedle.includes(item.name.toLowerCase()) ||
-              farmNeedle.includes(item.code.toLowerCase()),
-          );
-        // Centro desconocido: se importa igual sin vincular (campo opcional).
-        farmId = farm?.id ?? null;
-      }
+      const farmId = await resolveFarmIdForImport(row.farmNameOrCode, farms);
 
       const draft: SstWorkerDraft = {
         ...row.draft,
@@ -182,6 +213,7 @@ export async function bulkImportWorkersAction(input: {
         documentNumber: row.draft.documentNumber.trim() || `SIN-DOC-${row.rowNumber}`,
         jobTitle: row.draft.jobTitle.trim() || "Operario",
         company: row.draft.company.trim() || "Grupo Manzanares S.A.S.",
+        hireDate: row.draft.hireDate || null,
         email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.draft.email.trim())
           ? row.draft.email.trim()
           : "",
@@ -204,19 +236,22 @@ export async function bulkImportWorkersAction(input: {
       }
 
       try {
-        const existingByDoc = await findWorkerByDocument(
+        // Anti-duplicado: SOLO por tipo+número de documento.
+        // No usar id_trabajador/código: en la base maestra son números cortos
+        // que colisionan entre personas distintas.
+        const existing = await findWorkerByDocument(
           draft.documentType,
           draft.documentNumber,
         );
-        const existingByCode = draft.workerCode
-          ? await findWorkerByCode(draft.workerCode)
-          : null;
-        const existing = existingByDoc ?? existingByCode;
 
         if (existing) {
           const saved = await updateWorker(
             existing.id,
-            { ...draft, id: existing.id, workerCode: existing.workerCode },
+            {
+              ...draft,
+              id: existing.id,
+              workerCode: existing.workerCode,
+            },
             admin.id,
           );
           updated += 1;
@@ -225,11 +260,19 @@ export async function bulkImportWorkersAction(input: {
             workerCode: saved.workerCode,
             fullName: saved.fullName,
             status: "updated",
-            message: "Actualizado",
+            message: "Actualizado (mismo documento)",
             id: saved.id,
           });
         } else {
-          const saved = await createWorker(draft, admin.id);
+          // Si el código del Excel ya lo tiene otra persona, crear con código nuevo.
+          let createDraft = draft;
+          if (draft.workerCode) {
+            const codeOwner = await findWorkerByCode(draft.workerCode);
+            if (codeOwner) {
+              createDraft = { ...draft, workerCode: undefined };
+            }
+          }
+          const saved = await createWorker(createDraft, admin.id);
           created += 1;
           results.push({
             rowNumber: row.rowNumber,
@@ -253,7 +296,14 @@ export async function bulkImportWorkersAction(input: {
     }
 
     revalidateWorkerPaths();
-    return { ok: true, created, updated, failed, results };
+    // Respuesta liviana: solo errores (evita payloads enormes en Server Actions).
+    return {
+      ok: true,
+      created,
+      updated,
+      failed,
+      results: results.filter((row) => row.status === "error").slice(0, 40),
+    };
   } catch (caught) {
     return {
       ok: false,

@@ -9,6 +9,8 @@ import {
 } from "@/lib/sg-sst/workers/types";
 
 export const WORKER_EXCEL_MAX_ROWS = 1000;
+/** Lotes pequeños para Server Actions estables en importaciones ~200+ filas. */
+export const WORKER_IMPORT_CHUNK_SIZE = 25;
 
 export type WorkerExcelImportRow = {
   rowNumber: number;
@@ -40,16 +42,14 @@ const HEADER_ALIASES: Record<string, readonly string[]> = {
   company: ["empresa", "company", "razon_social"],
   jobTitle: ["cargo", "puesto", "job_title"],
   area: ["area", "área"],
-  workCenter: ["centro_trabajo_texto", "work_center", "lugar_trabajo"],
-  farm: [
-    "finca",
-    "predio",
-    "farm",
-    "centro_de_trabajo",
+  // centro_trabajo del Excel = texto libre; finca/centro_de_trabajo = catálogo.
+  workCenter: [
     "centro_trabajo",
-    "centro",
-    "sede",
+    "centro_trabajo_texto",
+    "work_center",
+    "lugar_trabajo",
   ],
+  farm: ["finca", "predio", "farm", "centro_de_trabajo", "sede"],
   supervisorName: ["jefe_inmediato", "supervisor", "jefe"],
   hireDate: ["fecha_ingreso", "ingreso", "hire_date"],
   contractType: ["tipo_contrato", "contrato", "contract_type"],
@@ -78,18 +78,25 @@ function normalizeHeader(value: string): string {
     .replace(/\s+/g, "_");
 }
 
+/**
+ * Mapeo exclusivo: cada columna alimenta un solo campo;
+ * cada campo toma la primera columna que coincida.
+ */
 function mapHeaders(headers: readonly string[]): Partial<Record<string, number>> {
   const map: Partial<Record<string, number>> = {};
-  headers.forEach((header, index) => {
-    const normalized = normalizeHeader(header);
-    for (const [field, aliases] of Object.entries(HEADER_ALIASES)) {
-      if (map[field] !== undefined) continue; // primera columna gana
-      if (aliases.map(normalizeHeader).includes(normalized)) {
-        map[field] = index;
-        break;
-      }
+  const usedColumns = new Set<number>();
+
+  for (const [field, aliases] of Object.entries(HEADER_ALIASES)) {
+    const normalizedAliases = aliases.map(normalizeHeader);
+    const index = headers.findIndex(
+      (header, i) =>
+        !usedColumns.has(i) && normalizedAliases.includes(normalizeHeader(header)),
+    );
+    if (index >= 0) {
+      map[field] = index;
+      usedColumns.add(index);
     }
-  });
+  }
   return map;
 }
 
@@ -118,7 +125,9 @@ function parseBool(value: string): boolean {
 function parseDate(value: string): string {
   const trimmed = value.trim();
   if (!trimmed) return "";
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  // ISO date o datetime (Excel / raw:false a veces manda con hora y zona).
+  const iso = trimmed.match(/^(\d{4}-\d{2}-\d{2})(?:[T\s].*)?$/);
+  if (iso) return iso[1] ?? "";
   if (/^\d+(\.\d+)?$/.test(trimmed)) {
     const serial = Number(trimmed);
     if (Number.isFinite(serial) && serial > 20000) {
@@ -136,7 +145,8 @@ function parseDate(value: string): string {
   if (!Number.isNaN(parsed.getTime())) {
     return parsed.toISOString().slice(0, 10);
   }
-  return trimmed;
+  // Nunca devolver texto libre: rompe columnas date en Postgres.
+  return "";
 }
 
 function parseStatus(value: string): WorkerStatus {

@@ -10,6 +10,31 @@ import {
 } from "@/lib/sg-sst/workers/excel";
 import type { SstWorker } from "@/lib/sg-sst/workers/types";
 
+function cellToImportString(cell: unknown): string {
+  if (cell === null || cell === undefined) return "";
+  if (cell instanceof Date && !Number.isNaN(cell.getTime())) {
+    return cell.toISOString().slice(0, 10);
+  }
+  if (typeof cell === "number" && Number.isFinite(cell)) {
+    // Cédulas / IDs leídos como número (evita 1.088e+9 y decimales .0).
+    if (Number.isInteger(cell) || Math.abs(cell) >= 1e6) {
+      return String(Math.round(cell));
+    }
+    return String(cell);
+  }
+  const text = String(cell).trim();
+  if (!text) return "";
+  // Datetime ISO con zona → solo fecha.
+  const iso = text.match(/^(\d{4}-\d{2}-\d{2})(?:[T\s].*)?$/);
+  if (iso) return iso[1] ?? text;
+  if (/^\d+\.0+$/.test(text)) return text.replace(/\.0+$/, "");
+  if (/^\d+(\.\d+)?e\+?\d+$/i.test(text)) {
+    const n = Number(text);
+    if (Number.isFinite(n) && n > 0) return String(Math.round(n));
+  }
+  return text;
+}
+
 export async function parseWorkersExcelFile(file: File): Promise<WorkerExcelImportRow[]> {
   const lower = file.name.toLowerCase();
   let matrix: string[][];
@@ -22,26 +47,23 @@ export async function parseWorkersExcelFile(file: File): Promise<WorkerExcelImpo
       .map(parseCsvLine);
   } else if (lower.endsWith(".xlsx") || lower.endsWith(".xls")) {
     const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
+    const workbook = XLSX.read(buffer, {
+      type: "array",
+      cellDates: true,
+      dense: true,
+    });
     const sheetName = workbook.SheetNames[0];
     if (!sheetName) throw new Error("El Excel no tiene hojas.");
-    const raw = XLSX.utils.sheet_to_json<(string | number | boolean | Date | null)[]>(
-      workbook.Sheets[sheetName],
-      { header: 1, defval: "", raw: false },
-    );
-    matrix = raw.map((row) =>
-      row.map((cell) => {
-        if (cell instanceof Date) return cell.toISOString().slice(0, 10);
-        if (cell === null || cell === undefined) return "";
-        // Evitar notación científica en cédulas leídas como número.
-        if (typeof cell === "number" && Number.isFinite(cell)) {
-          if (Number.isInteger(cell) || Math.abs(cell) >= 1e10) {
-            return String(Math.round(cell));
-          }
-        }
-        return String(cell).trim();
-      }),
-    );
+    const raw = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[sheetName], {
+      header: 1,
+      defval: "",
+      raw: false,
+      blankrows: false,
+    });
+    matrix = raw.map((row) => {
+      const cells = Array.isArray(row) ? row : [];
+      return cells.map((cell) => cellToImportString(cell));
+    });
   } else {
     throw new Error("Usa Excel (.xlsx, .xls) o CSV.");
   }

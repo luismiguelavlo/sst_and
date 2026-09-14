@@ -16,7 +16,11 @@ import {
   downloadWorkersTemplate,
   parseWorkersExcelFile,
 } from "@/lib/sg-sst/workers/excel-client";
-import { WORKER_EXCEL_MAX_ROWS, type WorkerExcelImportRow } from "@/lib/sg-sst/workers/excel";
+import {
+  WORKER_EXCEL_MAX_ROWS,
+  WORKER_IMPORT_CHUNK_SIZE,
+  type WorkerExcelImportRow,
+} from "@/lib/sg-sst/workers/excel";
 import type { SstWorker, WorkerStats } from "@/lib/sg-sst/workers/types";
 import { SGSST_BASE } from "@/lib/sg-sst/nav";
 
@@ -92,8 +96,13 @@ export function WorkersMasterScreen({
   function confirmImport() {
     if (preview.length === 0) return;
     startTransition(async () => {
-      const result = await runChunkedBulkImport(preview, (chunk) =>
-        bulkImportWorkersAction({ rows: chunk }),
+      const result = await runChunkedBulkImport(
+        preview,
+        (chunk) => bulkImportWorkersAction({ rows: chunk }),
+        {
+          chunkSize: WORKER_IMPORT_CHUNK_SIZE,
+          continueOnChunkError: true,
+        },
       );
       if (!result.ok) {
         showToast(result.error, { variant: "error" });
@@ -227,7 +236,8 @@ export function WorkersMasterScreen({
             <div>
               <div className="font-label-md text-label-md font-bold">Vista previa: {fileName}</div>
               <div className="font-body-sm text-body-sm text-on-surface-variant">
-                {preview.length} filas. Documento o ID existente → actualización.
+                {preview.length} filas. Misma cédula → actualización (sin duplicar).
+                El id_trabajador no se usa para emparejar.
               </div>
             </div>
             <div className="flex gap-xs">
