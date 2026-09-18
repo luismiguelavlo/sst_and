@@ -14,7 +14,6 @@ import {
   enrichHeightsAsView,
   isHeightsFitnessConcept,
   isHeightsTrainingLevel,
-  leastDueDate,
   type HeightsAuthorizationStatus,
   type HeightsFitnessConcept,
   type HeightsStats,
@@ -132,7 +131,7 @@ function resolveStatus(draft: SstHeightsDraft): HeightsAuthorizationStatus {
 }
 
 function complianceDraftFromHeights(item: SstHeightsAuthorization): SstRecordDraft {
-  const dueDate = leastDueDate(item.trainingDueDate, item.medicalExamDueDate);
+  const dueDate = item.trainingDueDate;
   return {
     recordType: "certificacion",
     title: `Certificación alturas — ${item.workerName}`,
@@ -306,9 +305,7 @@ export async function getHeightsStats(): Promise<HeightsStats> {
     }
     const trainingExpired =
       view.trainingDaysRemaining !== null && view.trainingDaysRemaining <= 0;
-    const medicalExpired =
-      view.medicalDaysRemaining !== null && view.medicalDaysRemaining <= 0;
-    if (trainingExpired || medicalExpired) {
+    if (trainingExpired) {
       vencidos += 1;
     }
     if (

@@ -219,9 +219,10 @@ export function leastDueDate(
 
 /**
  * Regla de autorización operativa (Res. 4272):
- * - autorizado solo si formación y EMO vigentes (> hoy), aptitud apta y certificado presente
- * - por_vencer si autorizado pero algún vencimiento ≤ 30 días
+ * - autorizado solo si la formación está vigente (> hoy), aptitud apta y certificado presente
+ * - por_vencer si autorizado pero la formación vence en ≤ 30 días
  * - en caso contrario no_autorizado
+ * El vencimiento del examen médico es informativo: no bloquea ni afecta el estado.
  */
 export function computeAuthorization(
   input: {
@@ -234,12 +235,7 @@ export function computeAuthorization(
   today = new Date(),
 ): HeightsAuthorizationStatus {
   const trainingDays = computeDaysRemaining(input.trainingDueDate?.trim() || null, today);
-  const medicalDays = computeDaysRemaining(
-    input.medicalExamDueDate?.trim() || null,
-    today,
-  );
   const trainingOk = trainingDays !== null && trainingDays > 0;
-  const medicalOk = medicalDays !== null && medicalDays > 0;
   const fitnessOk =
     input.fitnessConcept === "apto" || input.fitnessConcept === "apto_recomendaciones";
   const certificateOk = hasHeightsCertificate(
@@ -247,13 +243,11 @@ export function computeAuthorization(
     input.certificateName,
   );
 
-  if (!trainingOk || !medicalOk || !fitnessOk || !certificateOk) {
+  if (!trainingOk || !fitnessOk || !certificateOk) {
     return "no_autorizado";
   }
 
-  const within30 =
-    trainingDays <= DEFAULT_ALERT_THRESHOLDS.orangeMaxDays ||
-    medicalDays <= DEFAULT_ALERT_THRESHOLDS.orangeMaxDays;
+  const within30 = trainingDays <= DEFAULT_ALERT_THRESHOLDS.orangeMaxDays;
   return within30 ? "por_vencer" : "autorizado";
 }
 
@@ -269,21 +263,11 @@ export function listMissingRequirements(
 ): string[] {
   const missing: string[] = [];
   const trainingDays = computeDaysRemaining(input.trainingDueDate?.trim() || null, today);
-  const medicalDays = computeDaysRemaining(
-    input.medicalExamDueDate?.trim() || null,
-    today,
-  );
 
   if (trainingDays === null) {
     missing.push("Sin fecha de vencimiento de formación");
   } else if (trainingDays <= 0) {
     missing.push("Formación vencida");
-  }
-
-  if (medicalDays === null) {
-    missing.push("Sin vencimiento de examen médico");
-  } else if (medicalDays <= 0) {
-    missing.push("Examen médico vencido");
   }
 
   if (input.fitnessConcept === "pendiente") {
@@ -323,8 +307,7 @@ export function enrichHeightsAsView(
 ): SstHeightsView {
   const trainingDaysRemaining = computeDaysRemaining(item.trainingDueDate, today);
   const medicalDaysRemaining = computeDaysRemaining(item.medicalExamDueDate, today);
-  const effectiveDue = leastDueDate(item.trainingDueDate, item.medicalExamDueDate);
-  const daysRemaining = computeDaysRemaining(effectiveDue, today);
+  const daysRemaining = trainingDaysRemaining;
   const missingRequirements = listMissingRequirements(item, today);
   const authorizationStatus = computeAuthorization(item, today);
   const semaphore = semaphoreFromStatus(authorizationStatus, daysRemaining);

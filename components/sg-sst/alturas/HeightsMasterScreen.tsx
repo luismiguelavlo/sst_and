@@ -541,16 +541,7 @@ export function HeightsMasterScreen({
                     {item.medicalExamDate ?? "—"}
                   </td>
                   <td className="px-sm py-sm align-top whitespace-nowrap text-[12px]">
-                    <span
-                      className={
-                        item.medicalDaysRemaining != null &&
-                        item.medicalDaysRemaining <= 0
-                          ? "font-semibold text-error"
-                          : ""
-                      }
-                    >
-                      {item.medicalExamDueDate ?? "—"}
-                    </span>
+                    <span>{item.medicalExamDueDate ?? "—"}</span>
                     {item.medicalDaysRemaining != null ? (
                       <div className="text-[11px] text-on-surface-variant">
                         {item.medicalDaysRemaining}d
