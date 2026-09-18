@@ -206,11 +206,6 @@ function toDateOnlyIso(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-function parseDateOnly(value: string): Date {
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day);
-}
-
 /** Semana laboral lun–dom (ISO week start Monday). */
 export function getCurrentWeekRange(today = new Date()): WeekRange {
   const day = today.getDay();

@@ -128,7 +128,7 @@ export function leaveRowsFromMatrix(matrix: string[][]): LeaveExcelImportRow[] {
     const workerRef = cellValue(raw, headerMap.worker);
     if (!workerRef) continue;
 
-    let startDate = excelDateToIso(cellValue(raw, headerMap.startDate));
+    const startDate = excelDateToIso(cellValue(raw, headerMap.startDate));
     let endDate = excelDateToIso(cellValue(raw, headerMap.endDate));
     if (endDate < startDate) endDate = startDate;
     const origin =

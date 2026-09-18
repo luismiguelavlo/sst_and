@@ -6,7 +6,6 @@ import {
   isRiskLevel,
   isWorkerStatus,
   type DocumentType,
-  type RiskLevel,
   type SstWorker,
   type SstWorkerDraft,
   type WorkerStats,

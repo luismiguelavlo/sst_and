@@ -126,8 +126,8 @@ export const SGSST_MODULES = {
 export type SgsstModuleSlug = keyof typeof SGSST_MODULES;
 
 export function buildModuleMetadata(slug: SgsstModuleSlug): Metadata {
-  const module = SGSST_MODULES[slug];
-  return { title: `${module.title} | SG-SST` };
+  const meta = SGSST_MODULES[slug];
+  return { title: `${meta.title} | SG-SST` };
 }
 
 export function isSgsstModuleSlug(value: string): value is SgsstModuleSlug {

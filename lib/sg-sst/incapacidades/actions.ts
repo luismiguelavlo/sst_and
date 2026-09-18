@@ -158,7 +158,7 @@ export async function bulkImportLeavesAction(input: {
       }
 
       const today = todayIsoDate();
-      let startDate = row.draft.startDate.trim() || today;
+      const startDate = row.draft.startDate.trim() || today;
       let endDate = row.draft.endDate.trim() || today;
       if (endDate < startDate) endDate = startDate;
 
