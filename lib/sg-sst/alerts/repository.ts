@@ -141,13 +141,20 @@ function mapRecord(row: RecordRow): SstComplianceRecord {
 
 async function nextFolio(sql: ReturnType<typeof getSql>): Promise<string> {
   const year = new Date().getFullYear();
-  const rows = await sql<{ count: number }[]>`
-    SELECT COUNT(*)::int AS count
+  const prefix = `ALT-${year}-`;
+  // MAX del sufijo (no COUNT): borrados o imports concurrentes dejan huecos y duplicaban folio.
+  const rows = await sql<{ max: number | null }[]>`
+    SELECT MAX(SUBSTRING(folio FROM ${String.raw`^${prefix}(\d+)$`})::int) AS max
     FROM campus_sst.sst_compliance_records
-    WHERE folio LIKE ${`ALT-${year}-%`}
+    WHERE folio ~ ${String.raw`^${prefix}\d+$`}
   `;
-  const next = (rows[0]?.count ?? 0) + 1;
-  return `ALT-${year}-${String(next).padStart(3, "0")}`;
+  const next = (rows[0]?.max ?? 0) + 1;
+  return `${prefix}${String(next).padStart(3, "0")}`;
+}
+
+function isFolioConflict(error: unknown): boolean {
+  const e = error as { code?: string; constraint_name?: string } | null;
+  return e?.code === "23505" && e.constraint_name === "sst_compliance_records_folio_key";
 }
 
 export async function listSstFarms(): Promise<SstFarm[]> {
@@ -301,8 +308,23 @@ export async function createComplianceRecord(
   userId: string,
 ): Promise<SstComplianceRecord> {
   const sql = getSql();
-  const folio = await nextFolio(sql);
   const modulePath = RECORD_TYPE_META[draft.recordType].modulePath;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await insertComplianceRecord(sql, draft, userId, modulePath);
+    } catch (error) {
+      if (attempt >= 5 || !isFolioConflict(error)) throw error;
+    }
+  }
+}
+
+async function insertComplianceRecord(
+  sql: ReturnType<typeof getSql>,
+  draft: SstRecordDraft,
+  userId: string,
+  modulePath: string,
+): Promise<SstComplianceRecord> {
+  const folio = await nextFolio(sql);
   const rows = await sql<{ id: string }[]>`
     INSERT INTO campus_sst.sst_compliance_records (
       folio, record_type, title, code, module_path,
