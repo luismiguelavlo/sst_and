@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
+import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
 import {
   createComplianceRecord,
   deleteComplianceRecord,
@@ -169,13 +170,7 @@ async function selectDeliveryById(id: string): Promise<SstEppDelivery | null> {
 
 async function nextDeliveryFolio(sql: ReturnType<typeof getSql>): Promise<string> {
   const year = new Date().getFullYear();
-  const rows = await sql<{ count: number }[]>`
-    SELECT COUNT(*)::int AS count
-    FROM campus_sst.sst_epp_deliveries
-    WHERE folio LIKE ${`EPP-${year}-%`}
-  `;
-  const next = (rows[0]?.count ?? 0) + 1;
-  return `EPP-${year}-${String(next).padStart(3, "0")}`;
+  return nextSequentialCode(sql, "campus_sst.sst_epp_deliveries", "folio", `EPP-${year}-`);
 }
 
 function complianceDraftFromDelivery(item: SstEppDelivery): SstRecordDraft {

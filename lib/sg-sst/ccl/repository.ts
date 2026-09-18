@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
+import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
 import {
   createComplianceRecord,
   deleteComplianceRecord,
@@ -305,37 +306,19 @@ async function nextMeetingFolio(
   sql: ReturnType<typeof getSql>,
 ): Promise<string> {
   const year = new Date().getFullYear();
-  const rows = await sql<{ count: number }[]>`
-    SELECT COUNT(*)::int AS count
-    FROM campus_sst.sst_ccl_meetings
-    WHERE folio LIKE ${`CCL-ACTA-${year}-%`}
-  `;
-  const next = (rows[0]?.count ?? 0) + 1;
-  return `CCL-ACTA-${year}-${String(next).padStart(3, "0")}`;
+  return nextSequentialCode(sql, "campus_sst.sst_ccl_meetings", "folio", `CCL-ACTA-${year}-`);
 }
 
 async function nextCaseCode(sql: ReturnType<typeof getSql>): Promise<string> {
   const year = new Date().getFullYear();
-  const rows = await sql<{ count: number }[]>`
-    SELECT COUNT(*)::int AS count
-    FROM campus_sst.sst_ccl_cases
-    WHERE code LIKE ${`CCL-${year}-EXP-%`}
-  `;
-  const next = (rows[0]?.count ?? 0) + 1;
-  return `CCL-${year}-EXP-${String(next).padStart(3, "0")}`;
+  return nextSequentialCode(sql, "campus_sst.sst_ccl_cases", "code", `CCL-${year}-EXP-`);
 }
 
 async function nextCommitmentFolio(
   sql: ReturnType<typeof getSql>,
 ): Promise<string> {
   const year = new Date().getFullYear();
-  const rows = await sql<{ count: number }[]>`
-    SELECT COUNT(*)::int AS count
-    FROM campus_sst.sst_ccl_commitments
-    WHERE folio LIKE ${`CCL-COM-${year}-%`}
-  `;
-  const next = (rows[0]?.count ?? 0) + 1;
-  return `CCL-COM-${year}-${String(next).padStart(3, "0")}`;
+  return nextSequentialCode(sql, "campus_sst.sst_ccl_commitments", "folio", `CCL-COM-${year}-`);
 }
 
 function resolveCaseClosedAt(

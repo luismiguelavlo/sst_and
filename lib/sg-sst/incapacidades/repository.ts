@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
+import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
 import {
   createComplianceRecord,
   deleteComplianceRecord,
@@ -135,13 +136,7 @@ async function selectLeaveById(id: string): Promise<SstLeave | null> {
 
 async function nextLeaveFolio(sql: ReturnType<typeof getSql>): Promise<string> {
   const year = new Date().getFullYear();
-  const rows = await sql<{ count: number }[]>`
-    SELECT COUNT(*)::int AS count
-    FROM campus_sst.sst_incapacidades
-    WHERE folio LIKE ${`INC-${year}-%`}
-  `;
-  const next = (rows[0]?.count ?? 0) + 1;
-  return `INC-${year}-${String(next).padStart(3, "0")}`;
+  return nextSequentialCode(sql, "campus_sst.sst_incapacidades", "folio", `INC-${year}-`);
 }
 
 async function sumWorkerAccumulatedDays(

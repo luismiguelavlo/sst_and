@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
+import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
 import {
   createComplianceRecord,
   deleteComplianceRecord,
@@ -141,13 +142,7 @@ const INSPECTION_SELECT = `
 
 async function nextInspectionFolio(sql: ReturnType<typeof getSql>): Promise<string> {
   const year = new Date().getFullYear();
-  const rows = await sql<{ count: number }[]>`
-    SELECT COUNT(*)::int AS count
-    FROM campus_sst.sst_inspections
-    WHERE folio LIKE ${`INS-${year}-%`}
-  `;
-  const next = (rows[0]?.count ?? 0) + 1;
-  return `INS-${year}-${String(next).padStart(3, "0")}`;
+  return nextSequentialCode(sql, "campus_sst.sst_inspections", "folio", `INS-${year}-`);
 }
 
 export async function listFindingsByInspectionIds(

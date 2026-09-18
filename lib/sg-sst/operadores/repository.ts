@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
+import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
 import {
   createComplianceRecord,
   deleteComplianceRecord,
@@ -129,13 +130,7 @@ async function selectOperatorById(id: string): Promise<SstOperator | null> {
 
 async function nextOperatorFolio(sql: ReturnType<typeof getSql>): Promise<string> {
   const year = new Date().getFullYear();
-  const rows = await sql<{ count: number }[]>`
-    SELECT COUNT(*)::int AS count
-    FROM campus_sst.sst_machine_operators
-    WHERE folio LIKE ${`OPE-${year}-%`}
-  `;
-  const next = (rows[0]?.count ?? 0) + 1;
-  return `OPE-${year}-${String(next).padStart(3, "0")}`;
+  return nextSequentialCode(sql, "campus_sst.sst_machine_operators", "folio", `OPE-${year}-`);
 }
 
 function authFieldsFromDraft(draft: SstOperatorDraft) {

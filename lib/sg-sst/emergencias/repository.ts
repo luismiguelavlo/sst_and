@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
+import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
 import {
   createComplianceRecord,
   deleteComplianceRecord,
@@ -230,35 +231,17 @@ const DRILL_SELECT = `
 
 async function nextBrigadeFolio(sql: ReturnType<typeof getSql>): Promise<string> {
   const year = new Date().getFullYear();
-  const rows = await sql<{ count: number }[]>`
-    SELECT COUNT(*)::int AS count
-    FROM campus_sst.sst_brigade_members
-    WHERE folio LIKE ${`BRIG-${year}-%`}
-  `;
-  const next = (rows[0]?.count ?? 0) + 1;
-  return `BRIG-${year}-${String(next).padStart(3, "0")}`;
+  return nextSequentialCode(sql, "campus_sst.sst_brigade_members", "folio", `BRIG-${year}-`);
 }
 
 async function nextEquipmentCode(sql: ReturnType<typeof getSql>): Promise<string> {
   const year = new Date().getFullYear();
-  const rows = await sql<{ count: number }[]>`
-    SELECT COUNT(*)::int AS count
-    FROM campus_sst.sst_emergency_equipment
-    WHERE code LIKE ${`EQ-EM-${year}-%`}
-  `;
-  const next = (rows[0]?.count ?? 0) + 1;
-  return `EQ-EM-${year}-${String(next).padStart(3, "0")}`;
+  return nextSequentialCode(sql, "campus_sst.sst_emergency_equipment", "code", `EQ-EM-${year}-`);
 }
 
 async function nextDrillFolio(sql: ReturnType<typeof getSql>): Promise<string> {
   const year = new Date().getFullYear();
-  const rows = await sql<{ count: number }[]>`
-    SELECT COUNT(*)::int AS count
-    FROM campus_sst.sst_emergency_drills
-    WHERE folio LIKE ${`SIM-${year}-%`}
-  `;
-  const next = (rows[0]?.count ?? 0) + 1;
-  return `SIM-${year}-${String(next).padStart(3, "0")}`;
+  return nextSequentialCode(sql, "campus_sst.sst_emergency_drills", "folio", `SIM-${year}-`);
 }
 
 async function selectBrigadeById(id: string): Promise<SstBrigadeMember | null> {

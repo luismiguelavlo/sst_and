@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
+import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
 import {
   createComplianceRecord,
   deleteComplianceRecord,
@@ -117,13 +118,7 @@ async function selectHeightsById(id: string): Promise<SstHeightsAuthorization | 
 
 async function nextHeightsFolio(sql: ReturnType<typeof getSql>): Promise<string> {
   const year = new Date().getFullYear();
-  const rows = await sql<{ count: number }[]>`
-    SELECT COUNT(*)::int AS count
-    FROM campus_sst.sst_heights_authorizations
-    WHERE folio LIKE ${`ALT-${year}-%`}
-  `;
-  const next = (rows[0]?.count ?? 0) + 1;
-  return `ALT-${year}-${String(next).padStart(3, "0")}`;
+  return nextSequentialCode(sql, "campus_sst.sst_heights_authorizations", "folio", `ALT-${year}-`);
 }
 
 function resolveStatus(draft: SstHeightsDraft): HeightsAuthorizationStatus {

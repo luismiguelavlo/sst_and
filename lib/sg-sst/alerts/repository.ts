@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
+import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
 import {
   DEFAULT_ALERT_THRESHOLDS,
   isSstRecordType,
@@ -141,15 +142,7 @@ function mapRecord(row: RecordRow): SstComplianceRecord {
 
 async function nextFolio(sql: ReturnType<typeof getSql>): Promise<string> {
   const year = new Date().getFullYear();
-  const prefix = `ALT-${year}-`;
-  // MAX del sufijo (no COUNT): borrados o imports concurrentes dejan huecos y duplicaban folio.
-  const rows = await sql<{ max: number | null }[]>`
-    SELECT MAX(SUBSTRING(folio FROM ${String.raw`^${prefix}(\d+)$`})::int) AS max
-    FROM campus_sst.sst_compliance_records
-    WHERE folio ~ ${String.raw`^${prefix}\d+$`}
-  `;
-  const next = (rows[0]?.max ?? 0) + 1;
-  return `${prefix}${String(next).padStart(3, "0")}`;
+  return nextSequentialCode(sql, "campus_sst.sst_compliance_records", "folio", `ALT-${year}-`);
 }
 
 function isFolioConflict(error: unknown): boolean {

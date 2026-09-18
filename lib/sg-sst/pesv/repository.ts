@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
+import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
 import {
   createComplianceRecord,
   deleteComplianceRecord,
@@ -254,24 +255,12 @@ async function selectPreopById(id: string): Promise<SstPesvPreop | null> {
 
 async function nextDriverFolio(sql: ReturnType<typeof getSql>): Promise<string> {
   const year = new Date().getFullYear();
-  const rows = await sql<{ count: number }[]>`
-    SELECT COUNT(*)::int AS count
-    FROM campus_sst.sst_pesv_drivers
-    WHERE folio LIKE ${`PESV-${year}-%`}
-  `;
-  const next = (rows[0]?.count ?? 0) + 1;
-  return `PESV-${year}-${String(next).padStart(3, "0")}`;
+  return nextSequentialCode(sql, "campus_sst.sst_pesv_drivers", "folio", `PESV-${year}-`);
 }
 
 async function nextPreopFolio(sql: ReturnType<typeof getSql>): Promise<string> {
   const year = new Date().getFullYear();
-  const rows = await sql<{ count: number }[]>`
-    SELECT COUNT(*)::int AS count
-    FROM campus_sst.sst_pesv_preops
-    WHERE folio LIKE ${`PRE-${year}-%`}
-  `;
-  const next = (rows[0]?.count ?? 0) + 1;
-  return `PRE-${year}-${String(next).padStart(3, "0")}`;
+  return nextSequentialCode(sql, "campus_sst.sst_pesv_preops", "folio", `PRE-${year}-`);
 }
 
 function complianceDraftFromDriver(driver: SstPesvDriver): SstRecordDraft {

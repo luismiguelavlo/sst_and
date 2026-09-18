@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
+import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
 import {
   createComplianceRecord,
   deleteComplianceRecord,
@@ -162,26 +163,14 @@ async function nextEventNumber(
 ): Promise<string> {
   const year = new Date().getFullYear();
   const prefix = eventType === "accidente_trabajo" ? "AT" : "INC";
-  const rows = await sql<{ count: number }[]>`
-    SELECT COUNT(*)::int AS count
-    FROM campus_sst.sst_accident_events
-    WHERE event_number LIKE ${`${prefix}-${year}-%`}
-  `;
-  const next = (rows[0]?.count ?? 0) + 1;
-  return `${prefix}-${year}-${String(next).padStart(3, "0")}`;
+  return nextSequentialCode(sql, "campus_sst.sst_accident_events", "event_number", `${prefix}-${year}-`);
 }
 
 async function nextInvestigationFolio(
   sql: ReturnType<typeof getSql>,
 ): Promise<string> {
   const year = new Date().getFullYear();
-  const rows = await sql<{ count: number }[]>`
-    SELECT COUNT(*)::int AS count
-    FROM campus_sst.sst_investigations
-    WHERE folio LIKE ${`INV-${year}-%`}
-  `;
-  const next = (rows[0]?.count ?? 0) + 1;
-  return `INV-${year}-${String(next).padStart(3, "0")}`;
+  return nextSequentialCode(sql, "campus_sst.sst_investigations", "folio", `INV-${year}-`);
 }
 
 export async function listCausesByAccidentIds(
