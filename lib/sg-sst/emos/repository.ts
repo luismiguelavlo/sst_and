@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
-import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
+import { nextSequentialCode, withSequentialCodeRetry } from "@/lib/sg-sst/next-sequential-code";
 import {
   createComplianceRecord,
   deleteComplianceRecord,
@@ -296,9 +296,10 @@ export async function createEmo(draft: SstEmoDraft, userId: string): Promise<Sst
     throw new Error("Trabajador no encontrado en la base maestra.");
   }
   const sql = getSql();
-  const folio = await nextEmoFolio(sql);
   const nextDue = resolveNextDueDate(draft);
-  const rows = await sql<{ id: string }[]>`
+  const rows = await withSequentialCodeRetry(async () => {
+    const folio = await nextEmoFolio(sql);
+    return sql<{ id: string }[]>`
     INSERT INTO campus_sst.sst_emos (
       folio, worker_id, exam_type, exam_date, next_due_date, periodicity_months,
       ips, concept, admin_observations, evidence_url, evidence_name,
@@ -329,6 +330,7 @@ export async function createEmo(draft: SstEmoDraft, userId: string): Promise<Sst
     )
     RETURNING id
   `;
+  });
   const created = await selectEmoById(rows[0].id);
   if (!created) throw new Error("No se pudo crear el EMO.");
   await syncComplianceRecord(created, userId);

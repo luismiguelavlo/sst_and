@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
-import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
+import { nextSequentialCode, withSequentialCodeRetry } from "@/lib/sg-sst/next-sequential-code";
 import {
   DEFAULT_ALERT_THRESHOLDS,
   isSstRecordType,
@@ -143,11 +143,6 @@ function mapRecord(row: RecordRow): SstComplianceRecord {
 async function nextFolio(sql: ReturnType<typeof getSql>): Promise<string> {
   const year = new Date().getFullYear();
   return nextSequentialCode(sql, "campus_sst.sst_compliance_records", "folio", `ALT-${year}-`);
-}
-
-function isFolioConflict(error: unknown): boolean {
-  const e = error as { code?: string; constraint_name?: string } | null;
-  return e?.code === "23505" && e.constraint_name === "sst_compliance_records_folio_key";
 }
 
 export async function listSstFarms(): Promise<SstFarm[]> {
@@ -302,23 +297,9 @@ export async function createComplianceRecord(
 ): Promise<SstComplianceRecord> {
   const sql = getSql();
   const modulePath = RECORD_TYPE_META[draft.recordType].modulePath;
-  for (let attempt = 0; ; attempt++) {
-    try {
-      return await insertComplianceRecord(sql, draft, userId, modulePath);
-    } catch (error) {
-      if (attempt >= 5 || !isFolioConflict(error)) throw error;
-    }
-  }
-}
-
-async function insertComplianceRecord(
-  sql: ReturnType<typeof getSql>,
-  draft: SstRecordDraft,
-  userId: string,
-  modulePath: string,
-): Promise<SstComplianceRecord> {
-  const folio = await nextFolio(sql);
-  const rows = await sql<{ id: string }[]>`
+  const rows = await withSequentialCodeRetry(async () => {
+    const folio = await nextFolio(sql);
+    return sql<{ id: string }[]>`
     INSERT INTO campus_sst.sst_compliance_records (
       folio, record_type, title, code, module_path,
       worker_id, subject_name, subject_document, subject_job_title, farm_id,
@@ -349,6 +330,7 @@ async function insertComplianceRecord(
     )
     RETURNING id
   `;
+  });
   const created = await getComplianceRecord(rows[0].id);
   if (!created) {
     throw new Error("No se pudo crear el registro.");

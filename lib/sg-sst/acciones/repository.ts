@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
-import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
+import { nextSequentialCode, withSequentialCodeRetry } from "@/lib/sg-sst/next-sequential-code";
 import {
   createComplianceRecord,
   deleteComplianceRecord,
@@ -305,10 +305,11 @@ export async function createAction(
   userId: string,
 ): Promise<SstCorrectiveAction> {
   const sql = getSql();
-  const folio = await nextActionFolio(sql);
   const status = resolveStatusToPersist(draft);
   const closedAt = resolveClosedAt(status, draft.closedAt);
-  const rows = await sql<{ id: string }[]>`
+  const rows = await withSequentialCodeRetry(async () => {
+    const folio = await nextActionFolio(sql);
+    return sql<{ id: string }[]>`
     INSERT INTO campus_sst.sst_corrective_actions (
       folio, source_type, source_ref, finding, action_plan, action_kind,
       responsible_name, commit_date, closed_at, status,
@@ -335,6 +336,7 @@ export async function createAction(
     )
     RETURNING id
   `;
+  });
   const created = await selectActionById(rows[0].id);
   if (!created) throw new Error("No se pudo crear la acción correctiva.");
   await syncComplianceRecord(created, userId);

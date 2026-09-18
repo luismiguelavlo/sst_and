@@ -18,3 +18,22 @@ export async function nextSequentialCode(
   const next = (rows[0]?.max ?? 0) + 1;
   return `${prefix}${String(next).padStart(3, "0")}`;
 }
+
+function isSequentialCodeConflict(error: unknown): boolean {
+  const e = error as { code?: string; constraint_name?: string } | null;
+  return (
+    e?.code === "23505" &&
+    /(folio|code|event_number)_key$/.test(e.constraint_name ?? "")
+  );
+}
+
+/** Reintenta `run` (que genera el código y hace el INSERT) si dos peticiones toman el mismo código. */
+export async function withSequentialCodeRetry<T>(run: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await run();
+    } catch (error) {
+      if (attempt >= 5 || !isSequentialCodeConflict(error)) throw error;
+    }
+  }
+}

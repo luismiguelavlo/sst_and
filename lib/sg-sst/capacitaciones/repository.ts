@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
-import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
+import { nextSequentialCode, withSequentialCodeRetry } from "@/lib/sg-sst/next-sequential-code";
 import {
   createComplianceRecord,
   deleteComplianceRecord,
@@ -326,10 +326,11 @@ export async function createTraining(
     throw new Error("Trabajador no encontrado en la base maestra.");
   }
   const sql = getSql();
-  const folio = await nextTrainingFolio(sql);
   const status = resolveStatus(draft);
   const nextDate = emptyToNull(draft.nextTrainingDate);
-  const rows = await sql<{ id: string }[]>`
+  const rows = await withSequentialCodeRetry(async () => {
+    const folio = await nextTrainingFolio(sql);
+    return sql<{ id: string }[]>`
     INSERT INTO campus_sst.sst_trainings (
       folio, worker_id, topic, training_date, hours, instructor, modality,
       evidence_url, evidence_name, certificate_url, certificate_name,
@@ -358,6 +359,7 @@ export async function createTraining(
     )
     RETURNING id
   `;
+  });
   const created = await selectTrainingById(rows[0].id);
   if (!created) throw new Error("No se pudo crear la capacitación.");
   await syncComplianceRecord(created, userId);

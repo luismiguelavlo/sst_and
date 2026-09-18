@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
-import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
+import { nextSequentialCode, withSequentialCodeRetry } from "@/lib/sg-sst/next-sequential-code";
 import {
   closeComplianceRecord,
   createComplianceRecord,
@@ -546,8 +546,9 @@ export async function createMeeting(
   userId: string,
 ): Promise<SstCopasstMeeting> {
   const sql = getSql();
-  const folio = await nextMeetingFolio(sql);
-  const rows = await sql<{ id: string }[]>`
+  const rows = await withSequentialCodeRetry(async () => {
+    const folio = await nextMeetingFolio(sql);
+    return sql<{ id: string }[]>`
     INSERT INTO campus_sst.sst_copasst_meetings (
       folio, meeting_date, meeting_type, title, summary,
       act_url, act_name, next_meeting_date, status, farm_id, observations,
@@ -569,6 +570,7 @@ export async function createMeeting(
     )
     RETURNING id
   `;
+  });
   const created = await selectMeetingById(rows[0].id);
   if (!created) throw new Error("No se pudo crear el acta / reunión.");
   return created;
@@ -654,10 +656,11 @@ export async function createCommitment(
   userId: string,
 ): Promise<SstCopasstCommitment> {
   const sql = getSql();
-  const folio = await nextCommitmentFolio(sql);
   const status = resolveCommitmentStatusToPersist(draft);
   const closedAt = resolveClosedAt(status, draft.closedAt);
-  const rows = await sql<{ id: string }[]>`
+  const rows = await withSequentialCodeRetry(async () => {
+    const folio = await nextCommitmentFolio(sql);
+    return sql<{ id: string }[]>`
     INSERT INTO campus_sst.sst_copasst_commitments (
       folio, meeting_id, description, responsible_name, due_date, closed_at,
       status, follow_up, evidence_url, evidence_name, farm_id, observations,
@@ -680,6 +683,7 @@ export async function createCommitment(
     )
     RETURNING id
   `;
+  });
   const created = await selectCommitmentById(rows[0].id);
   if (!created) throw new Error("No se pudo crear el compromiso.");
   await syncCommitmentCompliance(created, userId);
@@ -760,8 +764,9 @@ export async function createTraining(
   userId: string,
 ): Promise<SstCopasstTraining> {
   const sql = getSql();
-  const folio = await nextTrainingFolio(sql);
-  const rows = await sql<{ id: string }[]>`
+  const rows = await withSequentialCodeRetry(async () => {
+    const folio = await nextTrainingFolio(sql);
+    return sql<{ id: string }[]>`
     INSERT INTO campus_sst.sst_copasst_trainings (
       folio, title, training_date, hours, instructor, attendees_count,
       evidence_url, evidence_name, status, observations,
@@ -782,6 +787,7 @@ export async function createTraining(
     )
     RETURNING id
   `;
+  });
   const created = await selectTrainingById(rows[0].id);
   if (!created) throw new Error("No se pudo crear la capacitación.");
   return created;

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
-import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
+import { nextSequentialCode, withSequentialCodeRetry } from "@/lib/sg-sst/next-sequential-code";
 import {
   createComplianceRecord,
   deleteComplianceRecord,
@@ -568,8 +568,9 @@ export async function createDelivery(
   });
 
   const sql = getSql();
-  const folio = await nextDeliveryFolio(sql);
-  const rows = await sql<{ id: string }[]>`
+  const rows = await withSequentialCodeRetry(async () => {
+    const folio = await nextDeliveryFolio(sql);
+    return sql<{ id: string }[]>`
     INSERT INTO campus_sst.sst_epp_deliveries (
       folio, worker_id, catalog_item_id, quantity, size_label,
       delivery_date, useful_life_days, next_replenishment_date, reason,
@@ -600,6 +601,7 @@ export async function createDelivery(
     )
     RETURNING id
   `;
+  });
   const created = await selectDeliveryById(rows[0].id);
   if (!created) throw new Error("No se pudo registrar la entrega de EPP.");
   await syncComplianceRecord(created, userId);

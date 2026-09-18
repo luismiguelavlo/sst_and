@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
-import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
+import { nextSequentialCode, withSequentialCodeRetry } from "@/lib/sg-sst/next-sequential-code";
 import {
   createComplianceRecord,
   deleteComplianceRecord,
@@ -576,8 +576,9 @@ export async function createMeeting(
   userId: string,
 ): Promise<SstCclMeeting> {
   const sql = getSql();
-  const folio = await nextMeetingFolio(sql);
-  const rows = await sql<{ id: string }[]>`
+  const rows = await withSequentialCodeRetry(async () => {
+    const folio = await nextMeetingFolio(sql);
+    return sql<{ id: string }[]>`
     INSERT INTO campus_sst.sst_ccl_meetings (
       folio, meeting_date, meeting_type, title, summary,
       act_url, act_name, status, farm_id, observations, created_by, updated_by
@@ -597,6 +598,7 @@ export async function createMeeting(
     )
     RETURNING id
   `;
+  });
   const created = await selectMeetingById(rows[0].id);
   if (!created) throw new Error("No se pudo crear el acta CCL.");
   return created;
@@ -679,9 +681,10 @@ export async function createCase(
   userId: string,
 ): Promise<SstCclCase> {
   const sql = getSql();
-  const code = await nextCaseCode(sql);
   const closedAt = resolveCaseClosedAt(draft.status, draft.closedAt);
-  const rows = await sql<{ id: string }[]>`
+  const rows = await withSequentialCodeRetry(async () => {
+    const code = await nextCaseCode(sql);
+    return sql<{ id: string }[]>`
     INSERT INTO campus_sst.sst_ccl_cases (
       code, opened_at, due_date, closed_at, status, activity_summary,
       follow_up, meeting_id, observations, created_by, updated_by
@@ -700,6 +703,7 @@ export async function createCase(
     )
     RETURNING id
   `;
+  });
   const created = await selectCaseById(rows[0].id);
   if (!created) throw new Error("No se pudo crear el caso CCL.");
   await syncCaseCompliance(created, userId);
@@ -793,10 +797,11 @@ export async function createCommitment(
   userId: string,
 ): Promise<SstCclCommitment> {
   const sql = getSql();
-  const folio = await nextCommitmentFolio(sql);
   const status = deriveCommitmentStatus(draft.status, draft.dueDate);
   const closedAt = resolveCommitmentClosedAt(status, draft.closedAt);
-  const rows = await sql<{ id: string }[]>`
+  const rows = await withSequentialCodeRetry(async () => {
+    const folio = await nextCommitmentFolio(sql);
+    return sql<{ id: string }[]>`
     INSERT INTO campus_sst.sst_ccl_commitments (
       folio, meeting_id, case_id, description, responsible_name,
       due_date, closed_at, status, follow_up, observations, created_by, updated_by
@@ -816,6 +821,7 @@ export async function createCommitment(
     )
     RETURNING id
   `;
+  });
   const created = await selectCommitmentById(rows[0].id);
   if (!created) throw new Error("No se pudo crear el compromiso CCL.");
   await syncCommitmentCompliance(created, userId);

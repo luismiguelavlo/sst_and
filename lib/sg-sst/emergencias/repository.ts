@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
-import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
+import { nextSequentialCode, withSequentialCodeRetry } from "@/lib/sg-sst/next-sequential-code";
 import {
   createComplianceRecord,
   deleteComplianceRecord,
@@ -468,10 +468,11 @@ export async function createBrigadeMember(
   const worker = await getWorker(draft.workerId);
   if (!worker) throw new Error("Trabajador no encontrado.");
   const sql = getSql();
-  const folio = await nextBrigadeFolio(sql);
   const status = resolveBrigadeStatusToPersist(draft);
   const farmId = emptyToNull(draft.farmId ?? null) ?? worker.farmId;
-  const rows = await sql<{ id: string }[]>`
+  const rows = await withSequentialCodeRetry(async () => {
+    const folio = await nextBrigadeFolio(sql);
+    return sql<{ id: string }[]>`
     INSERT INTO campus_sst.sst_brigade_members (
       folio, worker_id, company_snapshot, job_title_snapshot, brigade_type,
       training_title, trained_at, due_date, status, farm_id,
@@ -495,6 +496,7 @@ export async function createBrigadeMember(
     )
     RETURNING id
   `;
+  });
   const created = await selectBrigadeById(rows[0].id);
   if (!created) throw new Error("No se pudo crear el brigadista.");
   await syncBrigadeCompliance(created, userId);
@@ -628,17 +630,16 @@ export async function createEmergencyEquipment(
 ): Promise<SstEmergencyEquipment> {
   const sql = getSql();
   const requested = draft.code?.trim() ?? "";
-  let code = requested;
-  if (!code) {
-    code = await nextEquipmentCode(sql);
-  } else {
-    const existing = await findEquipmentByCode(code);
+  if (requested) {
+    const existing = await findEquipmentByCode(requested);
     if (existing) {
-      throw new Error(`Ya existe un equipo con el código ${code}.`);
+      throw new Error(`Ya existe un equipo con el código ${requested}.`);
     }
   }
   const status = resolveEquipmentStatusToPersist(draft);
-  const rows = await sql<{ id: string }[]>`
+  const rows = await withSequentialCodeRetry(async () => {
+    const code = requested || (await nextEquipmentCode(sql));
+    return sql<{ id: string }[]>`
     INSERT INTO campus_sst.sst_emergency_equipment (
       code, element_name, equipment_type, location, inspected_at,
       next_inspection_at, responsible_name, status, findings, farm_id,
@@ -660,6 +661,7 @@ export async function createEmergencyEquipment(
     )
     RETURNING id
   `;
+  });
   const created = await selectEquipmentById(rows[0].id);
   if (!created) throw new Error("No se pudo crear el equipo.");
   await syncEquipmentCompliance(created, userId);
@@ -782,14 +784,15 @@ export async function createEmergencyDrill(
   userId: string,
 ): Promise<SstEmergencyDrill> {
   const sql = getSql();
-  const folio = await nextDrillFolio(sql);
   const score =
     draft.resultScore === null ||
     draft.resultScore === undefined ||
     Number.isNaN(Number(draft.resultScore))
       ? null
       : Number(draft.resultScore);
-  const rows = await sql<{ id: string }[]>`
+  const rows = await withSequentialCodeRetry(async () => {
+    const folio = await nextDrillFolio(sql);
+    return sql<{ id: string }[]>`
     INSERT INTO campus_sst.sst_emergency_drills (
       folio, drill_date, place, drill_type, participants_count, result_score,
       result_label, findings, actions, status, farm_id,
@@ -814,6 +817,7 @@ export async function createEmergencyDrill(
     )
     RETURNING id
   `;
+  });
   const created = await selectDrillById(rows[0].id);
   if (!created) throw new Error("No se pudo crear el simulacro.");
   return created;

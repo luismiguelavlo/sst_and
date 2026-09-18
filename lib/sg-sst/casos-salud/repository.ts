@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
-import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
+import { nextSequentialCode, withSequentialCodeRetry } from "@/lib/sg-sst/next-sequential-code";
 import {
   createComplianceRecord,
   deleteComplianceRecord,
@@ -245,14 +245,15 @@ export async function createHealthCase(
     throw new Error("Trabajador no encontrado en la base maestra.");
   }
   const sql = getSql();
-  const folio = await nextCaseFolio(sql);
   const nextFollowUp = draft.nextFollowUp?.trim() || null;
   const closedAt =
     draft.status === "cerrado"
       ? draft.closedAt?.trim() || new Date().toISOString().slice(0, 10)
       : draft.closedAt?.trim() || null;
 
-  const rows = await sql<{ id: string }[]>`
+  const rows = await withSequentialCodeRetry(async () => {
+    const folio = await nextCaseFolio(sql);
+    return sql<{ id: string }[]>`
     INSERT INTO campus_sst.sst_casos_salud (
       folio, worker_id, case_type, opened_at, status, responsible_name, issuer,
       next_follow_up, closed_at, admin_observations, evidence_url, evidence_name,
@@ -278,6 +279,7 @@ export async function createHealthCase(
     )
     RETURNING id
   `;
+  });
   const created = await selectCaseById(rows[0].id);
   if (!created) throw new Error("No se pudo crear el caso de salud.");
   await syncComplianceRecord(created, userId);

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
-import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
+import { nextSequentialCode, withSequentialCodeRetry } from "@/lib/sg-sst/next-sequential-code";
 import {
   createComplianceRecord,
   deleteComplianceRecord,
@@ -304,8 +304,9 @@ export async function createRestriction(
     throw new Error("Trabajador no encontrado en la base maestra.");
   }
   const sql = getSql();
-  const folio = await nextRestrictionFolio(sql);
-  const rows = await sql<{ id: string }[]>`
+  const rows = await withSequentialCodeRetry(async () => {
+    const folio = await nextRestrictionFolio(sql);
+    return sql<{ id: string }[]>`
     INSERT INTO campus_sst.sst_restricciones (
       folio, worker_id, restriction_kind, issued_at, start_date, due_date,
       detail, issuer, responsible_name, measure_implemented, implemented_at,
@@ -337,6 +338,7 @@ export async function createRestriction(
     )
     RETURNING id
   `;
+  });
   const created = await selectRestrictionById(rows[0].id);
   if (!created) throw new Error("No se pudo crear la restricción.");
   await syncComplianceRecord(created, userId);

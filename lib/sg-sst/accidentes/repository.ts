@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
-import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
+import { nextSequentialCode, withSequentialCodeRetry } from "@/lib/sg-sst/next-sequential-code";
 import {
   createComplianceRecord,
   deleteComplianceRecord,
@@ -331,9 +331,10 @@ async function autoCreateInvestigationForAccident(
   `;
   if (existing[0]) return;
 
-  const folio = await nextInvestigationFolio(sql);
   const legalDueDate = addDaysIso(accident.eventDate, 15);
-  const rows = await sql<{ id: string }[]>`
+  const rows = await withSequentialCodeRetry(async () => {
+    const folio = await nextInvestigationFolio(sql);
+    return sql<{ id: string; folio: string }[]>`
     INSERT INTO campus_sst.sst_investigations (
       folio, accident_id, accident_date, legal_due_date, status,
       created_by, updated_by
@@ -346,13 +347,14 @@ async function autoCreateInvestigationForAccident(
       ${userId},
       ${userId}
     )
-    RETURNING id
+    RETURNING id, folio
   `;
+  });
 
   await syncInvestigationCompliance(
     {
       id: rows[0].id,
-      folio,
+      folio: rows[0].folio,
       accidentDate: accident.eventDate,
       legalDueDate,
       status: "pendiente_inicio",
@@ -444,14 +446,15 @@ export async function createAccidentEvent(
     throw new Error("Trabajador no encontrado en la base maestra.");
   }
   const sql = getSql();
-  const eventNumber = await nextEventNumber(sql, draft.eventType);
   const company = draft.companySnapshot?.trim() || worker.company;
   const jobTitle = draft.jobTitleSnapshot?.trim() || worker.jobTitle;
   const area = draft.areaSnapshot?.trim() || worker.area;
   const workCenter = draft.workCenterSnapshot?.trim() || worker.workCenter;
   const farmId = emptyToNull(draft.farmId) ?? worker.farmId;
 
-  const rows = await sql<{ id: string }[]>`
+  const rows = await withSequentialCodeRetry(async () => {
+    const eventNumber = await nextEventNumber(sql, draft.eventType);
+    return sql<{ id: string }[]>`
     INSERT INTO campus_sst.sst_accident_events (
       event_number, event_date, event_time, worker_id,
       company_snapshot, job_title_snapshot, area_snapshot, work_center_snapshot,
@@ -488,6 +491,7 @@ export async function createAccidentEvent(
     )
     RETURNING id
   `;
+  });
 
   if (draft.causes) {
     await upsertAccidentCauses(rows[0].id, draft.causes);

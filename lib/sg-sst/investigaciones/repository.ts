@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
-import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
+import { nextSequentialCode, withSequentialCodeRetry } from "@/lib/sg-sst/next-sequential-code";
 import {
   createComplianceRecord,
   deleteComplianceRecord,
@@ -387,8 +387,9 @@ export async function createInvestigation(
     : emptyToNull(draft.closedAt);
 
   const sql = getSql();
-  const folio = await nextInvestigationFolio(sql);
-  const rows = await sql<{ id: string }[]>`
+  const rows = await withSequentialCodeRetry(async () => {
+    const folio = await nextInvestigationFolio(sql);
+    return sql<{ id: string }[]>`
     INSERT INTO campus_sst.sst_investigations (
       folio, accident_id, accident_date, legal_due_date, responsible_name,
       status, investigation_date, investigation_team, methodology,
@@ -415,6 +416,7 @@ export async function createInvestigation(
     )
     RETURNING id
   `;
+  });
   const created = await selectInvestigationById(rows[0].id);
   if (!created) throw new Error("No se pudo crear la investigación.");
   await syncComplianceRecord(created, userId);

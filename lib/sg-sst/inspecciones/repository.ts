@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
-import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
+import { nextSequentialCode, withSequentialCodeRetry } from "@/lib/sg-sst/next-sequential-code";
 import {
   createComplianceRecord,
   deleteComplianceRecord,
@@ -508,9 +508,10 @@ export async function createInspection(
   userId: string,
 ): Promise<SstInspection> {
   const sql = getSql();
-  const folio = await nextInspectionFolio(sql);
   const findingsCount = draft.findings?.filter((f) => f.title.trim()).length ?? 0;
-  const rows = await sql<{ id: string }[]>`
+  const rows = await withSequentialCodeRetry(async () => {
+    const folio = await nextInspectionFolio(sql);
+    return sql<{ id: string }[]>`
     INSERT INTO campus_sst.sst_inspections (
       folio, inspection_type, responsible_name, farm_id, work_center,
       scheduled_date, performed_date, status, findings_summary, findings_count,
@@ -537,6 +538,7 @@ export async function createInspection(
     )
     RETURNING id
   `;
+  });
   if (draft.findings && draft.findings.length > 0) {
     await replaceInspectionFindings(rows[0].id, draft.findings);
   }

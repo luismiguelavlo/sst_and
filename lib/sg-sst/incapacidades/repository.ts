@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
-import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
+import { nextSequentialCode, withSequentialCodeRetry } from "@/lib/sg-sst/next-sequential-code";
 import {
   createComplianceRecord,
   deleteComplianceRecord,
@@ -531,9 +531,10 @@ export async function createLeave(
   const previous = await sumWorkerAccumulatedDays(draft.workerId);
   const fields = normalizeDraftFields(draft, previous);
   const sql = getSql();
-  const folio = await nextLeaveFolio(sql);
 
-  const rows = await sql<{ id: string }[]>`
+  const rows = await withSequentialCodeRetry(async () => {
+    const folio = await nextLeaveFolio(sql);
+    return sql<{ id: string }[]>`
     INSERT INTO campus_sst.sst_incapacidades (
       folio, worker_id, company_snapshot, job_title_snapshot, farm_id,
       start_date, end_date, days_ordered, origin, is_extension, accumulated_days,
@@ -569,6 +570,7 @@ export async function createLeave(
     )
     RETURNING id
   `;
+  });
 
   const created = await selectLeaveById(rows[0].id);
   if (!created) throw new Error("No se pudo crear la incapacidad.");

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
-import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
+import { nextSequentialCode, withSequentialCodeRetry } from "@/lib/sg-sst/next-sequential-code";
 import {
   createComplianceRecord,
   deleteComplianceRecord,
@@ -346,11 +346,12 @@ export async function createOperator(
     throw new Error("Trabajador no encontrado en la base maestra.");
   }
   const sql = getSql();
-  const folio = await nextOperatorFolio(sql);
   const farmId = emptyToNull(draft.farmId) ?? worker.farmId;
   const auth = authFieldsFromDraft(draft);
 
-  const rows = await sql<{ id: string }[]>`
+  const rows = await withSequentialCodeRetry(async () => {
+    const folio = await nextOperatorFolio(sql);
+    return sql<{ id: string }[]>`
     INSERT INTO campus_sst.sst_machine_operators (
       folio, worker_id, farm_id,
       equipment_name, equipment_type,
@@ -386,6 +387,7 @@ export async function createOperator(
     )
     RETURNING id
   `;
+  });
   const created = await selectOperatorById(rows[0].id);
   if (!created) throw new Error("No se pudo crear el operador.");
   await syncComplianceRecord(created, userId);

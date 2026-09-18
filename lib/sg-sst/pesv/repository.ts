@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getSql } from "@/lib/db";
-import { nextSequentialCode } from "@/lib/sg-sst/next-sequential-code";
+import { nextSequentialCode, withSequentialCodeRetry } from "@/lib/sg-sst/next-sequential-code";
 import {
   createComplianceRecord,
   deleteComplianceRecord,
@@ -529,11 +529,12 @@ export async function createDriver(
     throw new Error("Trabajador no encontrado en la base maestra.");
   }
   const sql = getSql();
-  const folio = await nextDriverFolio(sql);
   const auth = resolveDriverAuthorization(draft);
   const { plateSnapshot, vehicleType } = await resolvePlateSnapshot(draft);
 
-  const rows = await sql<{ id: string }[]>`
+  const rows = await withSequentialCodeRetry(async () => {
+    const folio = await nextDriverFolio(sql);
+    return sql<{ id: string }[]>`
     INSERT INTO campus_sst.sst_pesv_drivers (
       folio, worker_id, vehicle_id, vehicle_type, plate_snapshot,
       license_category, license_due_date, road_safety_course_date,
@@ -562,6 +563,7 @@ export async function createDriver(
     )
     RETURNING id
   `;
+  });
   const created = await selectDriverById(rows[0].id);
   if (!created) throw new Error("No se pudo crear el conductor.");
   await syncDriverCompliance(created, userId);
@@ -678,8 +680,9 @@ export async function createPreop(
     throw new Error("Vehículo no encontrado.");
   }
   const sql = getSql();
-  const folio = await nextPreopFolio(sql);
-  const rows = await sql<{ id: string }[]>`
+  const rows = await withSequentialCodeRetry(async () => {
+    const folio = await nextPreopFolio(sql);
+    return sql<{ id: string }[]>`
     INSERT INTO campus_sst.sst_pesv_preops (
       folio, vehicle_id, inspection_date, category, finding, status,
       odometer_km, evidence_url, created_by
@@ -696,6 +699,7 @@ export async function createPreop(
     )
     RETURNING id
   `;
+  });
   if (
     draft.odometerKm != null &&
     draft.odometerKm > vehicle.odometerKm
