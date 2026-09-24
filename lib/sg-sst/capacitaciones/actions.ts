@@ -12,6 +12,7 @@ import {
   createTraining,
   deleteTraining,
   findTrainingByFolio,
+  getTraining,
   getTrainingStats,
   listTrainingViews,
   updateTraining,
@@ -30,9 +31,20 @@ import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 import {
   findWorkerByCode,
   findWorkerByDocumentNumber,
+  getWorker,
   listWorkers,
 } from "@/lib/sg-sst/workers/repository";
 import type { SstWorker } from "@/lib/sg-sst/workers/types";
+import {
+  auditEntityCreate,
+  auditEntityDelete,
+  auditEntityImport,
+  auditEntityUpdate,
+} from "@/lib/sg-sst/trazabilidad/helpers";
+import {
+  diffLabeledFields,
+  summarizeFieldChanges,
+} from "@/lib/sg-sst/trazabilidad/types";
 
 export type TrainingActionResult =
   | { ok: true; id: string }
@@ -70,9 +82,58 @@ export async function saveTrainingAction(
   const error = validateTrainingDraft(draft);
   if (error) return { ok: false, error };
   try {
-    const saved = draft.id
-      ? await updateTraining(draft.id, draft, admin.id)
-      : await createTraining(draft, admin.id);
+    const worker = await getWorker(draft.workerId);
+    const workerName = worker?.fullName ?? "trabajador";
+    if (draft.id) {
+      const previous = await getTraining(draft.id);
+      const saved = await updateTraining(draft.id, draft, admin.id);
+      const changes = previous
+        ? diffLabeledFields(
+            {
+              nextTrainingDate: previous.nextTrainingDate,
+              trainingDate: previous.trainingDate,
+              topic: previous.topic,
+              status: previous.status,
+            },
+            {
+              nextTrainingDate: draft.nextTrainingDate,
+              trainingDate: draft.trainingDate,
+              topic: draft.topic,
+              status: draft.status,
+            },
+            {
+              nextTrainingDate: "la fecha de vencimiento de la capacitación",
+              trainingDate: "la fecha de la capacitación",
+              topic: "el tema de capacitación",
+              status: "el estado de la capacitación",
+            },
+          )
+        : [];
+      await auditEntityUpdate({
+        actor: admin,
+        module: "capacitaciones",
+        entityType: "training",
+        entityId: saved.id,
+        workerId: saved.workerId,
+        subject: "la capacitación",
+        ofWhom: workerName,
+        focus: summarizeFieldChanges(changes),
+        details: { changes, folio: saved.folio },
+      });
+      revalidateTrainingPaths();
+      return { ok: true, id: saved.id };
+    }
+    const saved = await createTraining(draft, admin.id);
+    await auditEntityCreate({
+      actor: admin,
+      module: "capacitaciones",
+      entityType: "training",
+      entityId: saved.id,
+      workerId: saved.workerId,
+      subject: "la capacitación",
+      ofWhom: workerName,
+      details: { folio: saved.folio },
+    });
     revalidateTrainingPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -89,9 +150,22 @@ export async function saveTrainingAction(
 export async function deleteTrainingAction(
   id: string,
 ): Promise<TrainingSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
+    const existing = await getTraining(id);
     await deleteTraining(id);
+    if (existing) {
+      await auditEntityDelete({
+        actor: admin,
+        module: "capacitaciones",
+        entityType: "training",
+        entityId: existing.id,
+        workerId: existing.workerId,
+        subject: "la capacitación",
+        ofWhom: existing.workerName,
+        details: { folio: existing.folio },
+      });
+    }
     revalidateTrainingPaths();
     return { ok: true };
   } catch (caught) {
@@ -227,6 +301,16 @@ export async function bulkImportTrainingsAction(input: {
     }
 
     revalidateTrainingPaths();
+    await auditEntityImport({
+      actor: admin,
+      module: "capacitaciones",
+      entityType: "training",
+      subjectPlural: "capacitaciones",
+      created,
+      updated,
+      failed,
+      rows: input.rows.length,
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {

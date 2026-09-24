@@ -6,6 +6,8 @@ import { MaterialIcon } from "@/components/icons/MaterialIcon";
 import { WorkerSelect } from "@/components/sg-sst/workers/WorkerSelect";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { SstFarm } from "@/lib/sg-sst/alerts/types";
+import { useOptionalSgsstGlobalFilters } from "@/components/sg-sst/filters/SgsstGlobalFiltersContext";
+import { matchesGlobalFilters } from "@/lib/sg-sst/filters/global";
 import {
   bulkImportLeavesAction,
   deleteLeaveAction,
@@ -84,6 +86,7 @@ export function LeaveMasterScreen({
 }: Readonly<LeaveMasterScreenProps>) {
   const router = useRouter();
   const { showToast } = useToast();
+  const globalFilters = useOptionalSgsstGlobalFilters();
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
@@ -103,6 +106,21 @@ export function LeaveMasterScreen({
       if (statusFilter !== "all" && leave.status !== statusFilter) return false;
       if (originFilter !== "all" && leave.origin !== originFilter) return false;
       if (farmId !== "all" && leave.farmId !== farmId) return false;
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            company: leave.companySnapshot,
+            farmId: leave.farmId,
+            workerId: leave.workerId,
+            status: leave.workerStatus,
+            date: leave.startDate,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
       if (!q) return true;
       return (
         leave.workerName.toLowerCase().includes(q) ||
@@ -113,7 +131,7 @@ export function LeaveMasterScreen({
         leave.diagnosisLabel.toLowerCase().includes(q)
       );
     });
-  }, [leaves, statusFilter, originFilter, farmId, query]);
+  }, [leaves, statusFilter, originFilter, farmId, query, globalFilters]);
 
   const comunDays =
     stats.daysByOrigin.comun +

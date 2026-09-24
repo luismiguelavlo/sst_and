@@ -13,6 +13,7 @@ import {
   createAction,
   deleteAction,
   findActionByFolio,
+  getAction,
   getActionStats,
   listActionViews,
   updateAction,
@@ -24,6 +25,12 @@ import {
   type SstCorrectiveActionDraft,
   type SstCorrectiveActionView,
 } from "@/lib/sg-sst/acciones/types";
+import {
+  auditEntityCreate,
+  auditEntityDelete,
+  auditEntityImport,
+  auditEntityUpdate,
+} from "@/lib/sg-sst/trazabilidad/helpers";
 
 export type ActionActionResult =
   | { ok: true; id: string }
@@ -76,6 +83,25 @@ export async function saveActionAction(
     const saved = draft.id
       ? await updateAction(draft.id, draft, admin.id)
       : await createAction(draft, admin.id);
+    if (draft.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "acciones",
+        entityType: "corrective_action",
+        entityId: saved.id,
+        subject: `la acción correctiva ${saved.folio}`,
+        details: { folio: saved.folio },
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "acciones",
+        entityType: "corrective_action",
+        entityId: saved.id,
+        subject: `la acción correctiva ${saved.folio}`,
+        details: { folio: saved.folio },
+      });
+    }
     revalidateActionPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -92,9 +118,20 @@ export async function saveActionAction(
 export async function deleteActionAction(
   id: string,
 ): Promise<ActionSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
+    const existing = await getAction(id);
     await deleteAction(id);
+    if (existing) {
+      await auditEntityDelete({
+        actor: admin,
+        module: "acciones",
+        entityType: "corrective_action",
+        entityId: existing.id,
+        subject: `la acción correctiva ${existing.folio}`,
+        details: { folio: existing.folio },
+      });
+    }
     revalidateActionPaths();
     return { ok: true };
   } catch (caught) {
@@ -199,6 +236,16 @@ export async function bulkImportActionsAction(input: {
     }
 
     revalidateActionPaths();
+    await auditEntityImport({
+      actor: admin,
+      module: "acciones",
+      entityType: "corrective_action",
+      subjectPlural: "acciones correctivas",
+      created,
+      updated,
+      failed,
+      rows: input.rows.length,
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {

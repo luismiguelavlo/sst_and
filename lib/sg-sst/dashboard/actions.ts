@@ -12,6 +12,8 @@ import type { SstFarm } from "@/lib/sg-sst/alerts/types";
 import { getAccidentStats } from "@/lib/sg-sst/accidentes/repository";
 import { getActionStats } from "@/lib/sg-sst/acciones/repository";
 import { getHealthCaseStats } from "@/lib/sg-sst/casos-salud/repository";
+import { buildComplianceReport } from "@/lib/sg-sst/cumplimiento/repository";
+import type { SgsstComplianceReport } from "@/lib/sg-sst/cumplimiento/types";
 import { getEmoStats } from "@/lib/sg-sst/emos/repository";
 import { getLeaveStats } from "@/lib/sg-sst/incapacidades/repository";
 import { getRestrictionStats } from "@/lib/sg-sst/restricciones/repository";
@@ -35,6 +37,7 @@ export type SgsstHomeMetrics = {
   alertsProximos: number;
   alertsSeguimiento: number;
   farms: SstFarm[];
+  compliance: SgsstComplianceReport;
 };
 
 async function daysSinceLastAt(): Promise<number | null> {
@@ -65,6 +68,7 @@ export async function loadSgsstHomeMetrics(): Promise<SgsstHomeMetrics> {
     settings,
     records,
     daysWithoutAt,
+    compliance,
   ] = await Promise.all([
     getWorkerStats(),
     getAccidentStats(),
@@ -77,6 +81,7 @@ export async function loadSgsstHomeMetrics(): Promise<SgsstHomeMetrics> {
     getAlertSettings(),
     listComplianceRecords({ includeClosed: false }),
     daysSinceLastAt(),
+    buildComplianceReport(),
   ]);
 
   const alerts = records.map((record) => enrichRecordAsAlert(record, settings));
@@ -102,5 +107,6 @@ export async function loadSgsstHomeMetrics(): Promise<SgsstHomeMetrics> {
     alertsProximos: open.filter((a) => a.semaphore === "proximo").length,
     alertsSeguimiento: open.filter((a) => a.semaphore === "seguimiento").length,
     farms,
+    compliance,
   };
 }

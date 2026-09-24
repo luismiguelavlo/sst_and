@@ -20,6 +20,7 @@ const IMPLEMENTED_REDIRECTS: Record<string, string> = {
   "tractoristas-operadores": "/sg-sst/tractoristas-operadores",
   pesv: "/sg-sst/pesv",
   epp: "/sg-sst/epp",
+  quimicos: "/sg-sst/quimicos",
   inspecciones: "/sg-sst/inspecciones",
   "accidentes-e-incidentes": "/sg-sst/accidentes-e-incidentes",
   investigaciones: "/sg-sst/investigaciones",
@@ -31,6 +32,10 @@ const IMPLEMENTED_REDIRECTS: Record<string, string> = {
   emergencias: "/sg-sst/emergencias",
   "centros-de-trabajo": "/sg-sst/centros-de-trabajo",
   fincas: "/sg-sst/centros-de-trabajo",
+  "analisis-sst": "/sg-sst/analisis-sst",
+  "indicadores-sst": "/sg-sst/indicadores-sst",
+  configuracion: "/sg-sst/configuracion",
+  notificaciones: "/sg-sst/notificaciones",
 };
 
 export async function generateStaticParams() {
@@ -56,6 +61,6 @@ export default async function SgsstDynamicModulePage({ params }: PageProps) {
     redirect(target);
   }
 
-  // Químicos, Análisis SST, Configuración genérica, etc. — se habilitan al implementarlos.
+  // Configuración y módulos pendientes — se habilitan al implementarlos.
   notFound();
 }

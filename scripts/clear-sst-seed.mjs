@@ -37,6 +37,7 @@ const TABLES = [
   "sst_inspections",
   "sst_epp_deliveries",
   "sst_epp_catalog",
+  "sst_chemicals",
   "sst_pesv_preops",
   "sst_pesv_drivers",
   "sst_pesv_vehicles",

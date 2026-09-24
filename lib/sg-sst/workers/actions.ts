@@ -29,6 +29,13 @@ import {
   type WorkerStats,
   type WorkerStatus,
 } from "@/lib/sg-sst/workers/types";
+import { recordSstAudit } from "@/lib/sg-sst/trazabilidad/repository";
+import {
+  buildAuditSummary,
+  buildImportAuditSummary,
+  diffLabeledFields,
+  summarizeFieldChanges,
+} from "@/lib/sg-sst/trazabilidad/types";
 
 export type WorkerActionResult =
   | { ok: true; id: string }
@@ -135,9 +142,87 @@ export async function saveWorkerAction(draft: SstWorkerDraft): Promise<WorkerAct
     return { ok: false, error };
   }
   try {
-    const saved = draft.id
-      ? await updateWorker(draft.id, draft, admin.id)
-      : await createWorker(draft, admin.id);
+    if (draft.id) {
+      const previous = await getWorker(draft.id);
+      const saved = await updateWorker(draft.id, draft, admin.id);
+      const changes = previous
+        ? diffLabeledFields(
+            {
+              fullName: previous.fullName,
+              jobTitle: previous.jobTitle,
+              company: previous.company,
+              area: previous.area,
+              workCenter: previous.workCenter,
+              farmId: previous.farmId,
+              status: previous.status,
+              hireDate: previous.hireDate,
+              worksHeights: previous.worksHeights,
+              drives: previous.drives,
+              operatesTractor: previous.operatesTractor,
+            },
+            {
+              fullName: draft.fullName,
+              jobTitle: draft.jobTitle,
+              company: draft.company,
+              area: draft.area,
+              workCenter: draft.workCenter,
+              farmId: draft.farmId,
+              status: draft.status,
+              hireDate: draft.hireDate,
+              worksHeights: draft.worksHeights,
+              drives: draft.drives,
+              operatesTractor: draft.operatesTractor,
+            },
+            {
+              fullName: "el nombre",
+              jobTitle: "el cargo",
+              company: "la empresa",
+              area: "el área",
+              workCenter: "el centro de trabajo",
+              farmId: "la finca / centro",
+              status: "el estado laboral",
+              hireDate: "la fecha de ingreso",
+              worksHeights: "el perfil de alturas",
+              drives: "el perfil PESV",
+              operatesTractor: "el perfil de operador",
+            },
+          )
+        : [];
+      await recordSstAudit({
+        actor: admin,
+        action: "update",
+        module: "trabajadores",
+        entityType: "worker",
+        entityId: saved.id,
+        workerId: saved.id,
+        summary: buildAuditSummary({
+          actorName: admin.name,
+          verb: "actualizó",
+          subject: "la ficha laboral",
+          ofWhom: saved.fullName,
+          focus: summarizeFieldChanges(changes),
+        }),
+        details: { changes },
+      });
+      revalidateWorkerPaths(saved.id);
+      return { ok: true, id: saved.id };
+    }
+
+    const saved = await createWorker(draft, admin.id);
+    await recordSstAudit({
+      actor: admin,
+      action: "create",
+      module: "trabajadores",
+      entityType: "worker",
+      entityId: saved.id,
+      workerId: saved.id,
+      summary: buildAuditSummary({
+        actorName: admin.name,
+        verb: "creó",
+        subject: "al trabajador",
+        ofWhom: saved.fullName,
+      }),
+    });
     revalidateWorkerPaths(saved.id);
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -159,12 +244,33 @@ export async function retireWorkerAction(input: {
     return { ok: false, error: "La fecha de retiro es obligatoria." };
   }
   try {
+    const previous = await getWorker(input.id);
     await retireWorker(
       input.id,
       input.retirementDate,
       input.retirementReason,
       admin.id,
     );
+    await recordSstAudit({
+      actor: admin,
+      action: "retire",
+      module: "trabajadores",
+      entityType: "worker",
+      entityId: input.id,
+      workerId: input.id,
+      summary: buildAuditSummary({
+        actorName: admin.name,
+        verb: "retiró",
+        subject: "al trabajador",
+        ofWhom: previous?.fullName ?? input.id,
+      }),
+      details: {
+        extra: {
+          retirementDate: input.retirementDate,
+          retirementReason: input.retirementReason,
+        },
+      },
+    });
     revalidateWorkerPaths(input.id);
     return { ok: true };
   } catch (caught) {
@@ -296,6 +402,22 @@ export async function bulkImportWorkersAction(input: {
     }
 
     revalidateWorkerPaths();
+    await recordSstAudit({
+      actor: admin,
+      action: "import",
+      module: "trabajadores",
+      entityType: "worker",
+      summary: buildImportAuditSummary({
+        actorName: admin.name,
+        subjectPlural: "trabajadores",
+        created,
+        updated,
+        failed,
+      }),
+      details: {
+        extra: { created, updated, failed, rows: input.rows.length },
+      },
+    });
     // Respuesta liviana: solo errores (evita payloads enormes en Server Actions).
     return {
       ok: true,

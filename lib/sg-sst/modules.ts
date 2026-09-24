@@ -107,12 +107,20 @@ export const SGSST_MODULES = {
   },
   "analisis-sst": {
     title: "Análisis SST",
-    description: "Indicadores, tendencias y análisis gerencial del SG-SST.",
+    description:
+      "Rankings ejecutivos de accidentalidad, ausentismo, EPP, capacitaciones e inspecciones.",
     icon: "analytics",
+  },
+  "indicadores-sst": {
+    title: "Indicadores SST",
+    description:
+      "Índices de frecuencia, severidad, ausentismo, HHT y cumplimientos del SG-SST.",
+    icon: "monitoring",
   },
   configuracion: {
     title: "Configuración",
-    description: "Parámetros del sistema operativo, sedes, centros y catálogos.",
+    description:
+      "Umbrales del semáforo de cumplimiento SG-SST y parámetros del sistema.",
     icon: "settings",
   },
   "centros-de-trabajo": {

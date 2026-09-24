@@ -13,6 +13,7 @@ import {
   createInspection,
   deleteInspection,
   findInspectionByFolio,
+  getInspection,
   getInspectionStats,
   listInspectionViews,
   listThisWeekInspections,
@@ -29,6 +30,12 @@ import {
   type WeekRange,
 } from "@/lib/sg-sst/inspecciones/types";
 import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
+import {
+  auditEntityCreate,
+  auditEntityDelete,
+  auditEntityImport,
+  auditEntityUpdate,
+} from "@/lib/sg-sst/trazabilidad/helpers";
 
 export type InspectionActionResult =
   | { ok: true; id: string }
@@ -90,6 +97,25 @@ export async function saveInspectionAction(
     const saved = draft.id
       ? await updateInspection(draft.id, draft, admin.id)
       : await createInspection(draft, admin.id);
+    if (draft.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "inspecciones",
+        entityType: "inspection",
+        entityId: saved.id,
+        subject: `la inspección ${saved.folio}`,
+        details: { folio: saved.folio },
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "inspecciones",
+        entityType: "inspection",
+        entityId: saved.id,
+        subject: `la inspección ${saved.folio}`,
+        details: { folio: saved.folio },
+      });
+    }
     revalidateInspectionPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -106,9 +132,20 @@ export async function saveInspectionAction(
 export async function deleteInspectionAction(
   id: string,
 ): Promise<InspectionSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
+    const existing = await getInspection(id);
     await deleteInspection(id);
+    if (existing) {
+      await auditEntityDelete({
+        actor: admin,
+        module: "inspecciones",
+        entityType: "inspection",
+        entityId: existing.id,
+        subject: `la inspección ${existing.folio}`,
+        details: { folio: existing.folio },
+      });
+    }
     revalidateInspectionPaths();
     return { ok: true };
   } catch (caught) {
@@ -228,6 +265,16 @@ export async function bulkImportInspectionsAction(input: {
     }
 
     revalidateInspectionPaths();
+    await auditEntityImport({
+      actor: admin,
+      module: "inspecciones",
+      entityType: "inspection",
+      subjectPlural: "inspecciones",
+      created,
+      updated,
+      failed,
+      rows: input.rows.length,
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {

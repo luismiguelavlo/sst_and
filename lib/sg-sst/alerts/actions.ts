@@ -41,6 +41,8 @@ import {
   updateWorkflowStatus,
 } from "@/lib/sg-sst/alerts/repository";
 import { findWorkerByDocumentNumber, listWorkers } from "@/lib/sg-sst/workers/repository";
+import { auditCustom, auditEntityCreate, auditEntityDelete, auditEntityUpdate } from "@/lib/sg-sst/trazabilidad/helpers";
+import { buildAuditSummary } from "@/lib/sg-sst/trazabilidad/types";
 
 export type SstActionResult =
   | { ok: true; id: string }
@@ -132,6 +134,25 @@ export async function saveComplianceRecordAction(
     const saved = draft.id
       ? await updateComplianceRecord(draft.id, draft, admin.id)
       : await createComplianceRecord(draft, admin.id);
+    if (draft.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "alertas",
+        entityType: "compliance_record",
+        entityId: saved.id,
+        subject: `el registro de alerta ${saved.folio}`,
+        details: { folio: saved.folio },
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "alertas",
+        entityType: "compliance_record",
+        entityId: saved.id,
+        subject: `el registro de alerta ${saved.folio}`,
+        details: { folio: saved.folio },
+      });
+    }
     revalidateSstPaths(saved.modulePath, saved.id);
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -304,10 +325,20 @@ export async function bulkImportComplianceRecordsAction(input: {
 }
 
 export async function deleteComplianceRecordAction(id: string): Promise<SstSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
     const current = await getComplianceRecord(id);
     await deleteComplianceRecord(id);
+    if (current) {
+      await auditEntityDelete({
+        actor: admin,
+        module: "alertas",
+        entityType: "compliance_record",
+        entityId: current.id,
+        subject: `el registro de alerta ${current.folio}`,
+        details: { folio: current.folio },
+      });
+    }
     revalidateSstPaths(current?.modulePath, id);
     return { ok: true };
   } catch (caught) {
@@ -328,6 +359,19 @@ export async function closeAlertAction(
   }
   try {
     const updated = await closeComplianceRecord(id, closeNotes, admin.id);
+    await auditCustom({
+      actor: admin,
+      action: "close",
+      module: "alertas",
+      entityType: "compliance_record",
+      entityId: updated.id,
+      summary: buildAuditSummary({
+        actorName: admin.name,
+        verb: "cerró",
+        subject: `la alerta ${updated.folio}`,
+      }),
+      details: { folio: updated.folio, extra: { closeNotes } },
+    });
     revalidateSstPaths(updated.modulePath, id);
     return { ok: true };
   } catch (caught) {
@@ -349,6 +393,26 @@ export async function extendAlertAction(
   }
   try {
     const updated = await extendComplianceRecord(id, newDueDate, message, admin.id);
+    await auditEntityUpdate({
+      actor: admin,
+      module: "alertas",
+      entityType: "compliance_record",
+      entityId: updated.id,
+      subject: `la alerta ${updated.folio}`,
+      focus: "la fecha de vencimiento",
+      details: {
+        folio: updated.folio,
+        changes: [
+          {
+            field: "dueDate",
+            label: "la fecha de vencimiento",
+            from: "—",
+            to: newDueDate,
+          },
+        ],
+        extra: { message },
+      },
+    });
     revalidateSstPaths(updated.modulePath, id);
     return { ok: true };
   } catch (caught) {
@@ -405,6 +469,17 @@ export async function saveAlertThresholdsAction(
   }
   try {
     await saveAlertSettings(draft, admin.id);
+    await auditCustom({
+      actor: admin,
+      action: "config",
+      module: "alertas",
+      entityType: "alert_settings",
+      summary: buildAuditSummary({
+        actorName: admin.name,
+        verb: "actualizó",
+        subject: "la configuración de umbrales de alertas SST",
+      }),
+    });
     revalidateSstPaths();
     return { ok: true };
   } catch (caught) {

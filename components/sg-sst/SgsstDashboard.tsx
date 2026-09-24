@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
+import { ComplianceDashboardSection } from "@/components/sg-sst/dashboard/ComplianceDashboardSection";
 import type { SgsstHomeMetrics } from "@/lib/sg-sst/dashboard/actions";
 import { SGSST_BASE, SGSST_NAV } from "@/lib/sg-sst/nav";
 
@@ -15,6 +16,7 @@ export function SgsstDashboard({ metrics }: Readonly<SgsstDashboardProps>) {
       <NormativeBanner farmCount={metrics.farms.length} />
       <PageHeader />
       <KpiGrid metrics={metrics} />
+      <ComplianceDashboardSection report={metrics.compliance} />
       <AlertSummary metrics={metrics} />
       <ModuleDirectory />
     </div>

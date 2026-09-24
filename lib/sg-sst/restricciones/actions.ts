@@ -12,6 +12,7 @@ import {
   createRestriction,
   deleteRestriction,
   findRestrictionByFolio,
+  getRestriction,
   getRestrictionStats,
   listRestrictionViews,
   updateRestriction,
@@ -28,9 +29,16 @@ import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 import {
   findWorkerByCode,
   findWorkerByDocumentNumber,
+  getWorker,
   listWorkers,
 } from "@/lib/sg-sst/workers/repository";
 import type { SstWorker } from "@/lib/sg-sst/workers/types";
+import {
+  auditEntityCreate,
+  auditEntityDelete,
+  auditEntityImport,
+  auditEntityUpdate,
+} from "@/lib/sg-sst/trazabilidad/helpers";
 
 export type RestrictionActionResult =
   | { ok: true; id: string }
@@ -68,9 +76,34 @@ export async function saveRestrictionAction(
   const error = validateRestrictionDraft(draft);
   if (error) return { ok: false, error };
   try {
+    const worker = await getWorker(draft.workerId);
+    const workerName = worker?.fullName ?? "trabajador";
     const saved = draft.id
       ? await updateRestriction(draft.id, draft, admin.id)
       : await createRestriction(draft, admin.id);
+    if (draft.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "restricciones",
+        entityType: "restriction",
+        entityId: saved.id,
+        workerId: saved.workerId,
+        subject: "la restricción / recomendación",
+        ofWhom: workerName,
+        details: { folio: saved.folio },
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "restricciones",
+        entityType: "restriction",
+        entityId: saved.id,
+        workerId: saved.workerId,
+        subject: "la restricción / recomendación",
+        ofWhom: workerName,
+        details: { folio: saved.folio },
+      });
+    }
     revalidateRestrictionPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -87,9 +120,22 @@ export async function saveRestrictionAction(
 export async function deleteRestrictionAction(
   id: string,
 ): Promise<RestrictionSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
+    const existing = await getRestriction(id);
     await deleteRestriction(id);
+    if (existing) {
+      await auditEntityDelete({
+        actor: admin,
+        module: "restricciones",
+        entityType: "restriction",
+        entityId: existing.id,
+        workerId: existing.workerId,
+        subject: "la restricción / recomendación",
+        ofWhom: existing.workerName,
+        details: { folio: existing.folio },
+      });
+    }
     revalidateRestrictionPaths();
     return { ok: true };
   } catch (caught) {
@@ -221,6 +267,16 @@ export async function bulkImportRestrictionsAction(input: {
     }
 
     revalidateRestrictionPaths();
+    await auditEntityImport({
+      actor: admin,
+      module: "restricciones",
+      entityType: "restriction",
+      subjectPlural: "restricciones / recomendaciones",
+      created,
+      updated,
+      failed,
+      rows: input.rows.length,
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {

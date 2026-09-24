@@ -7,6 +7,8 @@ import { SemaphoreBadge } from "@/components/sg-sst/alerts/SemaphoreBadge";
 import { WorkerSelect } from "@/components/sg-sst/workers/WorkerSelect";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { SstFarm } from "@/lib/sg-sst/alerts/types";
+import { useOptionalSgsstGlobalFilters } from "@/components/sg-sst/filters/SgsstGlobalFiltersContext";
+import { matchesGlobalFilters } from "@/lib/sg-sst/filters/global";
 import {
   bulkImportRestrictionsAction,
   deleteRestrictionAction,
@@ -65,6 +67,7 @@ export function RestrictionsMasterScreen({
 }: Readonly<RestrictionsMasterScreenProps>) {
   const router = useRouter();
   const { showToast } = useToast();
+  const globalFilters = useOptionalSgsstGlobalFilters();
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
@@ -81,6 +84,21 @@ export function RestrictionsMasterScreen({
       if (statusFilter !== "all" && item.effectiveStatus !== statusFilter) return false;
       if (kindFilter !== "all" && item.restrictionKind !== kindFilter) return false;
       if (farmId !== "all" && item.farmId !== farmId) return false;
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            company: item.companySnapshot,
+            farmId: item.farmId,
+            workerId: item.workerId,
+            status: item.workerStatus,
+            date: item.startDate,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
       if (!q) return true;
       return (
         item.workerName.toLowerCase().includes(q) ||
@@ -92,7 +110,7 @@ export function RestrictionsMasterScreen({
         item.jobTitleSnapshot.toLowerCase().includes(q)
       );
     });
-  }, [restrictions, statusFilter, kindFilter, farmId, query]);
+  }, [restrictions, statusFilter, kindFilter, farmId, query, globalFilters]);
 
   function handleExport() {
     downloadRestrictionsExcel(

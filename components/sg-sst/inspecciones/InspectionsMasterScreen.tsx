@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { SstFarm } from "@/lib/sg-sst/alerts/types";
+import { useOptionalSgsstGlobalFilters } from "@/components/sg-sst/filters/SgsstGlobalFiltersContext";
+import { matchesGlobalFilters } from "@/lib/sg-sst/filters/global";
 import {
   bulkImportInspectionsAction,
   deleteInspectionAction,
@@ -74,6 +76,7 @@ export function InspectionsMasterScreen({
 }: Readonly<InspectionsMasterScreenProps>) {
   const router = useRouter();
   const { showToast } = useToast();
+  const globalFilters = useOptionalSgsstGlobalFilters();
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
@@ -96,6 +99,19 @@ export function InspectionsMasterScreen({
       if (statusFilter !== "all" && item.effectiveStatus !== statusFilter) return false;
       if (typeFilter !== "all" && item.inspectionType !== typeFilter) return false;
       if (farmId !== "all" && item.farmId !== farmId) return false;
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            farmId: item.farmId,
+            workCenter: item.workCenter,
+            date: item.scheduledDate,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
       if (!q) return true;
       return (
         item.folio.toLowerCase().includes(q) ||
@@ -106,7 +122,7 @@ export function InspectionsMasterScreen({
         INSPECTION_TYPE_LABELS[item.inspectionType].toLowerCase().includes(q)
       );
     });
-  }, [inspections, statusFilter, typeFilter, farmId, query]);
+  }, [inspections, statusFilter, typeFilter, farmId, query, globalFilters]);
 
   const monthProgress =
     stats.scheduledThisMonth > 0

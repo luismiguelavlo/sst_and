@@ -13,6 +13,8 @@ import { SemaphoreBadge } from "@/components/sg-sst/alerts/SemaphoreBadge";
 import { WorkerSelect } from "@/components/sg-sst/workers/WorkerSelect";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { SstFarm, SstSemaphoreLevel } from "@/lib/sg-sst/alerts/types";
+import { useOptionalSgsstGlobalFilters } from "@/components/sg-sst/filters/SgsstGlobalFiltersContext";
+import { matchesGlobalFilters } from "@/lib/sg-sst/filters/global";
 import {
   bulkImportEppDeliveriesAction,
   deleteEppCatalogAction,
@@ -81,6 +83,7 @@ export function EppMasterScreen({
 }: Readonly<EppMasterScreenProps>) {
   const router = useRouter();
   const { showToast } = useToast();
+  const globalFilters = useOptionalSgsstGlobalFilters();
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [tab, setTab] = useState<TabId>("entregas");
@@ -110,6 +113,21 @@ export function EppMasterScreen({
       if (category !== "all" && item.catalogCategory !== category) return false;
       if (reason !== "all" && item.reason !== reason) return false;
       if (farmId !== "all" && item.farmId !== farmId) return false;
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            company: item.companySnapshot,
+            farmId: item.farmId,
+            workerId: item.workerId,
+            status: item.workerStatus,
+            date: item.deliveryDate,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
       if (!q) return true;
       return (
         item.workerName.toLowerCase().includes(q) ||
@@ -121,7 +139,7 @@ export function EppMasterScreen({
         item.responsibleName.toLowerCase().includes(q)
       );
     });
-  }, [deliveries, semaphore, category, reason, farmId, query]);
+  }, [deliveries, semaphore, category, reason, farmId, query, globalFilters]);
 
   const filteredCatalog = useMemo(() => {
     const q = query.trim().toLowerCase();

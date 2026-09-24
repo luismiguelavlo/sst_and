@@ -12,6 +12,7 @@ import {
   createHeightsAuthorization,
   deleteHeightsAuthorization,
   findHeightsByFolio,
+  getHeightsAuthorization,
   getHeightsStats,
   listHeightsViews,
   updateHeightsAuthorization,
@@ -26,9 +27,17 @@ import {
 import {
   findWorkerByCode,
   findWorkerByDocumentNumber,
+  getWorker,
   listWorkers,
 } from "@/lib/sg-sst/workers/repository";
 import type { SstWorker } from "@/lib/sg-sst/workers/types";
+import { recordSstAudit } from "@/lib/sg-sst/trazabilidad/repository";
+import {
+  buildAuditSummary,
+  buildImportAuditSummary,
+  diffLabeledFields,
+  summarizeFieldChanges,
+} from "@/lib/sg-sst/trazabilidad/types";
 
 export type HeightsActionResult =
   | { ok: true; id: string }
@@ -66,9 +75,83 @@ export async function saveHeightsAction(
   const error = validateHeightsDraft(draft);
   if (error) return { ok: false, error };
   try {
-    const saved = draft.id
-      ? await updateHeightsAuthorization(draft.id, draft, admin.id)
-      : await createHeightsAuthorization(draft, admin.id);
+    const worker = await getWorker(draft.workerId);
+    const workerName = worker?.fullName ?? "trabajador";
+
+    if (draft.id) {
+      const previous = await getHeightsAuthorization(draft.id);
+      const saved = await updateHeightsAuthorization(draft.id, draft, admin.id);
+      const changes = previous
+        ? diffLabeledFields(
+            {
+              trainingDueDate: previous.trainingDueDate,
+              medicalExamDueDate: previous.medicalExamDueDate,
+              trainingDate: previous.trainingDate,
+              medicalExamDate: previous.medicalExamDate,
+              fitnessConcept: previous.fitnessConcept,
+              trainingLevel: previous.trainingLevel,
+              observations: previous.observations,
+              certificateName: previous.certificateName,
+            },
+            {
+              trainingDueDate: draft.trainingDueDate,
+              medicalExamDueDate: draft.medicalExamDueDate,
+              trainingDate: draft.trainingDate,
+              medicalExamDate: draft.medicalExamDate,
+              fitnessConcept: draft.fitnessConcept,
+              trainingLevel: draft.trainingLevel,
+              observations: draft.observations,
+              certificateName: draft.certificateName,
+            },
+            {
+              trainingDueDate: "la fecha de vencimiento del curso de alturas",
+              medicalExamDueDate: "la fecha de vencimiento del examen médico de alturas",
+              trainingDate: "la fecha de formación en alturas",
+              medicalExamDate: "la fecha del examen médico de alturas",
+              fitnessConcept: "el concepto de aptitud",
+              trainingLevel: "el nivel de formación",
+              observations: "las observaciones",
+              certificateName: "el certificado",
+            },
+          )
+        : [];
+      const focus = summarizeFieldChanges(changes);
+      await recordSstAudit({
+        actor: admin,
+        action: "update",
+        module: "alturas",
+        entityType: "heights_authorization",
+        entityId: saved.id,
+        workerId: saved.workerId,
+        summary: buildAuditSummary({
+          actorName: admin.name,
+          verb: "actualizó",
+          subject: "la autorización de trabajo en alturas",
+          ofWhom: workerName,
+          focus,
+        }),
+        details: { changes, folio: saved.folio },
+      });
+      revalidateHeightsPaths();
+      return { ok: true, id: saved.id };
+    }
+
+    const saved = await createHeightsAuthorization(draft, admin.id);
+    await recordSstAudit({
+      actor: admin,
+      action: "create",
+      module: "alturas",
+      entityType: "heights_authorization",
+      entityId: saved.id,
+      workerId: saved.workerId,
+      summary: buildAuditSummary({
+        actorName: admin.name,
+        verb: "creó",
+        subject: "la autorización de trabajo en alturas",
+        ofWhom: workerName,
+      }),
+      details: { folio: saved.folio },
+    });
     revalidateHeightsPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -85,9 +168,27 @@ export async function saveHeightsAction(
 export async function deleteHeightsAction(
   id: string,
 ): Promise<HeightsSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
+    const existing = await getHeightsAuthorization(id);
     await deleteHeightsAuthorization(id);
+    if (existing) {
+      await recordSstAudit({
+        actor: admin,
+        action: "delete",
+        module: "alturas",
+        entityType: "heights_authorization",
+        entityId: existing.id,
+        workerId: existing.workerId,
+        summary: buildAuditSummary({
+          actorName: admin.name,
+          verb: "eliminó",
+          subject: "la autorización de trabajo en alturas",
+          ofWhom: existing.workerName,
+        }),
+        details: { folio: existing.folio },
+      });
+    }
     revalidateHeightsPaths();
     return { ok: true };
   } catch (caught) {
@@ -208,6 +309,22 @@ export async function bulkImportHeightsAction(input: {
     }
 
     revalidateHeightsPaths();
+    await recordSstAudit({
+      actor: admin,
+      action: "import",
+      module: "alturas",
+      entityType: "heights_authorization",
+      summary: buildImportAuditSummary({
+        actorName: admin.name,
+        subjectPlural: "autorizaciones de trabajo en alturas",
+        created,
+        updated,
+        failed,
+      }),
+      details: {
+        extra: { created, updated, failed, rows: input.rows.length },
+      },
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {

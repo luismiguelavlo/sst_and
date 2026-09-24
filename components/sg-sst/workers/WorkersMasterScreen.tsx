@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { SstFarm } from "@/lib/sg-sst/alerts/types";
+import { useOptionalSgsstGlobalFilters } from "@/components/sg-sst/filters/SgsstGlobalFiltersContext";
+import { matchesGlobalFilters } from "@/lib/sg-sst/filters/global";
 import {
   formatChunkImportToast,
   runChunkedBulkImport,
@@ -37,6 +39,7 @@ export function WorkersMasterScreen({
 }: Readonly<WorkersMasterScreenProps>) {
   const router = useRouter();
   const { showToast } = useToast();
+  const globalFilters = useOptionalSgsstGlobalFilters();
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
@@ -50,6 +53,23 @@ export function WorkersMasterScreen({
     return workers.filter((worker) => {
       if (statusFilter !== "all" && worker.status !== statusFilter) return false;
       if (farmId !== "all" && worker.farmId !== farmId) return false;
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            company: worker.company,
+            farmId: worker.farmId,
+            workCenter: worker.workCenter,
+            area: worker.area,
+            workerId: worker.id,
+            status: worker.status,
+            // Sin fecha: año/mes no aplican al censo laboral.
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
       if (!q) return true;
       return (
         worker.fullName.toLowerCase().includes(q) ||
@@ -59,7 +79,7 @@ export function WorkersMasterScreen({
         (worker.farmName ?? "").toLowerCase().includes(q)
       );
     });
-  }, [workers, statusFilter, farmId, query]);
+  }, [workers, statusFilter, farmId, query, globalFilters]);
 
   function handleExport() {
     downloadWorkersExcel(
@@ -369,13 +389,22 @@ export function WorkersMasterScreen({
                     )}
                   </td>
                   <td className="px-md py-sm text-right">
-                    <Link
-                      href={`${SGSST_BASE}/trabajadores/${worker.id}`}
-                      className="inline-flex rounded-lg bg-primary p-1.5 text-on-primary"
-                      title="Abrir ficha"
-                    >
-                      <MaterialIcon name="open_in_new" className="text-[18px]" />
-                    </Link>
+                    <div className="inline-flex gap-1">
+                      <Link
+                        href={`${SGSST_BASE}/trabajadores/${worker.id}/ficha`}
+                        className="inline-flex rounded-lg bg-primary p-1.5 text-on-primary"
+                        title="Ficha SST"
+                      >
+                        <MaterialIcon name="folder_shared" className="text-[18px]" />
+                      </Link>
+                      <Link
+                        href={`${SGSST_BASE}/trabajadores/${worker.id}`}
+                        className="inline-flex rounded-lg bg-surface-container p-1.5 text-on-surface"
+                        title="Editar"
+                      >
+                        <MaterialIcon name="edit" className="text-[18px]" />
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}

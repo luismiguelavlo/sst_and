@@ -33,9 +33,16 @@ import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 import {
   findWorkerByCode,
   findWorkerByDocumentNumber,
+  getWorker,
   listWorkers,
 } from "@/lib/sg-sst/workers/repository";
 import type { SstWorker } from "@/lib/sg-sst/workers/types";
+import {
+  auditEntityCreate,
+  auditEntityDelete,
+  auditEntityImport,
+  auditEntityUpdate,
+} from "@/lib/sg-sst/trazabilidad/helpers";
 
 export type LeaveActionResult =
   | { ok: true; id: string }
@@ -73,9 +80,34 @@ export async function saveLeaveAction(draft: SstLeaveDraft): Promise<LeaveAction
   const error = validateLeaveDraft(draft);
   if (error) return { ok: false, error };
   try {
+    const worker = await getWorker(draft.workerId);
+    const workerName = worker?.fullName ?? "trabajador";
     const saved = draft.id
       ? await updateLeave(draft.id, draft, admin.id)
       : await createLeave(draft, admin.id);
+    if (draft.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "incapacidades",
+        entityType: "leave",
+        entityId: saved.id,
+        workerId: saved.workerId,
+        subject: "la incapacidad",
+        ofWhom: workerName,
+        details: { folio: saved.folio },
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "incapacidades",
+        entityType: "leave",
+        entityId: saved.id,
+        workerId: saved.workerId,
+        subject: "la incapacidad",
+        ofWhom: workerName,
+        details: { folio: saved.folio },
+      });
+    }
     revalidateLeavePaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -88,9 +120,22 @@ export async function saveLeaveAction(draft: SstLeaveDraft): Promise<LeaveAction
 }
 
 export async function deleteLeaveAction(id: string): Promise<LeaveSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
+    const existing = await getLeave(id);
     await deleteLeave(id);
+    if (existing) {
+      await auditEntityDelete({
+        actor: admin,
+        module: "incapacidades",
+        entityType: "leave",
+        entityId: existing.id,
+        workerId: existing.workerId,
+        subject: "la incapacidad",
+        ofWhom: existing.workerName,
+        details: { folio: existing.folio },
+      });
+    }
     revalidateLeavePaths();
     return { ok: true };
   } catch (caught) {
@@ -233,6 +278,16 @@ export async function bulkImportLeavesAction(input: {
     }
 
     revalidateLeavePaths();
+    await auditEntityImport({
+      actor: admin,
+      module: "incapacidades",
+      entityType: "leave",
+      subjectPlural: "incapacidades",
+      created,
+      updated,
+      failed,
+      rows: input.rows.length,
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {

@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { SstFarm } from "@/lib/sg-sst/alerts/types";
+import { useOptionalSgsstGlobalFilters } from "@/components/sg-sst/filters/SgsstGlobalFiltersContext";
+import { matchesGlobalFilters } from "@/lib/sg-sst/filters/global";
 import {
   bulkImportActionsAction,
   deleteActionAction,
@@ -65,6 +67,7 @@ export function ActionsMasterScreen({
 }: Readonly<ActionsMasterScreenProps>) {
   const router = useRouter();
   const { showToast } = useToast();
+  const globalFilters = useOptionalSgsstGlobalFilters();
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
@@ -87,6 +90,18 @@ export function ActionsMasterScreen({
         return false;
       }
       if (farmId !== "all" && item.farmId !== farmId) return false;
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            farmId: item.farmId,
+            date: item.commitDate,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
       if (!q) return true;
       return (
         item.folio.toLowerCase().includes(q) ||
@@ -98,7 +113,7 @@ export function ActionsMasterScreen({
         (item.farmName ?? "").toLowerCase().includes(q)
       );
     });
-  }, [actions, statusFilter, sourceFilter, efficacyFilter, farmId, query]);
+  }, [actions, statusFilter, sourceFilter, efficacyFilter, farmId, query, globalFilters]);
 
   function handleExport() {
     downloadActionsExcel(

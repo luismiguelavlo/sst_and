@@ -6,6 +6,8 @@ import { MaterialIcon } from "@/components/icons/MaterialIcon";
 import { WorkerSelect } from "@/components/sg-sst/workers/WorkerSelect";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { SstFarm } from "@/lib/sg-sst/alerts/types";
+import { useOptionalSgsstGlobalFilters } from "@/components/sg-sst/filters/SgsstGlobalFiltersContext";
+import { matchesGlobalFilters } from "@/lib/sg-sst/filters/global";
 import {
   bulkImportAccidentsAction,
   deleteAccidentAction,
@@ -101,6 +103,7 @@ export function AccidentsMasterScreen({
 }: Readonly<AccidentsMasterScreenProps>) {
   const router = useRouter();
   const { showToast } = useToast();
+  const globalFilters = useOptionalSgsstGlobalFilters();
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [tab, setTab] = useState<MainTab>("eventos");
@@ -122,6 +125,22 @@ export function AccidentsMasterScreen({
       if (typeFilter !== "all" && item.eventType !== typeFilter) return false;
       if (statusFilter !== "all" && item.status !== statusFilter) return false;
       if (farmId !== "all" && item.farmId !== farmId) return false;
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            company: item.companySnapshot,
+            farmId: item.farmId,
+            workCenter: item.workCenterSnapshot,
+            area: item.areaSnapshot,
+            workerId: item.workerId,
+            date: item.eventDate,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
       if (!q) return true;
       return (
         item.eventNumber.toLowerCase().includes(q) ||
@@ -134,7 +153,7 @@ export function AccidentsMasterScreen({
         ACCIDENT_EVENT_TYPE_LABELS[item.eventType].toLowerCase().includes(q)
       );
     });
-  }, [events, typeFilter, statusFilter, farmId, query]);
+  }, [events, typeFilter, statusFilter, farmId, query, globalFilters]);
 
   const selected = useMemo(
     () => events.find((item) => item.id === selectedId) ?? null,

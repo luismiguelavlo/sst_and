@@ -21,6 +21,10 @@
     "db:migrate-sst-capa-docs": "node --env-file=.env.local scripts/migrate-sst-capa-docs.mjs",
     "db:migrate-sst-comites-emergencias": "node --env-file=.env.local scripts/migrate-sst-comites-emergencias.mjs",
     "db:migrate-sst-fincas": "node --env-file=.env.local scripts/migrate-sst-fincas.mjs",
+    "db:migrate-sst-quimicos": "node --env-file=.env.local scripts/migrate-sst-quimicos.mjs",
+    "db:migrate-sst-compliance-settings": "node --env-file=.env.local scripts/migrate-sst-compliance-settings.mjs",
+    "db:migrate-sst-alert-notification-reads": "node --env-file=.env.local scripts/migrate-sst-alert-notification-reads.mjs",
+    "db:migrate-sst-audit-events": "node --env-file=.env.local scripts/migrate-sst-audit-events.mjs",
     "db:clear-sst-seed": "node --env-file=.env.local scripts/clear-sst-seed.mjs"
   },
   "dependencies": {

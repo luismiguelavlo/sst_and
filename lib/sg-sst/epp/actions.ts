@@ -17,6 +17,7 @@ import {
   findCatalogByCode,
   findCatalogByName,
   findDeliveryByFolio,
+  getDelivery,
   getEppStats,
   listCatalog,
   listDeliveryViews,
@@ -36,9 +37,16 @@ import {
 import {
   findWorkerByCode,
   findWorkerByDocumentNumber,
+  getWorker,
   listWorkers,
 } from "@/lib/sg-sst/workers/repository";
 import type { SstWorker } from "@/lib/sg-sst/workers/types";
+import {
+  auditEntityCreate,
+  auditEntityDelete,
+  auditEntityImport,
+  auditEntityUpdate,
+} from "@/lib/sg-sst/trazabilidad/helpers";
 
 export type EppActionResult =
   | { ok: true; id: string }
@@ -79,9 +87,34 @@ export async function saveEppDeliveryAction(
   const error = validateDeliveryDraft(draft);
   if (error) return { ok: false, error };
   try {
+    const worker = await getWorker(draft.workerId);
+    const workerName = worker?.fullName ?? "trabajador";
     const saved = draft.id
       ? await updateDelivery(draft.id, draft, admin.id)
       : await createDelivery(draft, admin.id);
+    if (draft.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "epp",
+        entityType: "epp_delivery",
+        entityId: saved.id,
+        workerId: saved.workerId,
+        subject: "la entrega de EPP",
+        ofWhom: workerName,
+        details: { folio: saved.folio },
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "epp",
+        entityType: "epp_delivery",
+        entityId: saved.id,
+        workerId: saved.workerId,
+        subject: "la entrega de EPP",
+        ofWhom: workerName,
+        details: { folio: saved.folio },
+      });
+    }
     revalidateEppPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -98,9 +131,22 @@ export async function saveEppDeliveryAction(
 export async function deleteEppDeliveryAction(
   id: string,
 ): Promise<EppSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
+    const existing = await getDelivery(id);
     await deleteDelivery(id);
+    if (existing) {
+      await auditEntityDelete({
+        actor: admin,
+        module: "epp",
+        entityType: "epp_delivery",
+        entityId: existing.id,
+        workerId: existing.workerId,
+        subject: "la entrega de EPP",
+        ofWhom: existing.workerName,
+        details: { folio: existing.folio },
+      });
+    }
     revalidateEppPaths();
     return { ok: true };
   } catch (caught) {
@@ -283,6 +329,16 @@ export async function bulkImportEppDeliveriesAction(input: {
     }
 
     revalidateEppPaths();
+    await auditEntityImport({
+      actor: admin,
+      module: "epp",
+      entityType: "epp_delivery",
+      subjectPlural: "entregas de EPP",
+      created,
+      updated,
+      failed,
+      rows: input.rows.length,
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {

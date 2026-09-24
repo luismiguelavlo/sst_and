@@ -109,7 +109,12 @@ export function AlertsConfigScreen({ settings }: Readonly<AlertsConfigScreenProp
           </h1>
           <p className="mt-xs font-body-md text-body-md text-on-surface-variant">
             Define los rangos temporales en días para la activación automática de alertas rojas,
-            naranjas y amarillas por tipo de requerimiento.
+            naranjas y amarillas por tipo de requerimiento. Los umbrales porcentuales del
+            dashboard de cumplimiento están en{" "}
+            <Link href={`${SGSST_BASE}/configuracion`} className="text-primary hover:underline">
+              Configuración
+            </Link>
+            .
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-sm">

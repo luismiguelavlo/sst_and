@@ -7,6 +7,8 @@ import { SemaphoreBadge } from "@/components/sg-sst/alerts/SemaphoreBadge";
 import { WorkerSelect } from "@/components/sg-sst/workers/WorkerSelect";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { SstFarm } from "@/lib/sg-sst/alerts/types";
+import { useOptionalSgsstGlobalFilters } from "@/components/sg-sst/filters/SgsstGlobalFiltersContext";
+import { matchesGlobalFilters } from "@/lib/sg-sst/filters/global";
 import {
   bulkImportTrainingsAction,
   deleteTrainingAction,
@@ -68,6 +70,7 @@ export function TrainingsMasterScreen({
 }: Readonly<TrainingsMasterScreenProps>) {
   const router = useRouter();
   const { showToast } = useToast();
+  const globalFilters = useOptionalSgsstGlobalFilters();
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
@@ -116,6 +119,21 @@ export function TrainingsMasterScreen({
         return false;
       }
       if (farmId !== "all" && item.farmId !== farmId) return false;
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            company: item.companySnapshot,
+            farmId: item.farmId,
+            workerId: item.workerId,
+            status: item.workerStatus,
+            date: item.trainingDate,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
       if (!q) return true;
       return (
         item.workerName.toLowerCase().includes(q) ||
@@ -127,7 +145,7 @@ export function TrainingsMasterScreen({
         item.jobTitleSnapshot.toLowerCase().includes(q)
       );
     });
-  }, [items, topicFilter, statusFilter, modalityFilter, farmId, query]);
+  }, [items, topicFilter, statusFilter, modalityFilter, farmId, query, globalFilters]);
 
   function handleExport() {
     downloadTrainingsExcel(

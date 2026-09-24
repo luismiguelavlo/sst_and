@@ -244,6 +244,20 @@ INSERT INTO campus_sst.sst_alert_settings (id)
 VALUES (1)
 ON CONFLICT (id) DO NOTHING;
 
+CREATE TABLE IF NOT EXISTS campus_sst.sst_compliance_settings (
+  id smallint PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  green_min_pct numeric(5, 2) NOT NULL DEFAULT 90
+    CHECK (green_min_pct > 0 AND green_min_pct <= 100),
+  yellow_min_pct numeric(5, 2) NOT NULL DEFAULT 75
+    CHECK (yellow_min_pct >= 0 AND yellow_min_pct < green_min_pct),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  updated_by uuid REFERENCES campus_sst.users (id) ON DELETE SET NULL
+);
+
+INSERT INTO campus_sst.sst_compliance_settings (id)
+VALUES (1)
+ON CONFLICT (id) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS campus_sst.sst_compliance_records (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   folio varchar(40) NOT NULL UNIQUE,
@@ -290,6 +304,16 @@ CREATE INDEX IF NOT EXISTS sst_compliance_records_due_idx
 
 CREATE INDEX IF NOT EXISTS sst_compliance_records_farm_idx
   ON campus_sst.sst_compliance_records (farm_id);
+
+CREATE TABLE IF NOT EXISTS campus_sst.sst_alert_notification_reads (
+  user_id uuid NOT NULL REFERENCES campus_sst.users (id) ON DELETE CASCADE,
+  record_id uuid NOT NULL REFERENCES campus_sst.sst_compliance_records (id) ON DELETE CASCADE,
+  read_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, record_id)
+);
+
+CREATE INDEX IF NOT EXISTS sst_alert_notification_reads_user_idx
+  ON campus_sst.sst_alert_notification_reads (user_id, read_at DESC);
 
 CREATE TABLE IF NOT EXISTS campus_sst.sst_workers (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1500,3 +1524,45 @@ CREATE TABLE IF NOT EXISTS campus_sst.sst_emergency_drills (
 
 CREATE INDEX IF NOT EXISTS sst_emergency_drills_date_idx
   ON campus_sst.sst_emergency_drills (drill_date DESC);
+
+-- Historial de trazabilidad SG-SST
+CREATE TABLE IF NOT EXISTS campus_sst.sst_audit_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  occurred_at timestamptz NOT NULL DEFAULT now(),
+  actor_user_id uuid REFERENCES campus_sst.users (id) ON DELETE SET NULL,
+  actor_name varchar(180) NOT NULL,
+  action varchar(32) NOT NULL
+    CHECK (action IN (
+      'create',
+      'update',
+      'delete',
+      'import',
+      'retire',
+      'close',
+      'config'
+    )),
+  module varchar(48) NOT NULL,
+  entity_type varchar(64) NOT NULL DEFAULT '',
+  entity_id uuid,
+  worker_id uuid REFERENCES campus_sst.sst_workers (id) ON DELETE SET NULL,
+  summary text NOT NULL,
+  details jsonb NOT NULL DEFAULT '{}'::jsonb
+);
+
+CREATE INDEX IF NOT EXISTS sst_audit_events_occurred_idx
+  ON campus_sst.sst_audit_events (occurred_at DESC);
+
+CREATE INDEX IF NOT EXISTS sst_audit_events_module_idx
+  ON campus_sst.sst_audit_events (module, occurred_at DESC);
+
+CREATE INDEX IF NOT EXISTS sst_audit_events_worker_idx
+  ON campus_sst.sst_audit_events (worker_id, occurred_at DESC)
+  WHERE worker_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS sst_audit_events_actor_idx
+  ON campus_sst.sst_audit_events (actor_user_id, occurred_at DESC)
+  WHERE actor_user_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS sst_audit_events_entity_idx
+  ON campus_sst.sst_audit_events (entity_type, entity_id)
+  WHERE entity_id IS NOT NULL;

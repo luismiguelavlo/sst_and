@@ -29,6 +29,24 @@ export const SGSST_NAV: readonly SgsstNavSection[] = [
         icon: "warning",
         path: "alertas-sst",
       },
+      {
+        href: `${SGSST_BASE}/notificaciones`,
+        label: "Notificaciones",
+        icon: "notifications",
+        path: "notificaciones",
+      },
+      {
+        href: `${SGSST_BASE}/trazabilidad`,
+        label: "Trazabilidad",
+        icon: "history",
+        path: "trazabilidad",
+      },
+      {
+        href: `${SGSST_BASE}/configuracion`,
+        label: "Configuración",
+        icon: "settings",
+        path: "configuracion",
+      },
     ],
   },
   {
@@ -92,6 +110,12 @@ export const SGSST_NAV: readonly SgsstNavSection[] = [
         label: "EPP",
         icon: "safety_check",
         path: "epp",
+      },
+      {
+        href: `${SGSST_BASE}/quimicos`,
+        label: "Químicos",
+        icon: "science",
+        path: "quimicos",
       },
     ],
   },
@@ -162,6 +186,23 @@ export const SGSST_NAV: readonly SgsstNavSection[] = [
         label: "Centros de trabajo",
         icon: "apartment",
         path: "centros-de-trabajo",
+      },
+    ],
+  },
+  {
+    title: "Análisis & Indicadores",
+    items: [
+      {
+        href: `${SGSST_BASE}/analisis-sst`,
+        label: "Análisis SST",
+        icon: "analytics",
+        path: "analisis-sst",
+      },
+      {
+        href: `${SGSST_BASE}/indicadores-sst`,
+        label: "Indicadores SST",
+        icon: "monitoring",
+        path: "indicadores-sst",
       },
     ],
   },

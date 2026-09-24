@@ -1,0 +1,31 @@
+---
+description: Reglas de importación Excel SG-SST (anti-errores ya vistos en producción)
+globs: lib/sg-sst/**/*.{ts,tsx},components/sg-sst/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# SG-SST Excel import — checklist obligatorio
+
+Antes de cerrar un módulo nuevo con Excel I/O, aplicar TODO esto. Detalle en `docs/sg-sst-excel-import.md`.
+
+## Identidad / upsert
+- Upsert por **clave de negocio estable** (cédula, producto+centro, nombre de centro).
+- **Nunca** emparejar solo por códigos cortos / `id` numéricos del Excel (`1`, `3`, `id_trabajador`).
+- Si el código del Excel ya pertenece a **otra** entidad → crear con código nuevo (`MNZ-` / `QUI-AAAA-###`), no sobrescribir.
+
+## Parser Excel
+- Mapeo de columnas **exclusivo** (una columna → un campo).
+- Aliases estrictos: no usar `nombre` / `centro_trabajo` genéricos si el archivo puede traer otras columnas con esos nombres.
+- Deduplicar filas repetidas en el archivo (última gana) por la clave de negocio.
+- Fechas: solo `YYYY-MM-DD` o vacío — nunca pasar ISO con zona ni texto libre a columnas `date`.
+- Números/cédulas: normalizar `.0` y notación científica.
+
+## Server Actions / lotes
+- Siempre `{ rows: chunk }`, nunca array suelto.
+- Chunks ~25–40 + `runChunkedBulkImport(..., { continueOnChunkError: true })`.
+- Respuesta liviana: contadores + errores (máx. ~40), no todas las filas OK.
+- Import mode: validación laxa + defaults; UI form sigue estricta (`DraftValidationMode`).
+
+## Códigos auto
+- Secuencia por `MAX` del patrón (`MNZ-####`, `QUI-AAAA-###`), no por `COUNT(*)`.
+- Reintentar en `23505` (unique) regenerando código.

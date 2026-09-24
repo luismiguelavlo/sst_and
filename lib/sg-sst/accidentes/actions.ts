@@ -13,6 +13,7 @@ import {
   createAccidentEvent,
   deleteAccidentEvent,
   findAccidentByEventNumber,
+  getAccidentEvent,
   getAccidentStats,
   getCausesRanking,
   listAccidentEvents,
@@ -29,9 +30,16 @@ import {
 import {
   findWorkerByCode,
   findWorkerByDocumentNumber,
+  getWorker,
   listWorkers,
 } from "@/lib/sg-sst/workers/repository";
 import type { SstWorker } from "@/lib/sg-sst/workers/types";
+import {
+  auditEntityCreate,
+  auditEntityDelete,
+  auditEntityImport,
+  auditEntityUpdate,
+} from "@/lib/sg-sst/trazabilidad/helpers";
 
 export type AccidentActionResult =
   | { ok: true; id: string }
@@ -93,9 +101,34 @@ export async function saveAccidentAction(
   const error = validateAccidentDraft(draft);
   if (error) return { ok: false, error };
   try {
-    const saved = draft.id
-      ? await updateAccidentEvent(draft.id, draft, admin.id)
-      : await createAccidentEvent(draft, admin.id);
+    const worker = draft.workerId ? await getWorker(draft.workerId) : null;
+    const workerName = worker?.fullName ?? null;
+    if (draft.id) {
+      const saved = await updateAccidentEvent(draft.id, draft, admin.id);
+      await auditEntityUpdate({
+        actor: admin,
+        module: "accidentes",
+        entityType: "accident_event",
+        entityId: saved.id,
+        workerId: saved.workerId,
+        subject: "el evento de accidente/incidente",
+        ofWhom: workerName ?? saved.workerName,
+        details: { folio: saved.eventNumber },
+      });
+      revalidateAccidentPaths();
+      return { ok: true, id: saved.id };
+    }
+    const saved = await createAccidentEvent(draft, admin.id);
+    await auditEntityCreate({
+      actor: admin,
+      module: "accidentes",
+      entityType: "accident_event",
+      entityId: saved.id,
+      workerId: saved.workerId,
+      subject: "el evento de accidente/incidente",
+      ofWhom: workerName ?? saved.workerName,
+      details: { folio: saved.eventNumber },
+    });
     revalidateAccidentPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -112,9 +145,22 @@ export async function saveAccidentAction(
 export async function deleteAccidentAction(
   id: string,
 ): Promise<AccidentSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
+    const existing = await getAccidentEvent(id);
     await deleteAccidentEvent(id);
+    if (existing) {
+      await auditEntityDelete({
+        actor: admin,
+        module: "accidentes",
+        entityType: "accident_event",
+        entityId: existing.id,
+        workerId: existing.workerId,
+        subject: "el evento de accidente/incidente",
+        ofWhom: existing.workerName,
+        details: { folio: existing.eventNumber },
+      });
+    }
     revalidateAccidentPaths();
     return { ok: true };
   } catch (caught) {
@@ -235,6 +281,16 @@ export async function bulkImportAccidentsAction(input: {
     }
 
     revalidateAccidentPaths();
+    await auditEntityImport({
+      actor: admin,
+      module: "accidentes",
+      entityType: "accident_event",
+      subjectPlural: "eventos de accidente/incidente",
+      created,
+      updated,
+      failed,
+      rows: input.rows.length,
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {

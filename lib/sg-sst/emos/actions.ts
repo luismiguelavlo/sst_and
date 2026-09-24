@@ -31,10 +31,21 @@ import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
 import {
   findWorkerByCode,
   findWorkerByDocumentNumber,
+  getWorker,
   listWorkers,
 } from "@/lib/sg-sst/workers/repository";
 import type { SstWorker } from "@/lib/sg-sst/workers/types";
 import { getWorkerStats } from "@/lib/sg-sst/workers/repository";
+import {
+  auditEntityCreate,
+  auditEntityDelete,
+  auditEntityImport,
+  auditEntityUpdate,
+} from "@/lib/sg-sst/trazabilidad/helpers";
+import {
+  diffLabeledFields,
+  summarizeFieldChanges,
+} from "@/lib/sg-sst/trazabilidad/types";
 
 export type EmoActionResult =
   | { ok: true; id: string }
@@ -90,9 +101,61 @@ export async function saveEmoAction(draft: SstEmoDraft): Promise<EmoActionResult
   const error = validateEmoDraft(draft);
   if (error) return { ok: false, error };
   try {
-    const saved = draft.id
-      ? await updateEmo(draft.id, draft, admin.id)
-      : await createEmo(draft, admin.id);
+    const worker = await getWorker(draft.workerId);
+    const workerName = worker?.fullName ?? "trabajador";
+    if (draft.id) {
+      const previous = await getEmo(draft.id);
+      const saved = await updateEmo(draft.id, draft, admin.id);
+      const changes = previous
+        ? diffLabeledFields(
+            {
+              nextDueDate: previous.nextDueDate,
+              examDate: previous.examDate,
+              concept: previous.concept,
+              examType: previous.examType,
+              ips: previous.ips,
+            },
+            {
+              nextDueDate: draft.nextDueDate,
+              examDate: draft.examDate,
+              concept: draft.concept,
+              examType: draft.examType,
+              ips: draft.ips,
+            },
+            {
+              nextDueDate: "la fecha de vencimiento del examen médico ocupacional",
+              examDate: "la fecha del examen médico ocupacional",
+              concept: "el concepto de aptitud",
+              examType: "el tipo de examen",
+              ips: "la IPS",
+            },
+          )
+        : [];
+      await auditEntityUpdate({
+        actor: admin,
+        module: "emos",
+        entityType: "emo",
+        entityId: saved.id,
+        workerId: saved.workerId,
+        subject: "el examen médico ocupacional",
+        ofWhom: workerName,
+        focus: summarizeFieldChanges(changes),
+        details: { changes, folio: saved.folio },
+      });
+      revalidateEmoPaths(saved.id);
+      return { ok: true, id: saved.id };
+    }
+    const saved = await createEmo(draft, admin.id);
+    await auditEntityCreate({
+      actor: admin,
+      module: "emos",
+      entityType: "emo",
+      entityId: saved.id,
+      workerId: saved.workerId,
+      subject: "el examen médico ocupacional",
+      ofWhom: workerName,
+      details: { folio: saved.folio },
+    });
     revalidateEmoPaths(saved.id);
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -104,9 +167,22 @@ export async function saveEmoAction(draft: SstEmoDraft): Promise<EmoActionResult
 }
 
 export async function deleteEmoAction(id: string): Promise<EmoSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
+    const existing = await getEmo(id);
     await deleteEmo(id);
+    if (existing) {
+      await auditEntityDelete({
+        actor: admin,
+        module: "emos",
+        entityType: "emo",
+        entityId: existing.id,
+        workerId: existing.workerId,
+        subject: "el examen médico ocupacional",
+        ofWhom: existing.workerName,
+        details: { folio: existing.folio },
+      });
+    }
     revalidateEmoPaths();
     return { ok: true };
   } catch (caught) {
@@ -226,6 +302,16 @@ export async function bulkImportEmosAction(input: {
     }
 
     revalidateEmoPaths();
+    await auditEntityImport({
+      actor: admin,
+      module: "emos",
+      entityType: "emo",
+      subjectPlural: "exámenes médicos ocupacionales",
+      created,
+      updated,
+      failed,
+      rows: input.rows.length,
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {
