@@ -48,27 +48,29 @@ async function loadPeriodMetrics(
         AND (${area}::text IS NULL OR e.area_snapshot = ${area})
     `,
     sql<{ days: number }[]>`
-      SELECT COALESCE(SUM(
-        GREATEST(
-          0,
-          (
-            LEAST(i.end_date, (${toExclusive}::date - INTERVAL '1 day')::date)
-            - GREATEST(i.start_date, ${from}::date)
-            + 1
-          )
-        )
-      ), 0)::int AS days
-      FROM campus_sst.sst_incapacidades i
-      INNER JOIN campus_sst.sst_workers w ON w.id = i.worker_id
-      WHERE i.start_date < ${toExclusive}::date AND i.end_date >= ${from}::date
-        AND (${company}::text IS NULL OR i.company_snapshot = ${company} OR w.company = ${company})
-        AND (${farmId}::uuid IS NULL OR i.farm_id = ${farmId}::uuid OR w.farm_id = ${farmId}::uuid)
-        AND (${area}::text IS NULL OR w.area = ${area})
+      SELECT COALESCE(SUM(sub.weekday_days), 0)::int AS days
+      FROM (
+        SELECT (
+          SELECT COUNT(*)::int
+          FROM generate_series(
+            GREATEST(i.start_date, ${from}::date),
+            LEAST(i.end_date, (${toExclusive}::date - INTERVAL '1 day')::date),
+            '1 day'::interval
+          ) AS d(day)
+          WHERE EXTRACT(ISODOW FROM d.day) < 6
+        ) AS weekday_days
+        FROM campus_sst.sst_incapacidades i
+        INNER JOIN campus_sst.sst_workers w ON w.id = i.worker_id
+        WHERE i.start_date < ${toExclusive}::date AND i.end_date >= ${from}::date
+          AND (${company}::text IS NULL OR i.company_snapshot = ${company} OR w.company = ${company})
+          AND (${farmId}::uuid IS NULL OR i.farm_id = ${farmId}::uuid OR w.farm_id = ${farmId}::uuid)
+          AND (${area}::text IS NULL OR w.area = ${area})
+      ) sub
     `,
     sql<{ total: number; compliant: number }[]>`
       SELECT
         COUNT(*)::int AS total,
-        COUNT(*) FILTER (WHERE t.status IN ('realizada', 'proxima'))::int AS compliant
+        COUNT(*) FILTER (WHERE t.status = 'realizada')::int AS compliant
       FROM campus_sst.sst_trainings t
       INNER JOIN campus_sst.sst_workers w ON w.id = t.worker_id
       WHERE t.training_date >= ${from}::date AND t.training_date < ${toExclusive}::date
@@ -103,9 +105,9 @@ async function loadPeriodMetrics(
             )
         )::int AS compliant
       FROM campus_sst.sst_sg_documents d
-      WHERE d.has_review_cycle = true
-    `,
-    sql<{ n: number }[]>`
+      WHERE d.doc_type = 'plan_anual'
+        AND d.has_review_cycle = true
+    `,    sql<{ n: number }[]>`
       SELECT COUNT(*)::int AS n
       FROM campus_sst.sst_workers w
       WHERE w.status = 'activo'

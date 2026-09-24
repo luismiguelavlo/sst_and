@@ -36,6 +36,7 @@ type AccidentRow = {
   worker_code: string;
   worker_name: string;
   worker_document: string;
+  worker_status: string;
   company_snapshot: string;
   job_title_snapshot: string;
   area_snapshot: string;
@@ -119,6 +120,7 @@ function mapAccident(
     workerCode: row.worker_code,
     workerName: row.worker_name,
     workerDocument: row.worker_document,
+    workerStatus: row.worker_status,
     companySnapshot: row.company_snapshot,
     jobTitleSnapshot: row.job_title_snapshot,
     areaSnapshot: row.area_snapshot,
@@ -149,7 +151,7 @@ function mapAccident(
 const ACCIDENT_SELECT = `
   e.id, e.event_number, e.event_date::text, e.event_time::text,
   e.worker_id, w.worker_code, w.full_name AS worker_name,
-  w.document_number AS worker_document,
+  w.document_number AS worker_document, w.status AS worker_status,
   e.company_snapshot, e.job_title_snapshot, e.area_snapshot, e.work_center_snapshot,
   e.farm_id, f.name AS farm_name, e.event_type, e.description, e.accident_kind,
   e.mechanism, e.agent, e.body_part, e.injury_type, e.lost_days, e.origin, e.status,

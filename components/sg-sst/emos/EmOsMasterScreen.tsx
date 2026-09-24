@@ -7,6 +7,8 @@ import { MaterialIcon } from "@/components/icons/MaterialIcon";
 import { SemaphoreBadge } from "@/components/sg-sst/alerts/SemaphoreBadge";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { SstFarm, SstSemaphoreLevel } from "@/lib/sg-sst/alerts/types";
+import { useOptionalSgsstGlobalFilters } from "@/components/sg-sst/filters/SgsstGlobalFiltersContext";
+import { matchesGlobalFilters } from "@/lib/sg-sst/filters/global";
 import { bulkImportEmosAction } from "@/lib/sg-sst/emos/actions";
 import {
   downloadEmosExcel,
@@ -53,6 +55,7 @@ export function EmOsMasterScreen({
 }: Readonly<EmOsMasterScreenProps>) {
   const router = useRouter();
   const { showToast } = useToast();
+  const globalFilters = useOptionalSgsstGlobalFilters();
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
@@ -70,6 +73,21 @@ export function EmOsMasterScreen({
       if (examType !== "all" && emo.examType !== examType) return false;
       if (concept !== "all" && emo.concept !== concept) return false;
       if (farmId !== "all" && emo.farmId !== farmId) return false;
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            company: emo.companySnapshot,
+            farmId: emo.farmId,
+            workerId: emo.workerId,
+            status: emo.workerStatus,
+            date: emo.nextDueDate ?? emo.examDate,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
       if (!q) return true;
       return (
         emo.workerName.toLowerCase().includes(q) ||
@@ -79,7 +97,7 @@ export function EmOsMasterScreen({
         emo.ips.toLowerCase().includes(q)
       );
     });
-  }, [emos, semaphore, examType, concept, farmId, query]);
+  }, [emos, semaphore, examType, concept, farmId, query, globalFilters]);
 
   const coverage =
     workerCensus > 0 ? Math.round((stats.workersCovered / workerCensus) * 100) : 0;

@@ -110,7 +110,7 @@ function ComplianceCard({
           </span>
         </div>
         <div className="rounded-lg bg-surface-container-lowest px-sm py-sm font-body-sm text-body-sm text-on-surface-variant">
-          Sin datos suficientes
+          {dimension.message || "Sin datos suficientes"}
         </div>
       </Link>
     );

@@ -70,6 +70,7 @@ export type SstAccidentEvent = {
   workerCode: string;
   workerName: string;
   workerDocument: string;
+  workerStatus: string;
   companySnapshot: string;
   jobTitleSnapshot: string;
   areaSnapshot: string;

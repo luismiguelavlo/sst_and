@@ -134,6 +134,7 @@ export function AccidentsMasterScreen({
             workCenter: item.workCenterSnapshot,
             area: item.areaSnapshot,
             workerId: item.workerId,
+            status: item.workerStatus,
             date: item.eventDate,
           },
           globalFilters.filters,

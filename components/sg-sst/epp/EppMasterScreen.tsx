@@ -119,6 +119,7 @@ export function EppMasterScreen({
           {
             company: item.companySnapshot,
             farmId: item.farmId,
+            workCenter: item.workCenterSnapshot,
             workerId: item.workerId,
             status: item.workerStatus,
             date: item.deliveryDate,
