@@ -10,7 +10,9 @@ import {
 import { useRouter } from "next/navigation";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
 import { SemaphoreBadge } from "@/components/sg-sst/alerts/SemaphoreBadge";
+import { useOptionalSgsstGlobalFilters } from "@/components/sg-sst/filters/SgsstGlobalFiltersContext";
 import { useToast } from "@/components/ui/ToastProvider";
+import { matchesGlobalFilters } from "@/lib/sg-sst/filters/global";
 import {
   bulkImportInvestigationsAction,
   deleteInvestigationAction,
@@ -81,6 +83,7 @@ export function InvestigationsMasterScreen({
 }: Readonly<InvestigationsMasterScreenProps>) {
   const router = useRouter();
   const { showToast } = useToast();
+  const globalFilters = useOptionalSgsstGlobalFilters();
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
@@ -113,6 +116,19 @@ export function InvestigationsMasterScreen({
       ) {
         return false;
       }
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            farmId: item.farmId,
+            workerId: item.workerId,
+            date: item.accidentDate,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
       if (!q) return true;
       return (
         item.folio.toLowerCase().includes(q) ||
@@ -124,7 +140,7 @@ export function InvestigationsMasterScreen({
         item.causesSummary.toLowerCase().includes(q)
       );
     });
-  }, [investigations, statusFilter, methodologyFilter, alertFilter, query]);
+  }, [investigations, statusFilter, methodologyFilter, alertFilter, query, globalFilters]);
 
   function handleExport() {
     downloadInvestigationsExcel(

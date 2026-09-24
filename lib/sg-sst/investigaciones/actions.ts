@@ -12,6 +12,7 @@ import {
   deleteInvestigation,
   findAccidentByEventNumber,
   findInvestigationByFolio,
+  getInvestigation,
   getInvestigationStats,
   listAccidentOptions,
   listInvestigationViews,
@@ -27,6 +28,12 @@ import {
   type SstInvestigationView,
 } from "@/lib/sg-sst/investigaciones/types";
 import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
+import {
+  auditEntityCreate,
+  auditEntityDelete,
+  auditEntityImport,
+  auditEntityUpdate,
+} from "@/lib/sg-sst/trazabilidad/helpers";
 
 export type InvestigationActionResult =
   | { ok: true; id: string }
@@ -67,6 +74,29 @@ export async function saveInvestigationAction(
     const saved = draft.id
       ? await updateInvestigation(draft.id, draft, admin.id)
       : await createInvestigation(draft, admin.id);
+    if (draft.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "investigaciones",
+        entityType: "investigation",
+        entityId: saved.id,
+        workerId: saved.workerId,
+        subject: "la investigación",
+        ofWhom: saved.workerName || undefined,
+        details: { folio: saved.folio },
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "investigaciones",
+        entityType: "investigation",
+        entityId: saved.id,
+        workerId: saved.workerId,
+        subject: "la investigación",
+        ofWhom: saved.workerName || undefined,
+        details: { folio: saved.folio },
+      });
+    }
     revalidateInvestigationPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -83,9 +113,22 @@ export async function saveInvestigationAction(
 export async function deleteInvestigationAction(
   id: string,
 ): Promise<InvestigationSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
+    const existing = await getInvestigation(id);
     await deleteInvestigation(id);
+    if (existing) {
+      await auditEntityDelete({
+        actor: admin,
+        module: "investigaciones",
+        entityType: "investigation",
+        entityId: existing.id,
+        workerId: existing.workerId,
+        subject: "la investigación",
+        ofWhom: existing.workerName || undefined,
+        details: { folio: existing.folio },
+      });
+    }
     revalidateInvestigationPaths();
     return { ok: true };
   } catch (caught) {
@@ -213,6 +256,16 @@ export async function bulkImportInvestigationsAction(input: {
     }
 
     revalidateInvestigationPaths();
+    await auditEntityImport({
+      actor: admin,
+      module: "investigaciones",
+      entityType: "investigation",
+      subjectPlural: "investigaciones",
+      created,
+      updated,
+      failed,
+      rows: input.rows.length,
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {

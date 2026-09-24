@@ -3,9 +3,11 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
+import { useOptionalSgsstGlobalFilters } from "@/components/sg-sst/filters/SgsstGlobalFiltersContext";
 import { WorkerSelect } from "@/components/sg-sst/workers/WorkerSelect";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { SstFarm } from "@/lib/sg-sst/alerts/types";
+import { matchesGlobalFilters } from "@/lib/sg-sst/filters/global";
 import {
   bulkImportOperatorsAction,
   deleteOperatorAction,
@@ -84,6 +86,7 @@ export function OperatorsMasterScreen({
 }: Readonly<OperatorsMasterScreenProps>) {
   const router = useRouter();
   const { showToast } = useToast();
+  const globalFilters = useOptionalSgsstGlobalFilters();
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
@@ -100,6 +103,21 @@ export function OperatorsMasterScreen({
       if (farmId !== "all" && item.farmId !== farmId) return false;
       if (equipmentType !== "all" && item.equipmentType !== equipmentType) return false;
       if (keyStatus !== "all" && item.keyStatus !== keyStatus) return false;
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            company: item.companySnapshot,
+            farmId: item.farmId,
+            workerId: item.workerId,
+            status: item.workerStatus,
+            date: item.trainingDueDate ?? item.trainingDate,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
       if (!q) return true;
       return (
         item.workerName.toLowerCase().includes(q) ||
@@ -110,7 +128,7 @@ export function OperatorsMasterScreen({
         item.trainingName.toLowerCase().includes(q)
       );
     });
-  }, [operators, farmId, equipmentType, keyStatus, query]);
+  }, [operators, farmId, equipmentType, keyStatus, query, globalFilters]);
 
   const unauthorized = useMemo(
     () => operators.filter((item) => item.keyStatus === "bloqueado"),

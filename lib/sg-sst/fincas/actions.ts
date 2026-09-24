@@ -25,6 +25,12 @@ import {
   type SstFarmDraft,
   type SstFarmRecord,
 } from "@/lib/sg-sst/fincas/types";
+import {
+  auditEntityCreate,
+  auditEntityDelete,
+  auditEntityImport,
+  auditEntityUpdate,
+} from "@/lib/sg-sst/trazabilidad/helpers";
 
 export type FarmActionResult =
   | { ok: true; id: string }
@@ -56,7 +62,7 @@ export async function loadFarmsMasterData(): Promise<{
 export async function saveFarmAction(
   draft: SstFarmDraft,
 ): Promise<FarmActionResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const normalized: SstFarmDraft = {
     ...draft,
     code: normalizeFarmCode(draft.code),
@@ -68,6 +74,25 @@ export async function saveFarmAction(
     const saved = normalized.id
       ? await updateFarm(normalized.id, normalized)
       : await createFarm(normalized);
+    if (normalized.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "fincas",
+        entityType: "farm",
+        entityId: saved.id,
+        subject: "el centro de trabajo",
+        details: { folio: saved.code },
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "fincas",
+        entityType: "farm",
+        entityId: saved.id,
+        subject: "el centro de trabajo",
+        details: { folio: saved.code },
+      });
+    }
     revalidateFarmPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -83,9 +108,18 @@ export async function setFarmActiveAction(
   id: string,
   active: boolean,
 ): Promise<FarmSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
-    await setFarmActive(id, active);
+    const saved = await setFarmActive(id, active);
+    await auditEntityUpdate({
+      actor: admin,
+      module: "fincas",
+      entityType: "farm",
+      entityId: saved.id,
+      subject: "el centro de trabajo",
+      focus: active ? "reactivación" : "desactivación",
+      details: { folio: saved.code },
+    });
     revalidateFarmPaths();
     return {
       ok: true,
@@ -103,17 +137,33 @@ export async function setFarmActiveAction(
 }
 
 export async function deleteFarmAction(id: string): Promise<FarmSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
     const result = await deleteFarm(id);
-    revalidateFarmPaths();
     if (result === "deactivated") {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "fincas",
+        entityType: "farm",
+        entityId: id,
+        subject: "el centro de trabajo",
+        focus: "desactivación por vínculos",
+      });
+      revalidateFarmPaths();
       return {
         ok: true,
         message:
           "El centro tiene registros vinculados; se desactivó en lugar de eliminarlo.",
       };
     }
+    await auditEntityDelete({
+      actor: admin,
+      module: "fincas",
+      entityType: "farm",
+      entityId: id,
+      subject: "el centro de trabajo",
+    });
+    revalidateFarmPaths();
     return { ok: true, message: "Centro eliminado." };
   } catch (caught) {
     return {
@@ -136,7 +186,7 @@ export async function bulkImportFarmsAction(input: {
     }
   | { ok: false; error: string }
 > {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const rows = input.rows;
   if (!Array.isArray(rows) || rows.length === 0) {
     return { ok: false, error: "No hay filas para importar." };
@@ -238,6 +288,16 @@ export async function bulkImportFarmsAction(input: {
   }
 
   revalidateFarmPaths();
+  await auditEntityImport({
+    actor: admin,
+    module: "fincas",
+    entityType: "farm",
+    subjectPlural: "centros de trabajo",
+    created,
+    updated,
+    failed,
+    rows: rows.length,
+  });
   return {
     ok: true,
     created,

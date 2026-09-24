@@ -12,6 +12,7 @@ import {
   createHealthCase,
   deleteHealthCase,
   findHealthCaseByFolio,
+  getHealthCase,
   getHealthCaseStats,
   listHealthCases,
   updateHealthCase,
@@ -25,6 +26,12 @@ import {
   type SstHealthCaseDraft,
 } from "@/lib/sg-sst/casos-salud/types";
 import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
+import {
+  auditEntityCreate,
+  auditEntityDelete,
+  auditEntityImport,
+  auditEntityUpdate,
+} from "@/lib/sg-sst/trazabilidad/helpers";
 import {
   findWorkerByCode,
   findWorkerByDocumentNumber,
@@ -72,6 +79,29 @@ export async function saveHealthCaseAction(
     const saved = draft.id
       ? await updateHealthCase(draft.id, draft, admin.id)
       : await createHealthCase(draft, admin.id);
+    if (draft.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "casos_salud",
+        entityType: "health_case",
+        entityId: saved.id,
+        workerId: saved.workerId,
+        subject: "el caso de salud",
+        ofWhom: saved.workerName,
+        details: { folio: saved.folio },
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "casos_salud",
+        entityType: "health_case",
+        entityId: saved.id,
+        workerId: saved.workerId,
+        subject: "el caso de salud",
+        ofWhom: saved.workerName,
+        details: { folio: saved.folio },
+      });
+    }
     revalidateHealthCasePaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -86,9 +116,22 @@ export async function saveHealthCaseAction(
 export async function deleteHealthCaseAction(
   id: string,
 ): Promise<HealthCaseSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
+    const existing = await getHealthCase(id);
     await deleteHealthCase(id);
+    if (existing) {
+      await auditEntityDelete({
+        actor: admin,
+        module: "casos_salud",
+        entityType: "health_case",
+        entityId: existing.id,
+        workerId: existing.workerId,
+        subject: "el caso de salud",
+        ofWhom: existing.workerName,
+        details: { folio: existing.folio },
+      });
+    }
     revalidateHealthCasePaths();
     return { ok: true };
   } catch (caught) {
@@ -217,6 +260,16 @@ export async function bulkImportHealthCasesAction(input: {
     }
 
     revalidateHealthCasePaths();
+    await auditEntityImport({
+      actor: admin,
+      module: "casos_salud",
+      entityType: "health_case",
+      subjectPlural: "casos de salud",
+      created,
+      updated,
+      failed,
+      rows: input.rows.length,
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {

@@ -3,9 +3,11 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
+import { useOptionalSgsstGlobalFilters } from "@/components/sg-sst/filters/SgsstGlobalFiltersContext";
 import { WorkerSelect } from "@/components/sg-sst/workers/WorkerSelect";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { SstFarm } from "@/lib/sg-sst/alerts/types";
+import { matchesGlobalFilters } from "@/lib/sg-sst/filters/global";
 import {
   bulkImportPesvDriversAction,
   bulkImportPesvVehiclesAction,
@@ -83,6 +85,7 @@ export function PesvMasterScreen({
 }: Readonly<PesvMasterScreenProps>) {
   const router = useRouter();
   const { showToast } = useToast();
+  const globalFilters = useOptionalSgsstGlobalFilters();
   const driverInputRef = useRef<HTMLInputElement>(null);
   const vehicleInputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
@@ -120,6 +123,21 @@ export function PesvMasterScreen({
       if (authFilter !== "all" && item.authorizationStatus !== authFilter) {
         return false;
       }
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            company: item.companySnapshot,
+            farmId: item.farmId,
+            workerId: item.workerId,
+            status: item.workerStatus,
+            date: item.licenseDueDate ?? item.medicalExamDate,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
       if (!q) return true;
       return (
         item.workerName.toLowerCase().includes(q) ||
@@ -131,12 +149,26 @@ export function PesvMasterScreen({
         item.licenseCategory.toLowerCase().includes(q)
       );
     });
-  }, [drivers, authFilter, query]);
+  }, [drivers, authFilter, query, globalFilters]);
 
   const filteredVehicles = useMemo(() => {
     const q = query.trim().toLowerCase();
     return vehicles.filter((item) => {
       if (vehicleStatusFilter !== "all" && item.status !== vehicleStatusFilter) {
+        return false;
+      }
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            farmId: item.farmId,
+            workCenter: item.workCenter,
+            workerId: item.responsibleWorkerId,
+            date: item.soatDueDate ?? item.rtmDueDate,
+          },
+          globalFilters.filters,
+        )
+      ) {
         return false;
       }
       if (!q) return true;
@@ -149,12 +181,23 @@ export function PesvMasterScreen({
         (item.responsibleName?.toLowerCase().includes(q) ?? false)
       );
     });
-  }, [vehicles, vehicleStatusFilter, query]);
+  }, [vehicles, vehicleStatusFilter, query, globalFilters]);
 
   const filteredPreops = useMemo(() => {
     const q = query.trim().toLowerCase();
     return preops.filter((item) => {
       if (preopStatusFilter !== "all" && item.status !== preopStatusFilter) {
+        return false;
+      }
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            date: item.inspectionDate,
+          },
+          globalFilters.filters,
+        )
+      ) {
         return false;
       }
       if (!q) return true;
@@ -165,7 +208,7 @@ export function PesvMasterScreen({
         item.finding.toLowerCase().includes(q)
       );
     });
-  }, [preops, preopStatusFilter, query]);
+  }, [preops, preopStatusFilter, query, globalFilters]);
 
   function handleExport() {
     downloadPesvWorkbook({

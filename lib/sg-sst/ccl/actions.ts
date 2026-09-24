@@ -54,6 +54,12 @@ import {
   type SstCclMemberDraft,
 } from "@/lib/sg-sst/ccl/types";
 import {
+  auditEntityCreate,
+  auditEntityDelete,
+  auditEntityImport,
+  auditEntityUpdate,
+} from "@/lib/sg-sst/trazabilidad/helpers";
+import {
   findWorkerByCode,
   findWorkerByDocumentNumber,
   listWorkers,
@@ -129,6 +135,27 @@ export async function saveMemberAction(
     const saved = draft.id
       ? await updateMember(draft.id, draft, admin.id)
       : await createMember(draft, admin.id);
+    if (draft.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "ccl",
+        entityType: "ccl_member",
+        entityId: saved.id,
+        workerId: saved.workerId,
+        subject: "el integrante CCL",
+        ofWhom: saved.workerName,
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "ccl",
+        entityType: "ccl_member",
+        entityId: saved.id,
+        workerId: saved.workerId,
+        subject: "el integrante CCL",
+        ofWhom: saved.workerName,
+      });
+    }
     revalidateCclPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -143,9 +170,16 @@ export async function saveMemberAction(
 }
 
 export async function deleteMemberAction(id: string): Promise<CclSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
     await deleteMember(id);
+    await auditEntityDelete({
+      actor: admin,
+      module: "ccl",
+      entityType: "ccl_member",
+      entityId: id,
+      subject: "el integrante CCL",
+    });
     revalidateCclPaths();
     return { ok: true };
   } catch (caught) {
@@ -166,6 +200,25 @@ export async function saveMeetingAction(
     const saved = draft.id
       ? await updateMeeting(draft.id, draft, admin.id)
       : await createMeeting(draft, admin.id);
+    if (draft.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "ccl",
+        entityType: "ccl_meeting",
+        entityId: saved.id,
+        subject: "el acta CCL",
+        details: { folio: saved.folio },
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "ccl",
+        entityType: "ccl_meeting",
+        entityId: saved.id,
+        subject: "el acta CCL",
+        details: { folio: saved.folio },
+      });
+    }
     revalidateCclPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -180,9 +233,16 @@ export async function saveMeetingAction(
 export async function deleteMeetingAction(
   id: string,
 ): Promise<CclSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
     await deleteMeeting(id);
+    await auditEntityDelete({
+      actor: admin,
+      module: "ccl",
+      entityType: "ccl_meeting",
+      entityId: id,
+      subject: "el acta CCL",
+    });
     revalidateCclPaths();
     return { ok: true };
   } catch (caught) {
@@ -203,6 +263,25 @@ export async function saveCaseAction(
     const saved = draft.id
       ? await updateCase(draft.id, draft, admin.id)
       : await createCase(draft, admin.id);
+    if (draft.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "ccl",
+        entityType: "ccl_case",
+        entityId: saved.id,
+        subject: "el caso CCL",
+        details: { folio: saved.code },
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "ccl",
+        entityType: "ccl_case",
+        entityId: saved.id,
+        subject: "el caso CCL",
+        details: { folio: saved.code },
+      });
+    }
     revalidateCclPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -215,9 +294,16 @@ export async function saveCaseAction(
 }
 
 export async function deleteCaseAction(id: string): Promise<CclSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
     await deleteCase(id);
+    await auditEntityDelete({
+      actor: admin,
+      module: "ccl",
+      entityType: "ccl_case",
+      entityId: id,
+      subject: "el caso CCL",
+    });
     revalidateCclPaths();
     return { ok: true };
   } catch (caught) {
@@ -238,6 +324,25 @@ export async function saveCommitmentAction(
     const saved = draft.id
       ? await updateCommitment(draft.id, draft, admin.id)
       : await createCommitment(draft, admin.id);
+    if (draft.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "ccl",
+        entityType: "ccl_commitment",
+        entityId: saved.id,
+        subject: "el compromiso CCL",
+        details: { folio: saved.folio },
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "ccl",
+        entityType: "ccl_commitment",
+        entityId: saved.id,
+        subject: "el compromiso CCL",
+        details: { folio: saved.folio },
+      });
+    }
     revalidateCclPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -254,9 +359,16 @@ export async function saveCommitmentAction(
 export async function deleteCommitmentAction(
   id: string,
 ): Promise<CclSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
     await deleteCommitment(id);
+    await auditEntityDelete({
+      actor: admin,
+      module: "ccl",
+      entityType: "ccl_commitment",
+      entityId: id,
+      subject: "el compromiso CCL",
+    });
     revalidateCclPaths();
     return { ok: true };
   } catch (caught) {
@@ -387,6 +499,16 @@ export async function bulkImportCclMembersAction(input: {
     }
 
     revalidateCclPaths();
+    await auditEntityImport({
+      actor: admin,
+      module: "ccl",
+      entityType: "ccl_member",
+      subjectPlural: "integrantes CCL",
+      created,
+      updated,
+      failed,
+      rows: input.rows.length,
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {
@@ -483,6 +605,16 @@ export async function bulkImportCclMeetingsAction(input: {
     }
 
     revalidateCclPaths();
+    await auditEntityImport({
+      actor: admin,
+      module: "ccl",
+      entityType: "ccl_meeting",
+      subjectPlural: "actas CCL",
+      created,
+      updated,
+      failed,
+      rows: input.rows.length,
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {
@@ -582,6 +714,16 @@ export async function bulkImportCclCasesAction(input: {
     }
 
     revalidateCclPaths();
+    await auditEntityImport({
+      actor: admin,
+      module: "ccl",
+      entityType: "ccl_case",
+      subjectPlural: "casos CCL",
+      created,
+      updated,
+      failed,
+      rows: input.rows.length,
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {
@@ -704,6 +846,16 @@ export async function bulkImportCclCommitmentsAction(input: {
     }
 
     revalidateCclPaths();
+    await auditEntityImport({
+      actor: admin,
+      module: "ccl",
+      entityType: "ccl_commitment",
+      subjectPlural: "compromisos CCL",
+      created,
+      updated,
+      failed,
+      rows: input.rows.length,
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {

@@ -12,6 +12,7 @@ import {
   createOperator,
   deleteOperator,
   findOperatorByFolio,
+  getOperator,
   getOperatorStats,
   listOperatorViews,
   updateOperator,
@@ -23,6 +24,12 @@ import {
   type SstOperatorDraft,
   type SstOperatorView,
 } from "@/lib/sg-sst/operadores/types";
+import {
+  auditEntityCreate,
+  auditEntityDelete,
+  auditEntityImport,
+  auditEntityUpdate,
+} from "@/lib/sg-sst/trazabilidad/helpers";
 import {
   findWorkerByCode,
   findWorkerByDocumentNumber,
@@ -69,6 +76,29 @@ export async function saveOperatorAction(
     const saved = draft.id
       ? await updateOperator(draft.id, draft, admin.id)
       : await createOperator(draft, admin.id);
+    if (draft.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "operadores",
+        entityType: "operator",
+        entityId: saved.id,
+        workerId: saved.workerId,
+        subject: "el operador / tractorista",
+        ofWhom: saved.workerName,
+        details: { folio: saved.folio },
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "operadores",
+        entityType: "operator",
+        entityId: saved.id,
+        workerId: saved.workerId,
+        subject: "el operador / tractorista",
+        ofWhom: saved.workerName,
+        details: { folio: saved.folio },
+      });
+    }
     revalidateOperatorPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -85,9 +115,22 @@ export async function saveOperatorAction(
 export async function deleteOperatorAction(
   id: string,
 ): Promise<OperatorSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
+    const existing = await getOperator(id);
     await deleteOperator(id);
+    if (existing) {
+      await auditEntityDelete({
+        actor: admin,
+        module: "operadores",
+        entityType: "operator",
+        entityId: existing.id,
+        workerId: existing.workerId,
+        subject: "el operador / tractorista",
+        ofWhom: existing.workerName,
+        details: { folio: existing.folio },
+      });
+    }
     revalidateOperatorPaths();
     return { ok: true };
   } catch (caught) {
@@ -230,6 +273,16 @@ export async function bulkImportOperatorsAction(input: {
     }
 
     revalidateOperatorPaths();
+    await auditEntityImport({
+      actor: admin,
+      module: "operadores",
+      entityType: "operator",
+      subjectPlural: "operadores / tractoristas",
+      created,
+      updated,
+      failed,
+      rows: input.rows.length,
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {

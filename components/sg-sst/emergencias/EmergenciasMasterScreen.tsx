@@ -3,9 +3,11 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
+import { useOptionalSgsstGlobalFilters } from "@/components/sg-sst/filters/SgsstGlobalFiltersContext";
 import { WorkerSelect } from "@/components/sg-sst/workers/WorkerSelect";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { SstFarm } from "@/lib/sg-sst/alerts/types";
+import { matchesGlobalFilters } from "@/lib/sg-sst/filters/global";
 import {
   bulkImportBrigadeAction,
   bulkImportDrillsAction,
@@ -115,6 +117,7 @@ export function EmergenciasMasterScreen({
 }: Readonly<EmergenciasMasterScreenProps>) {
   const router = useRouter();
   const { showToast } = useToast();
+  const globalFilters = useOptionalSgsstGlobalFilters();
   const brigadeInputRef = useRef<HTMLInputElement>(null);
   const equipmentInputRef = useRef<HTMLInputElement>(null);
   const drillInputRef = useRef<HTMLInputElement>(null);
@@ -171,6 +174,21 @@ export function EmergenciasMasterScreen({
         return false;
       }
       if (farmId !== "all" && item.farmId !== farmId) return false;
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            company: item.companySnapshot,
+            farmId: item.farmId,
+            workerId: item.workerId,
+            status: item.workerStatus,
+            date: item.dueDate ?? item.trainedAt,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
       if (!q) return true;
       return (
         item.folio.toLowerCase().includes(q) ||
@@ -181,7 +199,7 @@ export function EmergenciasMasterScreen({
         BRIGADE_TYPE_LABELS[item.brigadeType].toLowerCase().includes(q)
       );
     });
-  }, [brigade, brigadeTypeFilter, brigadeStatusFilter, farmId, query]);
+  }, [brigade, brigadeTypeFilter, brigadeStatusFilter, farmId, query, globalFilters]);
 
   const filteredEquipment = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -199,6 +217,18 @@ export function EmergenciasMasterScreen({
         return false;
       }
       if (farmId !== "all" && item.farmId !== farmId) return false;
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            farmId: item.farmId,
+            date: item.nextInspectionAt ?? item.inspectedAt,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
       if (!q) return true;
       return (
         item.code.toLowerCase().includes(q) ||
@@ -208,7 +238,7 @@ export function EmergenciasMasterScreen({
         EQUIPMENT_TYPE_LABELS[item.equipmentType].toLowerCase().includes(q)
       );
     });
-  }, [equipment, equipmentTypeFilter, equipmentStatusFilter, farmId, query]);
+  }, [equipment, equipmentTypeFilter, equipmentStatusFilter, farmId, query, globalFilters]);
 
   const filteredDrills = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -220,6 +250,18 @@ export function EmergenciasMasterScreen({
         return false;
       }
       if (farmId !== "all" && item.farmId !== farmId) return false;
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            farmId: item.farmId,
+            date: item.drillDate,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
       if (!q) return true;
       return (
         item.folio.toLowerCase().includes(q) ||
@@ -229,7 +271,7 @@ export function EmergenciasMasterScreen({
         DRILL_TYPE_LABELS[item.drillType].toLowerCase().includes(q)
       );
     });
-  }, [drills, drillTypeFilter, drillStatusFilter, farmId, query]);
+  }, [drills, drillTypeFilter, drillStatusFilter, farmId, query, globalFilters]);
 
   function handleExport() {
     downloadEmergenciasWorkbook({

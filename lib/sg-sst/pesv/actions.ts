@@ -18,7 +18,10 @@ import {
   deleteVehicle,
   findDriverByFolio,
   findVehicleByPlate,
+  getDriver,
   getPesvStats,
+  getPreop,
+  getVehicle,
   listDrivers,
   listPreops,
   listVehicles,
@@ -40,6 +43,12 @@ import {
   type SstPesvVehicle,
   type SstPesvVehicleDraft,
 } from "@/lib/sg-sst/pesv/types";
+import {
+  auditEntityCreate,
+  auditEntityDelete,
+  auditEntityImport,
+  auditEntityUpdate,
+} from "@/lib/sg-sst/trazabilidad/helpers";
 import {
   findWorkerByCode,
   findWorkerByDocumentNumber,
@@ -90,6 +99,27 @@ export async function saveVehicleAction(
     const saved = draft.id
       ? await updateVehicle(draft.id, draft, admin.id)
       : await createVehicle(draft, admin.id);
+    if (draft.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "pesv",
+        entityType: "pesv_vehicle",
+        entityId: saved.id,
+        workerId: saved.responsibleWorkerId,
+        subject: `el vehículo ${saved.plate}`,
+        details: { folio: saved.plate },
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "pesv",
+        entityType: "pesv_vehicle",
+        entityId: saved.id,
+        workerId: saved.responsibleWorkerId,
+        subject: `el vehículo ${saved.plate}`,
+        details: { folio: saved.plate },
+      });
+    }
     revalidatePesvPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -102,9 +132,21 @@ export async function saveVehicleAction(
 }
 
 export async function deleteVehicleAction(id: string): Promise<PesvSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
+    const existing = await getVehicle(id);
     await deleteVehicle(id);
+    if (existing) {
+      await auditEntityDelete({
+        actor: admin,
+        module: "pesv",
+        entityType: "pesv_vehicle",
+        entityId: existing.id,
+        workerId: existing.responsibleWorkerId,
+        subject: `el vehículo ${existing.plate}`,
+        details: { folio: existing.plate },
+      });
+    }
     revalidatePesvPaths();
     return { ok: true };
   } catch (caught) {
@@ -125,6 +167,29 @@ export async function saveDriverAction(
     const saved = draft.id
       ? await updateDriver(draft.id, draft, admin.id)
       : await createDriver(draft, admin.id);
+    if (draft.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "pesv",
+        entityType: "pesv_driver",
+        entityId: saved.id,
+        workerId: saved.workerId,
+        subject: "el conductor PESV",
+        ofWhom: saved.workerName,
+        details: { folio: saved.folio },
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "pesv",
+        entityType: "pesv_driver",
+        entityId: saved.id,
+        workerId: saved.workerId,
+        subject: "el conductor PESV",
+        ofWhom: saved.workerName,
+        details: { folio: saved.folio },
+      });
+    }
     revalidatePesvPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -139,9 +204,22 @@ export async function saveDriverAction(
 }
 
 export async function deleteDriverAction(id: string): Promise<PesvSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
+    const existing = await getDriver(id);
     await deleteDriver(id);
+    if (existing) {
+      await auditEntityDelete({
+        actor: admin,
+        module: "pesv",
+        entityType: "pesv_driver",
+        entityId: existing.id,
+        workerId: existing.workerId,
+        subject: "el conductor PESV",
+        ofWhom: existing.workerName,
+        details: { folio: existing.folio },
+      });
+    }
     revalidatePesvPaths();
     return { ok: true };
   } catch (caught) {
@@ -162,6 +240,25 @@ export async function savePreopAction(
     const saved = draft.id
       ? await updatePreop(draft.id, draft, admin.id)
       : await createPreop(draft, admin.id);
+    if (draft.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "pesv",
+        entityType: "pesv_preop",
+        entityId: saved.id,
+        subject: "el preoperacional PESV",
+        details: { folio: saved.folio },
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "pesv",
+        entityType: "pesv_preop",
+        entityId: saved.id,
+        subject: "el preoperacional PESV",
+        details: { folio: saved.folio },
+      });
+    }
     revalidatePesvPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -176,9 +273,20 @@ export async function savePreopAction(
 }
 
 export async function deletePreopAction(id: string): Promise<PesvSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
+    const existing = await getPreop(id);
     await deletePreop(id);
+    if (existing) {
+      await auditEntityDelete({
+        actor: admin,
+        module: "pesv",
+        entityType: "pesv_preop",
+        entityId: existing.id,
+        subject: "el preoperacional PESV",
+        details: { folio: existing.folio },
+      });
+    }
     revalidatePesvPaths();
     return { ok: true };
   } catch (caught) {
@@ -301,6 +409,16 @@ export async function bulkImportPesvDriversAction(input: {
     }
 
     revalidatePesvPaths();
+    await auditEntityImport({
+      actor: admin,
+      module: "pesv",
+      entityType: "pesv_driver",
+      subjectPlural: "conductores PESV",
+      created,
+      updated,
+      failed,
+      rows: input.rows.length,
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {
@@ -398,6 +516,16 @@ export async function bulkImportPesvVehiclesAction(input: {
     }
 
     revalidatePesvPaths();
+    await auditEntityImport({
+      actor: admin,
+      module: "pesv",
+      entityType: "pesv_vehicle",
+      subjectPlural: "vehículos PESV",
+      created,
+      updated,
+      failed,
+      rows: input.rows.length,
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {

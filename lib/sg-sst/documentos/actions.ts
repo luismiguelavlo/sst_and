@@ -11,6 +11,7 @@ import {
   createDocument,
   deleteDocument,
   findDocumentByCode,
+  getDocument,
   getDocumentStats,
   listDocumentViews,
   updateDocument,
@@ -24,6 +25,12 @@ import {
   type SstSgDocumentDraft,
   type SstSgDocumentView,
 } from "@/lib/sg-sst/documentos/types";
+import {
+  auditEntityCreate,
+  auditEntityDelete,
+  auditEntityImport,
+  auditEntityUpdate,
+} from "@/lib/sg-sst/trazabilidad/helpers";
 
 export type DocumentActionResult =
   | { ok: true; id: string }
@@ -60,6 +67,25 @@ export async function saveDocumentAction(
     const saved = draft.id
       ? await updateDocument(draft.id, draft, admin.id)
       : await createDocument(draft, admin.id);
+    if (draft.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "documentos",
+        entityType: "sg_document",
+        entityId: saved.id,
+        subject: "el documento SG-SST",
+        details: { folio: saved.code },
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "documentos",
+        entityType: "sg_document",
+        entityId: saved.id,
+        subject: "el documento SG-SST",
+        details: { folio: saved.code },
+      });
+    }
     revalidateDocumentPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -76,9 +102,20 @@ export async function saveDocumentAction(
 export async function deleteDocumentAction(
   id: string,
 ): Promise<DocumentSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
+    const existing = await getDocument(id);
     await deleteDocument(id);
+    if (existing) {
+      await auditEntityDelete({
+        actor: admin,
+        module: "documentos",
+        entityType: "sg_document",
+        entityId: existing.id,
+        subject: "el documento SG-SST",
+        details: { folio: existing.code },
+      });
+    }
     revalidateDocumentPaths();
     return { ok: true };
   } catch (caught) {
@@ -188,6 +225,16 @@ export async function bulkImportDocumentsAction(input: {
     }
 
     revalidateDocumentPaths();
+    await auditEntityImport({
+      actor: admin,
+      module: "documentos",
+      entityType: "sg_document",
+      subjectPlural: "documentos SG-SST",
+      created,
+      updated,
+      failed,
+      rows: input.rows.length,
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {

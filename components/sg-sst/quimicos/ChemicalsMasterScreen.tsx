@@ -3,8 +3,10 @@
 import { useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
+import { useOptionalSgsstGlobalFilters } from "@/components/sg-sst/filters/SgsstGlobalFiltersContext";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { SstFarm } from "@/lib/sg-sst/alerts/types";
+import { matchesGlobalFilters } from "@/lib/sg-sst/filters/global";
 import {
   formatChunkImportToast,
   runChunkedBulkImport,
@@ -58,6 +60,7 @@ export function ChemicalsMasterScreen({
 }: Readonly<ChemicalsMasterScreenProps>) {
   const router = useRouter();
   const { showToast } = useToast();
+  const globalFilters = useOptionalSgsstGlobalFilters();
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
@@ -73,6 +76,19 @@ export function ChemicalsMasterScreen({
     return items.filter((item) => {
       if (status !== "all" && item.status !== status) return false;
       if (farmId !== "all" && item.farmId !== farmId) return false;
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            farmId: item.farmId,
+            area: item.area,
+            date: item.nextInspectionAt ?? item.lastInspectionAt,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
       if (!q) return true;
       return (
         item.productName.toLowerCase().includes(q) ||
@@ -84,7 +100,7 @@ export function ChemicalsMasterScreen({
         (item.nextInspectionAt && item.nextInspectionAt <= today && q.includes("inspec"))
       );
     });
-  }, [items, status, farmId, query]);
+  }, [items, status, farmId, query, globalFilters]);
 
   function handleExport() {
     downloadChemicalsExcel(

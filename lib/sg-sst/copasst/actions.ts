@@ -55,6 +55,12 @@ import {
   type SstCopasstTrainingDraft,
 } from "@/lib/sg-sst/copasst/types";
 import {
+  auditEntityCreate,
+  auditEntityDelete,
+  auditEntityImport,
+  auditEntityUpdate,
+} from "@/lib/sg-sst/trazabilidad/helpers";
+import {
   findWorkerByCode,
   findWorkerByDocumentNumber,
   listActiveWorkersForSelect,
@@ -138,6 +144,27 @@ export async function saveMemberAction(
     const saved = draft.id
       ? await updateMember(draft.id, draft, admin.id)
       : await createMember(draft, admin.id);
+    if (draft.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "copasst",
+        entityType: "copasst_member",
+        entityId: saved.id,
+        workerId: saved.workerId,
+        subject: "el integrante COPASST",
+        ofWhom: saved.workerName,
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "copasst",
+        entityType: "copasst_member",
+        entityId: saved.id,
+        workerId: saved.workerId,
+        subject: "el integrante COPASST",
+        ofWhom: saved.workerName,
+      });
+    }
     revalidateCopasstPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -154,9 +181,16 @@ export async function saveMemberAction(
 export async function deleteMemberAction(
   id: string,
 ): Promise<CopasstSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
     await deleteMember(id);
+    await auditEntityDelete({
+      actor: admin,
+      module: "copasst",
+      entityType: "copasst_member",
+      entityId: id,
+      subject: "el integrante COPASST",
+    });
     revalidateCopasstPaths();
     return { ok: true };
   } catch (caught) {
@@ -177,6 +211,25 @@ export async function saveMeetingAction(
     const saved = draft.id
       ? await updateMeeting(draft.id, draft, admin.id)
       : await createMeeting(draft, admin.id);
+    if (draft.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "copasst",
+        entityType: "copasst_meeting",
+        entityId: saved.id,
+        subject: "el acta / reunión COPASST",
+        details: { folio: saved.folio },
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "copasst",
+        entityType: "copasst_meeting",
+        entityId: saved.id,
+        subject: "el acta / reunión COPASST",
+        details: { folio: saved.folio },
+      });
+    }
     revalidateCopasstPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -193,9 +246,16 @@ export async function saveMeetingAction(
 export async function deleteMeetingAction(
   id: string,
 ): Promise<CopasstSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
     await deleteMeeting(id);
+    await auditEntityDelete({
+      actor: admin,
+      module: "copasst",
+      entityType: "copasst_meeting",
+      entityId: id,
+      subject: "el acta / reunión COPASST",
+    });
     revalidateCopasstPaths();
     return { ok: true };
   } catch (caught) {
@@ -216,6 +276,25 @@ export async function saveCommitmentAction(
     const saved = draft.id
       ? await updateCommitment(draft.id, draft, admin.id)
       : await createCommitment(draft, admin.id);
+    if (draft.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "copasst",
+        entityType: "copasst_commitment",
+        entityId: saved.id,
+        subject: "el compromiso COPASST",
+        details: { folio: saved.folio },
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "copasst",
+        entityType: "copasst_commitment",
+        entityId: saved.id,
+        subject: "el compromiso COPASST",
+        details: { folio: saved.folio },
+      });
+    }
     revalidateCopasstPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -232,9 +311,16 @@ export async function saveCommitmentAction(
 export async function deleteCommitmentAction(
   id: string,
 ): Promise<CopasstSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
     await deleteCommitment(id);
+    await auditEntityDelete({
+      actor: admin,
+      module: "copasst",
+      entityType: "copasst_commitment",
+      entityId: id,
+      subject: "el compromiso COPASST",
+    });
     revalidateCopasstPaths();
     return { ok: true };
   } catch (caught) {
@@ -255,6 +341,25 @@ export async function saveTrainingAction(
     const saved = draft.id
       ? await updateTraining(draft.id, draft, admin.id)
       : await createTraining(draft, admin.id);
+    if (draft.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "copasst",
+        entityType: "copasst_training",
+        entityId: saved.id,
+        subject: "la capacitación COPASST",
+        details: { folio: saved.folio },
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "copasst",
+        entityType: "copasst_training",
+        entityId: saved.id,
+        subject: "la capacitación COPASST",
+        details: { folio: saved.folio },
+      });
+    }
     revalidateCopasstPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -271,9 +376,16 @@ export async function saveTrainingAction(
 export async function deleteTrainingAction(
   id: string,
 ): Promise<CopasstSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
     await deleteTraining(id);
+    await auditEntityDelete({
+      actor: admin,
+      module: "copasst",
+      entityType: "copasst_training",
+      entityId: id,
+      subject: "la capacitación COPASST",
+    });
     revalidateCopasstPaths();
     return { ok: true };
   } catch (caught) {
@@ -389,6 +501,16 @@ export async function bulkImportCopasstMembersAction(input: {
     }
 
     revalidateCopasstPaths();
+    await auditEntityImport({
+      actor: admin,
+      module: "copasst",
+      entityType: "copasst_member",
+      subjectPlural: "integrantes COPASST",
+      created,
+      updated,
+      failed,
+      rows: input.rows.length,
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {
@@ -485,6 +607,16 @@ export async function bulkImportCopasstMeetingsAction(input: {
     }
 
     revalidateCopasstPaths();
+    await auditEntityImport({
+      actor: admin,
+      module: "copasst",
+      entityType: "copasst_meeting",
+      subjectPlural: "actas / reuniones COPASST",
+      created,
+      updated,
+      failed,
+      rows: input.rows.length,
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {
@@ -603,6 +735,16 @@ export async function bulkImportCopasstCommitmentsAction(input: {
     }
 
     revalidateCopasstPaths();
+    await auditEntityImport({
+      actor: admin,
+      module: "copasst",
+      entityType: "copasst_commitment",
+      subjectPlural: "compromisos COPASST",
+      created,
+      updated,
+      failed,
+      rows: input.rows.length,
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {
@@ -686,6 +828,16 @@ export async function bulkImportCopasstTrainingsAction(input: {
     }
 
     revalidateCopasstPaths();
+    await auditEntityImport({
+      actor: admin,
+      module: "copasst",
+      entityType: "copasst_training",
+      subjectPlural: "capacitaciones COPASST",
+      created,
+      updated,
+      failed,
+      rows: input.rows.length,
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {

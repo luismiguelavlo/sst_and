@@ -73,6 +73,17 @@ export async function resetComplianceThresholdsAction(): Promise<
   const admin = await requireAdmin();
   try {
     await resetComplianceThresholds(admin.id);
+    await auditCustom({
+      actor: admin,
+      action: "config",
+      module: "cumplimiento",
+      entityType: "compliance_settings",
+      summary: buildAuditSummary({
+        actorName: admin.name,
+        verb: "restableció",
+        subject: "los umbrales del semáforo de cumplimiento SG-SST",
+      }),
+    });
     revalidatePath("/sg-sst");
     revalidatePath("/sg-sst/configuracion");
     revalidatePath("/sg-sst/alertas-sst/configuracion");

@@ -10,8 +10,10 @@ import {
 import { useRouter } from "next/navigation";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
 import { SemaphoreBadge } from "@/components/sg-sst/alerts/SemaphoreBadge";
+import { useOptionalSgsstGlobalFilters } from "@/components/sg-sst/filters/SgsstGlobalFiltersContext";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { SstSemaphoreLevel } from "@/lib/sg-sst/alerts/types";
+import { matchesGlobalFilters } from "@/lib/sg-sst/filters/global";
 import {
   bulkImportDocumentsAction,
   deleteDocumentAction,
@@ -66,6 +68,7 @@ export function DocumentsMasterScreen({
 }: Readonly<DocumentsMasterScreenProps>) {
   const router = useRouter();
   const { showToast } = useToast();
+  const globalFilters = useOptionalSgsstGlobalFilters();
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
@@ -88,6 +91,18 @@ export function DocumentsMasterScreen({
       } else if (semaphore !== "all") {
         if (!doc.tracksReview || doc.semaphore !== semaphore) return false;
       }
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            company: doc.company,
+            date: doc.nextReviewAt ?? doc.lastReviewedAt ?? doc.elaboratedAt,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
       if (!q) return true;
       return (
         doc.code.toLowerCase().includes(q) ||
@@ -97,7 +112,7 @@ export function DocumentsMasterScreen({
         SG_DOC_TYPE_LABELS[doc.docType].toLowerCase().includes(q)
       );
     });
-  }, [documents, docType, status, semaphore, query]);
+  }, [documents, docType, status, semaphore, query, globalFilters]);
 
   const custodyPct =
     stats.total > 0 ? Math.round((stats.withFile / stats.total) * 100) : 0;

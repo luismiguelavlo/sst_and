@@ -50,6 +50,7 @@ export function isAdminOnlyPath(pathname: string): boolean {
     pathname.startsWith("/assign-courses") ||
     pathname.startsWith("/assign-attendance") ||
     pathname.startsWith("/attendance-forms") ||
+    pathname.startsWith("/agenda") ||
     pathname.startsWith("/employees") ||
     pathname.startsWith("/course-catalog/new") ||
     /^\/course-catalog\/[^/]+\/edit\/?$/.test(pathname)

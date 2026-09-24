@@ -3,9 +3,11 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
+import { useOptionalSgsstGlobalFilters } from "@/components/sg-sst/filters/SgsstGlobalFiltersContext";
 import { WorkerSelect } from "@/components/sg-sst/workers/WorkerSelect";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { SstFarm } from "@/lib/sg-sst/alerts/types";
+import { matchesGlobalFilters } from "@/lib/sg-sst/filters/global";
 import {
   bulkImportHealthCasesAction,
   deleteHealthCaseAction,
@@ -61,6 +63,7 @@ export function HealthCasesMasterScreen({
 }: Readonly<HealthCasesMasterScreenProps>) {
   const router = useRouter();
   const { showToast } = useToast();
+  const globalFilters = useOptionalSgsstGlobalFilters();
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
@@ -78,6 +81,21 @@ export function HealthCasesMasterScreen({
       if (caseType !== "all" && item.caseType !== caseType) return false;
       if (status !== "all" && item.status !== status) return false;
       if (farmId !== "all" && item.farmId !== farmId) return false;
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            company: item.companySnapshot,
+            farmId: item.farmId,
+            workerId: item.workerId,
+            status: item.workerStatus,
+            date: item.openedAt,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
       if (!q) return true;
       return (
         item.workerName.toLowerCase().includes(q) ||
@@ -88,7 +106,7 @@ export function HealthCasesMasterScreen({
         item.issuer.toLowerCase().includes(q)
       );
     });
-  }, [cases, caseType, status, farmId, query]);
+  }, [cases, caseType, status, farmId, query, globalFilters]);
 
   const selected = useMemo(
     () => filtered.find((item) => item.id === selectedId) ?? null,

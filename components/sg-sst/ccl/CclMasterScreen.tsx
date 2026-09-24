@@ -3,9 +3,11 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
+import { useOptionalSgsstGlobalFilters } from "@/components/sg-sst/filters/SgsstGlobalFiltersContext";
 import { WorkerSelect } from "@/components/sg-sst/workers/WorkerSelect";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { SstFarm } from "@/lib/sg-sst/alerts/types";
+import { matchesGlobalFilters } from "@/lib/sg-sst/filters/global";
 import {
   bulkImportCclCasesAction,
   bulkImportCclCommitmentsAction,
@@ -96,6 +98,7 @@ export function CclMasterScreen({
 }: Readonly<CclMasterScreenProps>) {
   const router = useRouter();
   const { showToast } = useToast();
+  const globalFilters = useOptionalSgsstGlobalFilters();
   const fileRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [tab, setTab] = useState<TabId>("integrantes");
@@ -117,53 +120,105 @@ export function CclMasterScreen({
 
   const filteredMembers = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return members;
-    return members.filter(
-      (item) =>
+    return members.filter((item) => {
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            company: item.companySnapshot,
+            farmId: item.farmId,
+            workerId: item.workerId,
+            date: item.startDate,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
+      if (!q) return true;
+      return (
         item.workerName.toLowerCase().includes(q) ||
         item.workerDocument.toLowerCase().includes(q) ||
         item.workerCode.toLowerCase().includes(q) ||
         CCL_MEMBER_ROLE_LABELS[item.role].toLowerCase().includes(q) ||
-        item.periodLabel.toLowerCase().includes(q),
-    );
-  }, [members, query]);
+        item.periodLabel.toLowerCase().includes(q)
+      );
+    });
+  }, [members, query, globalFilters]);
 
   const filteredMeetings = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return meetings;
-    return meetings.filter(
-      (item) =>
+    return meetings.filter((item) => {
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            farmId: item.farmId,
+            date: item.meetingDate,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
+      if (!q) return true;
+      return (
         item.folio.toLowerCase().includes(q) ||
         item.title.toLowerCase().includes(q) ||
         item.summary.toLowerCase().includes(q) ||
-        CCL_MEETING_TYPE_LABELS[item.meetingType].toLowerCase().includes(q),
-    );
-  }, [meetings, query]);
+        CCL_MEETING_TYPE_LABELS[item.meetingType].toLowerCase().includes(q)
+      );
+    });
+  }, [meetings, query, globalFilters]);
 
   const filteredCases = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return cases;
-    return cases.filter(
-      (item) =>
+    return cases.filter((item) => {
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            date: item.openedAt,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
+      if (!q) return true;
+      return (
         item.code.toLowerCase().includes(q) ||
         item.activitySummary.toLowerCase().includes(q) ||
         CCL_CASE_STATUS_LABELS[item.status].toLowerCase().includes(q) ||
-        (item.meetingFolio?.toLowerCase().includes(q) ?? false),
-    );
-  }, [cases, query]);
+        (item.meetingFolio?.toLowerCase().includes(q) ?? false)
+      );
+    });
+  }, [cases, query, globalFilters]);
 
   const filteredCommitments = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return commitments;
-    return commitments.filter(
-      (item) =>
+    return commitments.filter((item) => {
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            date: item.dueDate,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
+      if (!q) return true;
+      return (
         item.folio.toLowerCase().includes(q) ||
         item.description.toLowerCase().includes(q) ||
         item.responsibleName.toLowerCase().includes(q) ||
         (item.caseCode?.toLowerCase().includes(q) ?? false) ||
-        (item.meetingFolio?.toLowerCase().includes(q) ?? false),
-    );
-  }, [commitments, query]);
+        (item.meetingFolio?.toLowerCase().includes(q) ?? false)
+      );
+    });
+  }, [commitments, query, globalFilters]);
 
   function handleExport() {
     downloadCclWorkbook({

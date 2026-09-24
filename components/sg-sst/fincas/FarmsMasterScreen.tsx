@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
+import { useOptionalSgsstGlobalFilters } from "@/components/sg-sst/filters/SgsstGlobalFiltersContext";
 import { useToast } from "@/components/ui/ToastProvider";
 import {
   bulkImportFarmsAction,
@@ -10,6 +11,7 @@ import {
   saveFarmAction,
   setFarmActiveAction,
 } from "@/lib/sg-sst/fincas/actions";
+import { matchesGlobalFilters } from "@/lib/sg-sst/filters/global";
 import {
   FARM_EXCEL_MAX_ROWS,
   FARM_IMPORT_CHUNK_SIZE,
@@ -45,6 +47,7 @@ export function FarmsMasterScreen({
 }: Readonly<FarmsMasterScreenProps>) {
   const router = useRouter();
   const { showToast } = useToast();
+  const globalFilters = useOptionalSgsstGlobalFilters();
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
@@ -58,6 +61,18 @@ export function FarmsMasterScreen({
     return farms.filter((farm) => {
       if (status === "active" && !farm.active) return false;
       if (status === "inactive" && farm.active) return false;
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            company: farm.company,
+            farmId: farm.id,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
       if (!q) return true;
       return (
         farm.name.toLowerCase().includes(q) ||
@@ -67,7 +82,7 @@ export function FarmsMasterScreen({
         farm.address.toLowerCase().includes(q)
       );
     });
-  }, [farms, query, status]);
+  }, [farms, query, status, globalFilters]);
 
   function handleExport() {
     downloadFarmsExcel(

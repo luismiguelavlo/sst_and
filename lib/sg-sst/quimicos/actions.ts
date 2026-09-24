@@ -13,6 +13,7 @@ import {
   deleteChemical,
   findChemicalByCode,
   findChemicalByProductAndFarm,
+  getChemical,
   getChemicalStats,
   listChemicals,
   updateChemical,
@@ -25,6 +26,12 @@ import {
   type SstChemical,
   type SstChemicalDraft,
 } from "@/lib/sg-sst/quimicos/types";
+import {
+  auditEntityCreate,
+  auditEntityDelete,
+  auditEntityImport,
+  auditEntityUpdate,
+} from "@/lib/sg-sst/trazabilidad/helpers";
 
 export type ChemicalActionResult =
   | { ok: true; id: string }
@@ -66,6 +73,25 @@ export async function saveChemicalAction(
     const saved = draft.id
       ? await updateChemical(draft.id, draft, admin.id)
       : await createChemical(draft, admin.id);
+    if (draft.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "quimicos",
+        entityType: "chemical",
+        entityId: saved.id,
+        subject: `el químico ${saved.productName}`,
+        details: { folio: saved.code },
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "quimicos",
+        entityType: "chemical",
+        entityId: saved.id,
+        subject: `el químico ${saved.productName}`,
+        details: { folio: saved.code },
+      });
+    }
     revalidateChemicalPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -82,9 +108,20 @@ export async function saveChemicalAction(
 export async function deleteChemicalAction(
   id: string,
 ): Promise<ChemicalSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
+    const existing = await getChemical(id);
     await deleteChemical(id);
+    if (existing) {
+      await auditEntityDelete({
+        actor: admin,
+        module: "quimicos",
+        entityType: "chemical",
+        entityId: existing.id,
+        subject: `el químico ${existing.productName}`,
+        details: { folio: existing.code },
+      });
+    }
     revalidateChemicalPaths();
     return { ok: true };
   } catch (caught) {
@@ -234,6 +271,16 @@ export async function bulkImportChemicalsAction(input: {
   }
 
   revalidateChemicalPaths();
+  await auditEntityImport({
+    actor: admin,
+    module: "quimicos",
+    entityType: "chemical",
+    subjectPlural: "productos químicos",
+    created,
+    updated,
+    failed,
+    rows: input.rows.length,
+  });
   return {
     ok: true,
     created,

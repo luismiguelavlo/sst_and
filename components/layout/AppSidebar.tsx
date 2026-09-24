@@ -14,6 +14,7 @@ const NAV_ITEMS: readonly {
   roles: readonly AppRole[];
 }[] = [
   { href: "/sg-sst", label: "SG-SST Operativo", icon: "agriculture", roles: ["admin"] },
+  { href: "/agenda", label: "Agenda", icon: "calendar_month", roles: ["admin"] },
   { href: "/dashboard", label: "Tablero", icon: "dashboard", roles: ["admin"] },
   { href: "/invitations", label: "Accesos", icon: "badge", roles: ["admin"] },
   { href: "/my-courses", label: "Mis cursos", icon: "school", roles: ["user"] },

@@ -3,9 +3,11 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { MaterialIcon } from "@/components/icons/MaterialIcon";
+import { useOptionalSgsstGlobalFilters } from "@/components/sg-sst/filters/SgsstGlobalFiltersContext";
 import { WorkerSelect } from "@/components/sg-sst/workers/WorkerSelect";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { SstFarm } from "@/lib/sg-sst/alerts/types";
+import { matchesGlobalFilters } from "@/lib/sg-sst/filters/global";
 import {
   bulkImportCopasstCommitmentsAction,
   bulkImportCopasstMeetingsAction,
@@ -87,6 +89,7 @@ export function CopasstMasterScreen({
 }: Readonly<CopasstMasterScreenProps>) {
   const router = useRouter();
   const { showToast } = useToast();
+  const globalFilters = useOptionalSgsstGlobalFilters();
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [tab, setTab] = useState<TabId>("integrantes");
@@ -109,50 +112,103 @@ export function CopasstMasterScreen({
 
   const filteredMembers = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return members;
-    return members.filter(
-      (item) =>
+    return members.filter((item) => {
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            company: item.companySnapshot,
+            farmId: item.farmId,
+            workerId: item.workerId,
+            date: item.startDate,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
+      if (!q) return true;
+      return (
         item.workerName.toLowerCase().includes(q) ||
         item.workerDocument.toLowerCase().includes(q) ||
         item.workerCode.toLowerCase().includes(q) ||
         COPASST_ROLE_LABELS[item.role].toLowerCase().includes(q) ||
-        item.periodLabel.toLowerCase().includes(q),
-    );
-  }, [members, query]);
+        item.periodLabel.toLowerCase().includes(q)
+      );
+    });
+  }, [members, query, globalFilters]);
 
   const filteredMeetings = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return meetings;
-    return meetings.filter(
-      (item) =>
+    return meetings.filter((item) => {
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            farmId: item.farmId,
+            date: item.meetingDate,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
+      if (!q) return true;
+      return (
         item.folio.toLowerCase().includes(q) ||
         item.title.toLowerCase().includes(q) ||
-        item.summary.toLowerCase().includes(q),
-    );
-  }, [meetings, query]);
+        item.summary.toLowerCase().includes(q)
+      );
+    });
+  }, [meetings, query, globalFilters]);
 
   const filteredCommitments = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return commitments;
-    return commitments.filter(
-      (item) =>
+    return commitments.filter((item) => {
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            farmId: item.farmId,
+            date: item.dueDate,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
+      if (!q) return true;
+      return (
         item.folio.toLowerCase().includes(q) ||
         item.description.toLowerCase().includes(q) ||
         item.responsibleName.toLowerCase().includes(q) ||
-        (item.meetingFolio ?? "").toLowerCase().includes(q),
-    );
-  }, [commitments, query]);
+        (item.meetingFolio ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [commitments, query, globalFilters]);
 
   const filteredTrainings = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return trainings;
-    return trainings.filter(
-      (item) =>
+    return trainings.filter((item) => {
+      if (
+        globalFilters &&
+        !matchesGlobalFilters(
+          {
+            date: item.trainingDate,
+          },
+          globalFilters.filters,
+        )
+      ) {
+        return false;
+      }
+      if (!q) return true;
+      return (
         item.folio.toLowerCase().includes(q) ||
         item.title.toLowerCase().includes(q) ||
-        item.instructor.toLowerCase().includes(q),
-    );
-  }, [trainings, query]);
+        item.instructor.toLowerCase().includes(q)
+      );
+    });
+  }, [trainings, query, globalFilters]);
 
   const preferredImportKind = (): CopasstImportBundle["activeKind"] => {
     if (tab === "integrantes") return "members";

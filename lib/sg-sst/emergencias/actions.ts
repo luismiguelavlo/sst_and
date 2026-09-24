@@ -21,6 +21,9 @@ import {
   findBrigadeByFolio,
   findDrillByFolio,
   findEquipmentByCode,
+  getBrigadeMember,
+  getEmergencyDrill,
+  getEmergencyEquipment,
   getEmergenciasStats,
   listBrigadeViews,
   listEmergencyDrills,
@@ -44,6 +47,12 @@ import {
   type SstEmergencyEquipmentDraft,
   type SstEmergencyEquipmentView,
 } from "@/lib/sg-sst/emergencias/types";
+import {
+  auditEntityCreate,
+  auditEntityDelete,
+  auditEntityImport,
+  auditEntityUpdate,
+} from "@/lib/sg-sst/trazabilidad/helpers";
 import {
   findWorkerByCode,
   findWorkerByDocumentNumber,
@@ -117,6 +126,29 @@ export async function saveBrigadeAction(
     const saved = draft.id
       ? await updateBrigadeMember(draft.id, draft, admin.id)
       : await createBrigadeMember(draft, admin.id);
+    if (draft.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "emergencias",
+        entityType: "brigade_member",
+        entityId: saved.id,
+        workerId: saved.workerId,
+        subject: "el brigadista",
+        ofWhom: saved.workerName,
+        details: { folio: saved.folio },
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "emergencias",
+        entityType: "brigade_member",
+        entityId: saved.id,
+        workerId: saved.workerId,
+        subject: "el brigadista",
+        ofWhom: saved.workerName,
+        details: { folio: saved.folio },
+      });
+    }
     revalidateEmergenciasPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -133,9 +165,22 @@ export async function saveBrigadeAction(
 export async function deleteBrigadeAction(
   id: string,
 ): Promise<EmergenciasSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
+    const existing = await getBrigadeMember(id);
     await deleteBrigadeMember(id);
+    if (existing) {
+      await auditEntityDelete({
+        actor: admin,
+        module: "emergencias",
+        entityType: "brigade_member",
+        entityId: existing.id,
+        workerId: existing.workerId,
+        subject: "el brigadista",
+        ofWhom: existing.workerName,
+        details: { folio: existing.folio },
+      });
+    }
     revalidateEmergenciasPaths();
     return { ok: true };
   } catch (caught) {
@@ -156,6 +201,25 @@ export async function saveEquipmentAction(
     const saved = draft.id
       ? await updateEmergencyEquipment(draft.id, draft, admin.id)
       : await createEmergencyEquipment(draft, admin.id);
+    if (draft.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "emergencias",
+        entityType: "emergency_equipment",
+        entityId: saved.id,
+        subject: `el equipo de emergencia ${saved.elementName}`,
+        details: { folio: saved.code },
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "emergencias",
+        entityType: "emergency_equipment",
+        entityId: saved.id,
+        subject: `el equipo de emergencia ${saved.elementName}`,
+        details: { folio: saved.code },
+      });
+    }
     revalidateEmergenciasPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -172,9 +236,20 @@ export async function saveEquipmentAction(
 export async function deleteEquipmentAction(
   id: string,
 ): Promise<EmergenciasSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
+    const existing = await getEmergencyEquipment(id);
     await deleteEmergencyEquipment(id);
+    if (existing) {
+      await auditEntityDelete({
+        actor: admin,
+        module: "emergencias",
+        entityType: "emergency_equipment",
+        entityId: existing.id,
+        subject: `el equipo de emergencia ${existing.elementName}`,
+        details: { folio: existing.code },
+      });
+    }
     revalidateEmergenciasPaths();
     return { ok: true };
   } catch (caught) {
@@ -195,6 +270,25 @@ export async function saveDrillAction(
     const saved = draft.id
       ? await updateEmergencyDrill(draft.id, draft, admin.id)
       : await createEmergencyDrill(draft, admin.id);
+    if (draft.id) {
+      await auditEntityUpdate({
+        actor: admin,
+        module: "emergencias",
+        entityType: "emergency_drill",
+        entityId: saved.id,
+        subject: "el simulacro de emergencia",
+        details: { folio: saved.folio },
+      });
+    } else {
+      await auditEntityCreate({
+        actor: admin,
+        module: "emergencias",
+        entityType: "emergency_drill",
+        entityId: saved.id,
+        subject: "el simulacro de emergencia",
+        details: { folio: saved.folio },
+      });
+    }
     revalidateEmergenciasPaths();
     return { ok: true, id: saved.id };
   } catch (caught) {
@@ -211,9 +305,20 @@ export async function saveDrillAction(
 export async function deleteDrillAction(
   id: string,
 ): Promise<EmergenciasSimpleResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   try {
+    const existing = await getEmergencyDrill(id);
     await deleteEmergencyDrill(id);
+    if (existing) {
+      await auditEntityDelete({
+        actor: admin,
+        module: "emergencias",
+        entityType: "emergency_drill",
+        entityId: existing.id,
+        subject: "el simulacro de emergencia",
+        details: { folio: existing.folio },
+      });
+    }
     revalidateEmergenciasPaths();
     return { ok: true };
   } catch (caught) {
@@ -342,6 +447,16 @@ export async function bulkImportBrigadeAction(input: {
     }
 
     revalidateEmergenciasPaths();
+    await auditEntityImport({
+      actor: admin,
+      module: "emergencias",
+      entityType: "brigade_member",
+      subjectPlural: "brigadistas",
+      created,
+      updated,
+      failed,
+      rows: input.rows.length,
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {
@@ -449,6 +564,16 @@ export async function bulkImportEquipmentAction(input: {
     }
 
     revalidateEmergenciasPaths();
+    await auditEntityImport({
+      actor: admin,
+      module: "emergencias",
+      entityType: "emergency_equipment",
+      subjectPlural: "equipos de emergencia",
+      created,
+      updated,
+      failed,
+      rows: input.rows.length,
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {
@@ -550,6 +675,16 @@ export async function bulkImportDrillsAction(input: {
     }
 
     revalidateEmergenciasPaths();
+    await auditEntityImport({
+      actor: admin,
+      module: "emergencias",
+      entityType: "emergency_drill",
+      subjectPlural: "simulacros de emergencia",
+      created,
+      updated,
+      failed,
+      rows: input.rows.length,
+    });
     return { ok: true, created, updated, failed, results };
   } catch (caught) {
     return {

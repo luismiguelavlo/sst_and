@@ -25,6 +25,7 @@
     "db:migrate-sst-compliance-settings": "node --env-file=.env.local scripts/migrate-sst-compliance-settings.mjs",
     "db:migrate-sst-alert-notification-reads": "node --env-file=.env.local scripts/migrate-sst-alert-notification-reads.mjs",
     "db:migrate-sst-audit-events": "node --env-file=.env.local scripts/migrate-sst-audit-events.mjs",
+    "db:migrate-work-agenda": "node --env-file=.env.local scripts/migrate-work-agenda.mjs",
     "db:clear-sst-seed": "node --env-file=.env.local scripts/clear-sst-seed.mjs"
   },
   "dependencies": {
