@@ -6,6 +6,7 @@ import { listSstFarms } from "@/lib/sg-sst/alerts/repository";
 import type { SstFarm } from "@/lib/sg-sst/alerts/types";
 import {
   ACCIDENT_EXCEL_MAX_ROWS,
+  isBusinessEventNumber,
   type AccidentExcelImportResultRow,
   type AccidentExcelImportRow,
 } from "@/lib/sg-sst/accidentes/excel";
@@ -70,10 +71,25 @@ function resolveFarmId(
 }
 
 async function resolveWorkerId(ref: string): Promise<string | null> {
-  const byCode = await findWorkerByCode(ref);
+  const trimmed = ref.trim();
+  if (!trimmed) return null;
+
+  const digits = trimmed.replace(/\D/g, "");
+  // Cédulas (≥5 dígitos): buscar por documento primero para no chocar
+  // con worker_code cortos ("1", "2", "99") de la base maestra.
+  if (digits.length >= 5) {
+    const byDoc = await findWorkerByDocumentNumber(trimmed);
+    if (byDoc) return byDoc.id;
+  }
+
+  const byCode = await findWorkerByCode(trimmed);
   if (byCode) return byCode.id;
-  const byDoc = await findWorkerByDocumentNumber(ref);
-  return byDoc?.id ?? null;
+
+  if (digits.length > 0 && digits.length < 5) {
+    return null;
+  }
+
+  return (await findWorkerByDocumentNumber(trimmed))?.id ?? null;
 }
 
 export async function loadAccidentsMasterData(): Promise<{
@@ -238,9 +254,10 @@ export async function bulkImportAccidentsAction(input: {
       }
 
       try {
-        const existing = row.eventNumber
-          ? await findAccidentByEventNumber(row.eventNumber)
-          : null;
+        const existing =
+          row.eventNumber && isBusinessEventNumber(row.eventNumber)
+            ? await findAccidentByEventNumber(row.eventNumber)
+            : null;
         if (existing) {
           const saved = await updateAccidentEvent(
             existing.id,

@@ -102,20 +102,73 @@ function cellValue(row: string[], index: number | undefined): string {
   return (row[index] ?? "").toString().trim();
 }
 
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+function localIsoFromDate(d: Date): string {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+/**
+ * Normaliza fechas de Excel a YYYY-MM-DD.
+ * Acepta ISO, M/D/YY, D/M/YYYY (si día > 12), y serial Excel.
+ * Nunca devuelve texto crudo inválido para columnas `date`.
+ */
 function excelDateToIso(raw: string): string {
   if (!raw) return "";
-  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
-  const parsed = Date.parse(raw);
-  if (!Number.isNaN(parsed)) {
-    return new Date(parsed).toISOString().slice(0, 10);
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+
+  if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return trimmed.slice(0, 10);
+
+  // Serial Excel (días desde 1899-12-30)
+  if (/^\d{5}(\.\d+)?$/.test(trimmed)) {
+    const serial = Number(trimmed);
+    if (Number.isFinite(serial) && serial > 20000 && serial < 80000) {
+      const utc = Date.UTC(1899, 11, 30) + Math.floor(serial) * 86_400_000;
+      return new Date(utc).toISOString().slice(0, 10);
+    }
   }
-  return raw;
+
+  // M/D/YY o M/D/YYYY (formato típico de SheetJS con raw:false en locale US)
+  const slash = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (slash) {
+    const a = Number(slash[1]);
+    const b = Number(slash[2]);
+    let year = Number(slash[3]);
+    if (year < 100) year += 2000;
+    // Si el primer número > 12, asumir D/M/YYYY
+    if (a > 12 && b >= 1 && b <= 12) {
+      return `${year}-${pad2(b)}-${pad2(a)}`;
+    }
+    if (a >= 1 && a <= 12 && b >= 1 && b <= 31) {
+      return `${year}-${pad2(a)}-${pad2(b)}`;
+    }
+  }
+
+  const parsed = Date.parse(trimmed);
+  if (!Number.isNaN(parsed)) {
+    return localIsoFromDate(new Date(parsed));
+  }
+  return "";
 }
 
 function excelTime(raw: string): string {
   if (!raw) return "";
   if (/^\d{1,2}:\d{2}/.test(raw)) return raw.slice(0, 8);
   return raw;
+}
+
+/**
+ * Folios de negocio (AT-2026-001). Ignora contadores 1..N del Excel
+ * que colisionarían con worker_code cortos ("1","2","3").
+ */
+export function isBusinessEventNumber(value: string | undefined): boolean {
+  if (!value?.trim()) return false;
+  const v = value.trim();
+  if (/^\d{1,4}$/.test(v)) return false;
+  return true;
 }
 
 function mapHeaders(
@@ -220,11 +273,14 @@ export function accidentRowsFromMatrix(matrix: string[][]): AccidentExcelImportR
       causes: hasAnyCause ? causes : undefined,
     };
 
+    const rawEventNumber = cellValue(raw, headerMap.eventNumber);
     rows.push({
       rowNumber: index + 1,
       draft,
       workerDocumentOrCode: workerRef,
-      eventNumber: cellValue(raw, headerMap.eventNumber) || undefined,
+      eventNumber: isBusinessEventNumber(rawEventNumber)
+        ? rawEventNumber
+        : undefined,
       farmName: cellValue(raw, headerMap.farm) || undefined,
     });
   }

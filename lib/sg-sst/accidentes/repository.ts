@@ -503,7 +503,11 @@ export async function createAccidentEvent(
   if (!created) throw new Error("No se pudo crear el evento.");
 
   if (created.eventType === "accidente_trabajo") {
-    await autoCreateInvestigationForAccident(created, userId);
+    try {
+      await autoCreateInvestigationForAccident(created, userId);
+    } catch (err) {
+      console.error("[autoCreateInvestigationForAccident]", created.eventNumber, err);
+    }
   }
 
   return (await selectAccidentById(created.id)) ?? created;
@@ -563,7 +567,11 @@ export async function updateAccidentEvent(
   if (!updated) throw new Error("Evento no encontrado.");
 
   if (updated.eventType === "accidente_trabajo") {
-    await autoCreateInvestigationForAccident(updated, userId);
+    try {
+      await autoCreateInvestigationForAccident(updated, userId);
+    } catch (err) {
+      console.error("[autoCreateInvestigationForAccident]", updated.eventNumber, err);
+    }
   }
 
   return (await selectAccidentById(id)) ?? updated;

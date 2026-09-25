@@ -233,8 +233,14 @@ export function AccidentsMasterScreen({
 
   function confirmImport() {
     startTransition(async () => {
-      const result = await runChunkedBulkImport(preview, (chunk) =>
-        bulkImportAccidentsAction({ rows: chunk }),
+      const result = await runChunkedBulkImport(
+        preview,
+        (chunk) => bulkImportAccidentsAction({ rows: chunk }),
+        {
+          // Cada fila crea investigación + compliance: lotes chicos evitan timeout
+          chunkSize: 8,
+          continueOnChunkError: true,
+        },
       );
       if (!result.ok) {
         showToast(result.error, { variant: "error" });
@@ -433,7 +439,9 @@ export function AccidentsMasterScreen({
                     Vista previa: {fileName}
                   </div>
                   <div className="font-body-sm text-body-sm text-on-surface-variant">
-                    {preview.length} filas. Número de evento existente → actualización.
+                    {preview.length} filas leídas. El documento debe existir en
+                    trabajadores. Folios tipo AT-2026-001 actualizan; números 1, 2,
+                    3… del Excel se ignoran como folio.
                   </div>
                 </div>
                 <div className="flex gap-xs">
