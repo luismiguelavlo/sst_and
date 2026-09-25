@@ -471,3 +471,37 @@ export async function retireWorker(
     userId,
   );
 }
+
+/**
+ * Resuelve el ID de un trabajador desde una referencia (código o documento).
+ * 
+ * Si la referencia tiene ≥5 dígitos (cédula), busca primero por documento
+ * para evitar colisiones con códigos cortos ("1", "2", "3") en la BD.
+ * 
+ * @param ref - Referencia del trabajador (código o documento)
+ * @returns ID del trabajador o null si no se encuentra
+ */
+export async function resolveWorkerId(ref: string): Promise<string | null> {
+  const trimmed = ref.trim();
+  if (!trimmed) return null;
+
+  const digits = trimmed.replace(/\D/g, "");
+  // Cédulas (≥5 dígitos): buscar por documento primero para no chocar
+  // con códigos cortos ("1", "2", "3", "99") en base de datos
+  if (digits.length >= 5) {
+    const byDoc = await findWorkerByDocumentNumber(trimmed);
+    if (byDoc) return byDoc.id;
+  }
+
+  // Fallback: buscar por código
+  const byCode = await findWorkerByCode(trimmed);
+  if (byCode) return byCode.id;
+
+  // Si no se encontró primero y tiene <5 dígitos, intentar por documento también
+  if (digits.length < 5 && digits.length > 0) {
+    const byDoc = await findWorkerByDocumentNumber(trimmed);
+    if (byDoc) return byDoc.id;
+  }
+
+  return null;
+}

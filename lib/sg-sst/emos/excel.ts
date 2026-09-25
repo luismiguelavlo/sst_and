@@ -9,6 +9,7 @@ import {
   type SstEmoView,
 } from "@/lib/sg-sst/emos/types";
 import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
+import { excelDateToIso as excelDateToIsoUtil } from "@/lib/sg-sst/excel-utils";
 
 export const EMO_EXCEL_MAX_ROWS = 500;
 
@@ -71,13 +72,7 @@ function cellValue(row: string[], index: number | undefined): string {
 }
 
 function excelDateToIso(raw: string): string {
-  if (!raw) return todayIsoDate();
-  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
-  const parsed = Date.parse(raw);
-  if (!Number.isNaN(parsed)) {
-    return new Date(parsed).toISOString().slice(0, 10);
-  }
-  return todayIsoDate();
+  return excelDateToIsoUtil(raw, true);
 }
 
 function mapHeaders(headerRow: string[]): Partial<Record<keyof typeof HEADER_ALIASES, number>> {

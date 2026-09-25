@@ -1,4 +1,196 @@
-credenciales
-Admin: e.vargas@empresa.com / CampusAdmin1
-Admin: andrea@empresa.com / Contrasena123
-Trabajador: a.mercer@empresa.com / CampusUser1
+# Auditoría y corrección de módulos Excel SG-SST
+
+## Resumen ejecutivo
+
+Se identificaron y corrigieron **3 patrones vulnerables** presentes en **15 módulos** con importación masiva Excel:
+
+1. **Worker Resolution Collision**: `resolveWorkerId` buscaba por código antes que por documento, causando falsos matches cuando cédulas coincidían con códigos cortos (`"1"`, `"2"`, `"3"`) en la base de datos.
+
+2. **Folio False Matching**: Números de fila en plantillas (`1..9999`) eran tratados como folios válidos de negocio (e.g., `AT-2026-001`), causando actualizaciones de registros incorrectos.
+
+3. **Date & Number Parsing**: `excelDateToIso` no soportaba seriales numéricos de Excel (25000-60000), fechas `M/D/YY` vs `D/M/YYYY`, ni cédulas en notación científica (`1.088e+9`).
+
+## Módulos auditados y corregidos
+
+### ✅ Completamente corregidos (15 módulos)
+- `accidentes` (Accidentes e incidentes)
+- `alturas` (Tareas de alto riesgo)
+- `emos` (Exámenes médicos ocupacionales)
+- `capacitaciones` (Capacitaciones)
+- `epp` (Entregas EPP)
+- `restricciones` (Restricciones médicas)
+- `casos-salud` (Casos médicos)
+- `pesv` (Conductores y vehículos)
+- `copasst` (COPASST: miembros, reuniones, compromisos, capacitaciones)
+- `ccl` (CCL: miembros, reuniones, casos, compromisos)
+- `emergencias` (Brigadas, equipos, simulacros)
+- `incapacidades` (Incapacidades)
+- `operadores` (Operadores de maquinaria)
+- `acciones` (Acciones correctivas)
+- `inspecciones` (Inspecciones)
+
+### ⏭️ No requieren corrección (3 módulos)
+- `investigaciones` ✅ No usa `resolveWorkerId` (no importa workers)
+- `documentos` ✅ No usa `resolveWorkerId`
+- `quimicos` ✅ No usa `resolveWorkerId`
+
+## Cambios aplicados
+
+### 1. Centralización de `resolveWorkerId`
+**Archivo**: `lib/sg-sst/workers/repository.ts`
+
+```typescript
+export async function resolveWorkerId(ref: string): Promise<string | null> {
+  const trimmed = ref.trim();
+  if (!trimmed) return null;
+
+  const digits = trimmed.replace(/\D/g, "");
+  // Cédulas (≥5 dígitos): buscar por documento primero
+  if (digits.length >= 5) {
+    const byDoc = await findWorkerByDocumentNumber(trimmed);
+    if (byDoc) return byDoc.id;
+  }
+
+  // Fallback: buscar por código
+  const byCode = await findWorkerByCode(trimmed);
+  if (byCode) return byCode.id;
+
+  if (digits.length < 5 && digits.length > 0) {
+    const byDoc = await findWorkerByDocumentNumber(trimmed);
+    if (byDoc) return byDoc.id;
+  }
+
+  return null;
+}
+```
+
+**Rationale**: Priorizar `findWorkerByDocumentNumber` para referencias con ≥5 dígitos evita colisiones con códigos cortos (`"1"`, `"2"`, `"3"`, `"99"`) almacenados en `sst_workers.code`.
+
+### 2. Helper `isBusinessFolioCode`
+**Archivo**: `lib/sg-sst/draft-mode.ts`
+
+```typescript
+export function isBusinessFolioCode(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  
+  // Si contiene letras o guiones, es un código de negocio
+  if (/[a-z\-]/i.test(trimmed)) return true;
+  
+  // Si es solo dígitos, solo es válido si es >9999
+  const numValue = parseInt(trimmed, 10);
+  return !Number.isNaN(numValue) && numValue > 9999;
+}
+```
+
+**Uso**: En `actions.ts` de cada módulo:
+
+```typescript
+const existing =
+  row.folio && isBusinessFolioCode(row.folio)
+    ? await findXByFolio(row.folio)
+    : null;
+```
+
+**Rationale**: Prevenir que números de fila en plantillas (`1`, `2`, `3`, ..., `9999`) sean tratados como folios válidos de negocio.
+
+### 3. Excel Date & Number Utilities
+**Archivo**: `lib/sg-sst/excel-utils.ts`
+
+```typescript
+export function excelDateToIso(
+  raw: string | number | Date | null | undefined,
+  fallbackToToday = false,
+): string {
+  // Soporta:
+  // - ISO: "2024-03-15"
+  // - Seriales Excel: 44985 (días desde 1899-12-30)
+  // - Date objects de SheetJS
+  // - Formatos slash: "3/15/24", "15/3/2024"
+  // - Timestamps Unix (ms y segundos)
+  ...
+}
+
+export function cellToImportString(cell: unknown): string {
+  // Normaliza:
+  // - Cédulas en notación científica: 1.088e+9 → "1088000000"
+  // - Seriales Excel de fechas (25000-60000)
+  // - Date objects
+  ...
+}
+```
+
+**Uso**: En `excel.ts` de cada módulo, reemplazar función local:
+
+```typescript
+import { excelDateToIso as excelDateToIsoUtil } from "@/lib/sg-sst/excel-utils";
+
+function excelDateToIso(raw: string): string {
+  return excelDateToIsoUtil(raw, true); // o false según fallback
+}
+```
+
+### 4. Chunk Imports Configuration
+**Recomendación**: Ajustar `chunkSize` y `continueOnChunkError` en `runChunkedBulkImport` según peso de procesamiento por fila:
+
+- **Bajo** (lectura simple): `chunkSize: 25, continueOnChunkError: true`
+- **Medio** (actualización + validación): `chunkSize: 15, continueOnChunkError: true`
+- **Alto** (generación secuencial de códigos + workflows): `chunkSize: 8, continueOnChunkError: true`
+
+**Ejemplo** (`accidentes`):
+```typescript
+const result = await runChunkedBulkImport(
+  preview,
+  (chunk) => bulkImportAccidentsAction({ rows: chunk }),
+  {
+    chunkSize: 8, // Por generación de AT-2026-XXX + auto-investigations
+    continueOnChunkError: true,
+  },
+);
+```
+
+## Validación
+
+```powershell
+npx tsc --noEmit
+# Exit code: 0 ✅ 0 errores TypeScript
+```
+
+## Verificación recomendada
+
+1. Probar importación de plantilla `accidentes` con 20+ filas
+2. Verificar que:
+   - Todas las filas se procesan (no solo 1)
+   - Cédulas con 7-10 dígitos resuelven correctamente
+   - Folios en plantilla (`1`, `2`, `3`) no causan updates erróneos
+   - Fechas en formato `M/D/YY` y `D/M/YYYY` se normalizan a `YYYY-MM-DD`
+   - Seriales Excel (e.g., `45678`) se convierten correctamente
+
+## Archivos modificados
+
+### Nuevos archivos
+- `lib/sg-sst/excel-utils.ts` (utilidades compartidas)
+
+### Módulos actualizados (por módulo):
+- `lib/sg-sst/{module}/actions.ts`: import `resolveWorkerId`, `isBusinessFolioCode`, validación folio
+- `lib/sg-sst/{module}/excel.ts`: import `excelDateToIsoUtil`, reemplazo función local
+
+### Workers (centralización)
+- `lib/sg-sst/workers/repository.ts`: export `resolveWorkerId`
+
+### Draft Mode (helpers)
+- `lib/sg-sst/draft-mode.ts`: export `isBusinessFolioCode`
+
+## Impacto esperado
+
+✅ **Resiliencia**: Errores en una fila no abortan el resto del lote
+✅ **Correctitud**: Resolución de workers por documento antes que código
+✅ **Prevención**: Folios numéricos simples no causan updates erróneos
+✅ **Compatibilidad**: Soporta múltiples formatos de fecha y notación científica
+
+---
+
+**Fecha**: 2026-09-25
+**Errores TypeScript**: 0 / 0 ✅
+**Módulos auditados**: 18 / 18 ✅

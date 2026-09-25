@@ -34,11 +34,11 @@ import {
   type SstEppDeliveryDraft,
   type SstEppDeliveryView,
 } from "@/lib/sg-sst/epp/types";
+import { isBusinessFolioCode } from "@/lib/sg-sst/draft-mode";
 import {
-  findWorkerByCode,
-  findWorkerByDocumentNumber,
   getWorker,
   listWorkers,
+  resolveWorkerId,
 } from "@/lib/sg-sst/workers/repository";
 import type { SstWorker } from "@/lib/sg-sst/workers/types";
 import {
@@ -206,12 +206,7 @@ export type BulkImportEppResult =
     }
   | { ok: false; error: string };
 
-async function resolveWorkerId(ref: string): Promise<string | null> {
-  const byCode = await findWorkerByCode(ref);
-  if (byCode) return byCode.id;
-  const byDoc = await findWorkerByDocumentNumber(ref);
-  return byDoc?.id ?? null;
-}
+// NOTA: resolveWorkerId movido a workers/repository.ts
 
 export async function bulkImportEppDeliveriesAction(input: {
   rows: EppExcelImportRow[];
@@ -288,7 +283,10 @@ export async function bulkImportEppDeliveriesAction(input: {
       }
 
       try {
-        const existing = row.folio ? await findDeliveryByFolio(row.folio) : null;
+        const existing =
+          row.folio && isBusinessFolioCode(row.folio)
+            ? await findDeliveryByFolio(row.folio)
+            : null;
         if (existing) {
           const saved = await updateDelivery(
             existing.id,

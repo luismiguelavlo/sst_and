@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/guards";
 import { listSstFarms } from "@/lib/sg-sst/alerts/repository";
+import { isBusinessFolioCode } from "@/lib/sg-sst/draft-mode";
 import {
   HEIGHTS_EXCEL_MAX_ROWS,
   type HeightsExcelImportResultRow,
@@ -25,10 +26,9 @@ import {
   type SstHeightsView,
 } from "@/lib/sg-sst/alturas/types";
 import {
-  findWorkerByCode,
-  findWorkerByDocumentNumber,
   getWorker,
   listWorkers,
+  resolveWorkerId,
 } from "@/lib/sg-sst/workers/repository";
 import type { SstWorker } from "@/lib/sg-sst/workers/types";
 import { recordSstAudit } from "@/lib/sg-sst/trazabilidad/repository";
@@ -209,12 +209,8 @@ export type BulkImportHeightsResult =
     }
   | { ok: false; error: string };
 
-async function resolveWorkerId(ref: string): Promise<string | null> {
-  const byCode = await findWorkerByCode(ref);
-  if (byCode) return byCode.id;
-  const byDoc = await findWorkerByDocumentNumber(ref);
-  return byDoc?.id ?? null;
-}
+// NOTA: resolveWorkerId movido a workers/repository.ts para evitar duplicación
+// y garantizar orden correcto (documento antes que código para cédulas).
 
 export async function bulkImportHeightsAction(input: {
   rows: HeightsExcelImportRow[];
@@ -268,7 +264,10 @@ export async function bulkImportHeightsAction(input: {
       }
 
       try {
-        const existing = row.folio ? await findHeightsByFolio(row.folio) : null;
+        const existing =
+          row.folio && isBusinessFolioCode(row.folio)
+            ? await findHeightsByFolio(row.folio)
+            : null;
         if (existing) {
           const saved = await updateHeightsAuthorization(
             existing.id,

@@ -25,6 +25,7 @@ import {
   type SstCorrectiveActionDraft,
   type SstCorrectiveActionView,
 } from "@/lib/sg-sst/acciones/types";
+import { isBusinessFolioCode } from "@/lib/sg-sst/draft-mode";
 import {
   auditEntityCreate,
   auditEntityDelete,
@@ -195,7 +196,10 @@ export async function bulkImportActionsAction(input: {
       }
 
       try {
-        const existing = row.folio ? await findActionByFolio(row.folio) : null;
+        const existing =
+          row.folio && isBusinessFolioCode(row.folio)
+            ? await findActionByFolio(row.folio)
+            : null;
         if (existing) {
           const saved = await updateAction(
             existing.id,

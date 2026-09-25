@@ -49,10 +49,10 @@ import {
   auditEntityImport,
   auditEntityUpdate,
 } from "@/lib/sg-sst/trazabilidad/helpers";
+import { isBusinessFolioCode } from "@/lib/sg-sst/draft-mode";
 import {
-  findWorkerByCode,
-  findWorkerByDocumentNumber,
   listWorkers,
+  resolveWorkerId,
 } from "@/lib/sg-sst/workers/repository";
 import type { SstWorker } from "@/lib/sg-sst/workers/types";
 
@@ -307,12 +307,7 @@ export type BulkImportPesvResult =
     }
   | { ok: false; error: string };
 
-async function resolveWorkerId(ref: string): Promise<string | null> {
-  const byCode = await findWorkerByCode(ref);
-  if (byCode) return byCode.id;
-  const byDoc = await findWorkerByDocumentNumber(ref);
-  return byDoc?.id ?? null;
-}
+// NOTA: resolveWorkerId movido a workers/repository.ts
 
 export async function bulkImportPesvDriversAction(input: {
   rows: PesvDriverExcelImportRow[];
@@ -371,7 +366,10 @@ export async function bulkImportPesvDriversAction(input: {
       }
 
       try {
-        const existing = row.folio ? await findDriverByFolio(row.folio) : null;
+        const existing =
+          row.folio && isBusinessFolioCode(row.folio)
+            ? await findDriverByFolio(row.folio)
+            : null;
         if (existing) {
           const saved = await updateDriver(
             existing.id,

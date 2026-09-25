@@ -29,12 +29,11 @@ import {
   type SstLeaveDraft,
   type SstLeaveView,
 } from "@/lib/sg-sst/incapacidades/types";
-import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
+import { isBusinessFolioCode, todayIsoDate } from "@/lib/sg-sst/draft-mode";
 import {
-  findWorkerByCode,
-  findWorkerByDocumentNumber,
   getWorker,
   listWorkers,
+  resolveWorkerId,
 } from "@/lib/sg-sst/workers/repository";
 import type { SstWorker } from "@/lib/sg-sst/workers/types";
 import {
@@ -161,12 +160,7 @@ export type BulkImportLeavesResult =
     }
   | { ok: false; error: string };
 
-async function resolveWorkerId(ref: string): Promise<string | null> {
-  const byCode = await findWorkerByCode(ref);
-  if (byCode) return byCode.id;
-  const byDoc = await findWorkerByDocumentNumber(ref);
-  return byDoc?.id ?? null;
-}
+// NOTA: resolveWorkerId movido a workers/repository.ts
 
 export async function bulkImportLeavesAction(input: {
   rows: LeaveExcelImportRow[];
@@ -237,7 +231,10 @@ export async function bulkImportLeavesAction(input: {
       }
 
       try {
-        const existing = row.folio ? await findLeaveByFolio(row.folio) : null;
+        const existing =
+          row.folio && isBusinessFolioCode(row.folio)
+            ? await findLeaveByFolio(row.folio)
+            : null;
         if (existing) {
           const saved = await updateLeave(
             existing.id,

@@ -14,6 +14,7 @@ import {
   type SstPesvVehicle,
   type SstPesvVehicleDraft,
 } from "@/lib/sg-sst/pesv/types";
+import { excelDateToIso as excelDateToIsoUtil } from "@/lib/sg-sst/excel-utils";
 
 export const PESV_EXCEL_MAX_ROWS = 500;
 
@@ -105,13 +106,7 @@ function cellValue(row: string[], index: number | undefined): string {
 }
 
 function excelDateToIso(raw: string): string {
-  if (!raw) return "";
-  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
-  const parsed = Date.parse(raw);
-  if (!Number.isNaN(parsed)) {
-    return new Date(parsed).toISOString().slice(0, 10);
-  }
-  return raw;
+  return excelDateToIsoUtil(raw, false);
 }
 
 function mapHeaders(

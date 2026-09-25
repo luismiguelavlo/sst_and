@@ -30,10 +30,10 @@ import {
   auditEntityImport,
   auditEntityUpdate,
 } from "@/lib/sg-sst/trazabilidad/helpers";
+import { isBusinessFolioCode } from "@/lib/sg-sst/draft-mode";
 import {
-  findWorkerByCode,
-  findWorkerByDocumentNumber,
   listWorkers,
+  resolveWorkerId,
 } from "@/lib/sg-sst/workers/repository";
 import type { SstWorker } from "@/lib/sg-sst/workers/types";
 
@@ -151,12 +151,7 @@ export type BulkImportOperatorsResult =
     }
   | { ok: false; error: string };
 
-async function resolveWorkerId(ref: string): Promise<string | null> {
-  const byCode = await findWorkerByCode(ref);
-  if (byCode) return byCode.id;
-  const byDoc = await findWorkerByDocumentNumber(ref);
-  return byDoc?.id ?? null;
-}
+// NOTA: resolveWorkerId movido a workers/repository.ts
 
 function resolveFarmId(
   farmNameOrCode: string,
@@ -232,7 +227,10 @@ export async function bulkImportOperatorsAction(input: {
       }
 
       try {
-        const existing = row.folio ? await findOperatorByFolio(row.folio) : null;
+        const existing =
+          row.folio && isBusinessFolioCode(row.folio)
+            ? await findOperatorByFolio(row.folio)
+            : null;
         if (existing) {
           const saved = await updateOperator(
             existing.id,

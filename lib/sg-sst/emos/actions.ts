@@ -27,15 +27,14 @@ import {
   type SstEmoDraft,
   type SstEmoView,
 } from "@/lib/sg-sst/emos/types";
-import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
+import { isBusinessFolioCode, todayIsoDate } from "@/lib/sg-sst/draft-mode";
 import {
-  findWorkerByCode,
-  findWorkerByDocumentNumber,
   getWorker,
+  getWorkerStats,
   listWorkers,
+  resolveWorkerId,
 } from "@/lib/sg-sst/workers/repository";
 import type { SstWorker } from "@/lib/sg-sst/workers/types";
-import { getWorkerStats } from "@/lib/sg-sst/workers/repository";
 import {
   auditEntityCreate,
   auditEntityDelete,
@@ -203,12 +202,7 @@ export type BulkImportEmosResult =
     }
   | { ok: false; error: string };
 
-async function resolveWorkerId(ref: string): Promise<string | null> {
-  const byCode = await findWorkerByCode(ref);
-  if (byCode) return byCode.id;
-  const byDoc = await findWorkerByDocumentNumber(ref);
-  return byDoc?.id ?? null;
-}
+// NOTA: resolveWorkerId movido a workers/repository.ts
 
 export async function bulkImportEmosAction(input: {
   rows: EmoExcelImportRow[];
@@ -265,7 +259,10 @@ export async function bulkImportEmosAction(input: {
       }
 
       try {
-        const existing = row.folio ? await findEmoByFolio(row.folio) : null;
+        const existing =
+          row.folio && isBusinessFolioCode(row.folio)
+            ? await findEmoByFolio(row.folio)
+            : null;
         if (existing) {
           const saved = await updateEmo(existing.id, { ...draft, id: existing.id }, admin.id);
           updated += 1;

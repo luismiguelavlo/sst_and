@@ -25,12 +25,11 @@ import {
   type SstRestrictionDraft,
   type SstRestrictionView,
 } from "@/lib/sg-sst/restricciones/types";
-import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
+import { isBusinessFolioCode, todayIsoDate } from "@/lib/sg-sst/draft-mode";
 import {
-  findWorkerByCode,
-  findWorkerByDocumentNumber,
   getWorker,
   listWorkers,
+  resolveWorkerId,
 } from "@/lib/sg-sst/workers/repository";
 import type { SstWorker } from "@/lib/sg-sst/workers/types";
 import {
@@ -156,12 +155,7 @@ export type BulkImportRestrictionsResult =
     }
   | { ok: false; error: string };
 
-async function resolveWorkerId(ref: string): Promise<string | null> {
-  const byCode = await findWorkerByCode(ref);
-  if (byCode) return byCode.id;
-  const byDoc = await findWorkerByDocumentNumber(ref);
-  return byDoc?.id ?? null;
-}
+// NOTA: resolveWorkerId movido a workers/repository.ts
 
 export async function bulkImportRestrictionsAction(input: {
   rows: RestrictionExcelImportRow[];
@@ -226,7 +220,10 @@ export async function bulkImportRestrictionsAction(input: {
       }
 
       try {
-        const existing = row.folio ? await findRestrictionByFolio(row.folio) : null;
+        const existing =
+          row.folio && isBusinessFolioCode(row.folio)
+            ? await findRestrictionByFolio(row.folio)
+            : null;
         if (existing) {
           const saved = await updateRestriction(
             existing.id,

@@ -53,10 +53,10 @@ import {
   auditEntityImport,
   auditEntityUpdate,
 } from "@/lib/sg-sst/trazabilidad/helpers";
+import { isBusinessFolioCode } from "@/lib/sg-sst/draft-mode";
 import {
-  findWorkerByCode,
-  findWorkerByDocumentNumber,
   listActiveWorkersForSelect,
+  resolveWorkerId,
 } from "@/lib/sg-sst/workers/repository";
 import type { SstWorker } from "@/lib/sg-sst/workers/types";
 
@@ -89,12 +89,7 @@ function resolveFarmId(
   return match?.id ?? null;
 }
 
-async function resolveWorkerId(ref: string): Promise<string | null> {
-  const byCode = await findWorkerByCode(ref);
-  if (byCode) return byCode.id;
-  const byDoc = await findWorkerByDocumentNumber(ref);
-  return byDoc?.id ?? null;
-}
+// NOTA: resolveWorkerId movido a workers/repository.ts
 
 export async function loadEmergenciasMasterData(): Promise<{
   brigade: SstBrigadeMemberView[];
@@ -406,7 +401,10 @@ export async function bulkImportBrigadeAction(input: {
       }
 
       try {
-        const existing = row.folio ? await findBrigadeByFolio(row.folio) : null;
+        const existing =
+          row.folio && isBusinessFolioCode(row.folio)
+            ? await findBrigadeByFolio(row.folio)
+            : null;
         if (existing) {
           const saved = await updateBrigadeMember(
             existing.id,
@@ -634,7 +632,10 @@ export async function bulkImportDrillsAction(input: {
       }
 
       try {
-        const existing = row.folio ? await findDrillByFolio(row.folio) : null;
+        const existing =
+          row.folio && isBusinessFolioCode(row.folio)
+            ? await findDrillByFolio(row.folio)
+            : null;
         if (existing) {
           const saved = await updateEmergencyDrill(
             existing.id,

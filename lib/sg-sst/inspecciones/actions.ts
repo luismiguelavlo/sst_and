@@ -29,7 +29,7 @@ import {
   type SstInspectionView,
   type WeekRange,
 } from "@/lib/sg-sst/inspecciones/types";
-import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
+import { isBusinessFolioCode, todayIsoDate } from "@/lib/sg-sst/draft-mode";
 import {
   auditEntityCreate,
   auditEntityDelete,
@@ -224,7 +224,10 @@ export async function bulkImportInspectionsAction(input: {
       }
 
       try {
-        const existing = row.folio ? await findInspectionByFolio(row.folio) : null;
+        const existing =
+          row.folio && isBusinessFolioCode(row.folio)
+            ? await findInspectionByFolio(row.folio)
+            : null;
         if (existing) {
           const saved = await updateInspection(
             existing.id,

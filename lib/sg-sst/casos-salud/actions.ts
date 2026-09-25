@@ -25,7 +25,7 @@ import {
   type SstHealthCase,
   type SstHealthCaseDraft,
 } from "@/lib/sg-sst/casos-salud/types";
-import { todayIsoDate } from "@/lib/sg-sst/draft-mode";
+import { isBusinessFolioCode, todayIsoDate } from "@/lib/sg-sst/draft-mode";
 import {
   auditEntityCreate,
   auditEntityDelete,
@@ -33,9 +33,8 @@ import {
   auditEntityUpdate,
 } from "@/lib/sg-sst/trazabilidad/helpers";
 import {
-  findWorkerByCode,
-  findWorkerByDocumentNumber,
   listWorkers,
+  resolveWorkerId,
 } from "@/lib/sg-sst/workers/repository";
 import type { SstWorker } from "@/lib/sg-sst/workers/types";
 import type { SstFarm } from "@/lib/sg-sst/alerts/types";
@@ -152,12 +151,7 @@ export type BulkImportHealthCasesResult =
     }
   | { ok: false; error: string };
 
-async function resolveWorkerId(ref: string): Promise<string | null> {
-  const byCode = await findWorkerByCode(ref);
-  if (byCode) return byCode.id;
-  const byDoc = await findWorkerByDocumentNumber(ref);
-  return byDoc?.id ?? null;
-}
+// NOTA: resolveWorkerId movido a workers/repository.ts
 
 export async function bulkImportHealthCasesAction(input: {
   rows: HealthCaseExcelImportRow[];
@@ -219,7 +213,10 @@ export async function bulkImportHealthCasesAction(input: {
       }
 
       try {
-        const existing = row.folio ? await findHealthCaseByFolio(row.folio) : null;
+        const existing =
+          row.folio && isBusinessFolioCode(row.folio)
+            ? await findHealthCaseByFolio(row.folio)
+            : null;
         if (existing) {
           const saved = await updateHealthCase(
             existing.id,

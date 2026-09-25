@@ -60,10 +60,10 @@ import {
   auditEntityImport,
   auditEntityUpdate,
 } from "@/lib/sg-sst/trazabilidad/helpers";
+import { isBusinessFolioCode } from "@/lib/sg-sst/draft-mode";
 import {
-  findWorkerByCode,
-  findWorkerByDocumentNumber,
   listActiveWorkersForSelect,
+  resolveWorkerId,
 } from "@/lib/sg-sst/workers/repository";
 import type { SstWorker } from "@/lib/sg-sst/workers/types";
 
@@ -104,12 +104,7 @@ function resolveFarmId(
   return match?.id ?? null;
 }
 
-async function resolveWorkerId(ref: string): Promise<string | null> {
-  const byCode = await findWorkerByCode(ref);
-  if (byCode) return byCode.id;
-  const byDoc = await findWorkerByDocumentNumber(ref);
-  return byDoc?.id ?? null;
-}
+// NOTA: resolveWorkerId movido a workers/repository.ts
 
 export async function loadCopasstMasterData(): Promise<{
   members: SstCopasstMemberView[];
@@ -569,7 +564,10 @@ export async function bulkImportCopasstMeetingsAction(input: {
       }
 
       try {
-        const existing = row.folio ? await findMeetingByFolio(row.folio) : null;
+        const existing =
+          row.folio && isBusinessFolioCode(row.folio)
+            ? await findMeetingByFolio(row.folio)
+            : null;
         if (existing) {
           const saved = await updateMeeting(
             existing.id,
@@ -790,7 +788,10 @@ export async function bulkImportCopasstTrainingsAction(input: {
       }
 
       try {
-        const existing = row.folio ? await findTrainingByFolio(row.folio) : null;
+        const existing =
+          row.folio && isBusinessFolioCode(row.folio)
+            ? await findTrainingByFolio(row.folio)
+            : null;
         if (existing) {
           const saved = await updateTraining(
             existing.id,
